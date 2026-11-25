@@ -1,6 +1,7 @@
 package com.shinjin.pop.history;
 
 import jakarta.servlet.http.HttpServletRequest;
+import com.shinjin.pop.admin.TerminalSettingsDemoController;
 
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatus;
@@ -23,8 +24,11 @@ public class DemoSessionController {
 
     private final WorkHistoryFixtures fixtures;
 
-    public DemoSessionController(WorkHistoryFixtures fixtures) {
+    private final TerminalSettingsDemoController settings;
+
+    public DemoSessionController(WorkHistoryFixtures fixtures, TerminalSettingsDemoController settings) {
         this.fixtures = fixtures;
+        this.settings = settings;
     }
 
     @PostMapping(path = "/api/pop/session", consumes = MediaType.APPLICATION_JSON_VALUE)
@@ -53,7 +57,9 @@ public class DemoSessionController {
         if (previous != null) previous.invalidate();
         var identity = new Identity(
                 new AssignedTerminal(terminal.id(), terminal.name(), terminal.factory(), terminal.workCenter()), worker);
-        request.getSession(true).setAttribute(SESSION_KEY, identity);
+        var session = request.getSession(true);
+        settings.pinAtLogin(identity, request);
+        session.setAttribute(SESSION_KEY, identity);
         return identity;
     }
 

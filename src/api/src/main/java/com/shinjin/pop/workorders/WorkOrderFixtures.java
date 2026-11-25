@@ -1,6 +1,7 @@
 package com.shinjin.pop.workorders;
 
 import java.math.BigDecimal;
+import com.shinjin.pop.admin.TerminalSettingsDemoController.LotPolicy;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -62,10 +63,6 @@ class WorkOrderFixtures {
     private record Lot(String terminalId, String code, Position position) {}
     private record Inventory(List<ScopedPlan> plans, Map<Lot, BigDecimal> stock) {}
 
-    private static final Map<String, Position> RETURN_POSITIONS = Map.of(
-            "DEMO-A", new Position("WH-RETURN-A", "RET-01"),
-            "DEMO-B", new Position("WH-RETURN-B", "RET-01"));
-
     private static Map<Lot, BigDecimal> initialStock() {
         return Map.of(
                 new Lot("DEMO-A", "LOT-A-01", new Position("WH-A", "BIN-01")), new BigDecimal("10.000"),
@@ -83,19 +80,19 @@ class WorkOrderFixtures {
                 .toList();
     }
 
-    synchronized Optional<Detail> find(String terminalId, LocalDate date, int sequence) {
+    synchronized Optional<Detail> find(String terminalId, LocalDate date, int sequence, LotPolicy policy) {
         return inventory.plans().stream()
                 .filter(row -> row.terminalId().equals(terminalId))
                 .map(ScopedPlan::order)
                 .filter(detail -> detail.plan().planDate().equals(date)
                         && detail.plan().planSequence() == sequence)
                 .findFirst()
-                .map(order -> detail(terminalId, order, inventory.stock()));
+                .map(order -> detail(terminalId, order, inventory.stock(), policy));
     }
 
     synchronized Optional<Detail> apply(String terminalId, LocalDate date, int sequence,
             Action action, BigDecimal actualQuantity, long expectedRevision, String workerId,
-            String lotCode, BigDecimal quantity, String warehouse, String location) {
+            String lotCode, BigDecimal quantity, String warehouse, String location, LotPolicy policy) {
         var plans = inventory.plans();
         for (int index = 0; index < plans.size(); index++) {
             var current = plans.get(index);
@@ -113,11 +110,11 @@ class WorkOrderFixtures {
                 var stock = materialAction ? new HashMap<>(inventory.stock()) : inventory.stock();
                 var updated = materialAction
                         ? moveMaterial(terminalId, workerId, order, action, lotCode, quantity,
-                                warehouse, location, stock)
+                                warehouse, location, stock, policy)
                         : transition(order, action, actualQuantity, workerId);
                 var updatedPlans = new ArrayList<>(plans);
                 updatedPlans.set(index, new ScopedPlan(terminalId, updated));
-                var result = detail(terminalId, updated, stock);
+                var result = detail(terminalId, updated, stock, policy);
                 inventory = new Inventory(List.copyOf(updatedPlans), Map.copyOf(stock));
                 return Optional.of(result);
             }
@@ -125,7 +122,7 @@ class WorkOrderFixtures {
         return Optional.empty();
     }
 
-    private Detail detail(String terminalId, Order order, Map<Lot, BigDecimal> stock) {
+    private Detail detail(String terminalId, Order order, Map<Lot, BigDecimal> stock, LotPolicy policy) {
         var terminalLots = stock.keySet().stream()
                 .filter(lot -> lot.terminalId().equals(terminalId))
                 .sorted(Comparator.comparing(Lot::code)
@@ -134,19 +131,22 @@ class WorkOrderFixtures {
                 .toList();
         var positionsByLot = new LinkedHashMap<String, List<StockPosition>>();
         for (var lot : terminalLots) {
+            if (!policy.allowsIssue(lot.position().warehouse())) continue;
             positionsByLot.computeIfAbsent(lot.code(), code -> new ArrayList<>())
                     .add(new StockPosition(lot.position(), stock.get(lot)));
         }
+        order.issued().keySet().stream().sorted().forEach(code ->
+                positionsByLot.computeIfAbsent(code, ignored -> new ArrayList<>()));
         var materials = positionsByLot.entrySet().stream()
                 .map(entry -> new Material(entry.getKey(), order.issued().getOrDefault(entry.getKey(), BigDecimal.ZERO),
                         List.copyOf(entry.getValue())))
                 .toList();
         return new Detail(order.plan(), order.steps(), order.actualQuantity(), order.startedBy(),
-                order.completedBy(), order.revision(), materials, RETURN_POSITIONS.get(terminalId), order.events());
+                order.completedBy(), order.revision(), materials, new Position(policy.returnWarehouse(), policy.returnLocation()), order.events());
     }
 
     private Order moveMaterial(String terminalId, String workerId, Order current, Action action, String lotCode,
-            BigDecimal quantity, String warehouse, String location, Map<Lot, BigDecimal> stock) {
+            BigDecimal quantity, String warehouse, String location, Map<Lot, BigDecimal> stock, LotPolicy policy) {
         if (lotCode == null || lotCode.isBlank() || quantity == null || quantity.signum() <= 0
                 || quantity.stripTrailingZeros().scale() > 3) {
             throw new IllegalArgumentException("Enter a LOT and a positive quantity with up to three decimal places");
@@ -162,10 +162,10 @@ class WorkOrderFixtures {
             throw new IllegalArgumentException("Only material issues require a stock location");
         }
 
-        var position = issue ? new Position(warehouse, location) : RETURN_POSITIONS.get(terminalId);
+        var position = issue ? new Position(warehouse, location) : new Position(policy.returnWarehouse(), policy.returnLocation());
         var lot = new Lot(terminalId, lotCode, position);
         var available = stock.getOrDefault(lot, BigDecimal.ZERO);
-        if (issue ? !stock.containsKey(lot)
+        if (issue ? !policy.allowsIssue(warehouse) || !stock.containsKey(lot)
                 : stock.keySet().stream().noneMatch(key -> key.terminalId().equals(terminalId) && key.code().equals(lotCode))) {
             throw new IllegalArgumentException("LOT or stock location unavailable at this terminal");
         }

@@ -5,6 +5,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 import com.shinjin.pop.history.DemoSessionController;
+import com.shinjin.pop.admin.TerminalSettingsDemoController;
 import jakarta.servlet.http.HttpServletRequest;
 
 import org.springframework.context.annotation.Profile;
@@ -28,8 +29,11 @@ public class WorkOrderController {
             String lotCode, BigDecimal quantity, String warehouse, String location) {}
     private final WorkOrderFixtures fixtures;
 
-    WorkOrderController(WorkOrderFixtures fixtures) {
+    private final TerminalSettingsDemoController settings;
+
+    WorkOrderController(WorkOrderFixtures fixtures, TerminalSettingsDemoController settings) {
         this.fixtures = fixtures;
+        this.settings = settings;
     }
 
     @GetMapping
@@ -43,12 +47,12 @@ public class WorkOrderController {
     WorkOrderFixtures.Detail detail(
             @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate planDate,
             @PathVariable int planSequence, HttpServletRequest request) {
-        var terminal = DemoSessionController.requireIdentity(request).terminal();
+        var identity = DemoSessionController.requireIdentity(request);
         if (planSequence < 1) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid production plan sequence");
         }
 
-        return fixtures.find(terminal.id(), planDate, planSequence)
+        return fixtures.find(identity.terminal().id(), planDate, planSequence, settings.lotPolicy(identity, request))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Work order unavailable"));
     }
 
@@ -65,7 +69,8 @@ public class WorkOrderController {
         try {
             return fixtures.apply(identity.terminal().id(), planDate, planSequence,
                             command.action(), command.actualQuantity(), command.expectedRevision(), identity.worker().id(),
-                            command.lotCode(), command.quantity(), command.warehouse(), command.location())
+                            command.lotCode(), command.quantity(), command.warehouse(), command.location(),
+                            settings.lotPolicy(identity, request))
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Work order unavailable"));
         } catch (IllegalArgumentException error) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, error.getMessage());
