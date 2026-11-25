@@ -1,0 +1,404 @@
+{
+  "version": 1,
+  "defaults": {
+    "paperMm": [
+      210,
+      297
+    ],
+    "businessWrites": 0,
+    "physicalSubmissions": 0,
+    "externalTransfers": 0
+  },
+  "fixtures": {
+    "rows": [
+      {
+        "id": "R1",
+        "customer": "C-A",
+        "material": "M-A",
+        "spec": "S-A",
+        "quantity": 2,
+        "label": "합성 부품"
+      },
+      {
+        "id": "R2",
+        "customer": "C-A",
+        "material": "M-A",
+        "spec": "S-A",
+        "quantity": 3,
+        "label": "합성 부품 두 번째"
+      },
+      {
+        "id": "R3",
+        "customer": "C-A",
+        "material": "M-B",
+        "spec": "S-B",
+        "quantity": 4,
+        "label": "페이지 경계와 글자 줄바꿈을 확인하는 긴 합성 품목명"
+      },
+      {
+        "id": "R4",
+        "customer": "C-B",
+        "material": "M-A",
+        "spec": "S-A",
+        "quantity": 1,
+        "label": "마지막 합성 부품"
+      }
+    ],
+    "worker": {
+      "id": "S00000001",
+      "name": "합성 작업자"
+    },
+    "pack": {
+      "id": "PACK-TEST-1",
+      "qr": "PACK-TEST-1",
+      "quantity": 5
+    },
+    "outbound": {
+      "id": "OUT-TEST-1",
+      "rowIds": [
+        "R1",
+        "R2"
+      ]
+    },
+    "shipment": {
+      "id": "SHIP-TEST-1",
+      "rowIds": [
+        "R1",
+        "R2",
+        "R3",
+        "R4"
+      ]
+    }
+  },
+  "pdf": [
+    {
+      "id": "P01",
+      "form": "Single",
+      "input": {
+        "rowIds": [
+          "R1"
+        ]
+      },
+      "expected": {
+        "status": "PDF_READY",
+        "pages": 1,
+        "rows": [
+          "R1"
+        ],
+        "total": 2
+      }
+    },
+    {
+      "id": "P02",
+      "form": "Multiple",
+      "input": {
+        "rowIds": [
+          "R1",
+          "R2",
+          "R3",
+          "R4"
+        ],
+        "groupBy": [
+          "customer",
+          "material",
+          "spec"
+        ],
+        "groupsPerPage": 2
+      },
+      "expected": {
+        "status": "PDF_READY",
+        "pages": 2,
+        "groups": [
+          {
+            "key": [
+              "C-A",
+              "M-A",
+              "S-A"
+            ],
+            "rows": [
+              "R1",
+              "R2"
+            ],
+            "total": 5
+          },
+          {
+            "key": [
+              "C-A",
+              "M-B",
+              "S-B"
+            ],
+            "rows": [
+              "R3"
+            ],
+            "total": 4
+          },
+          {
+            "key": [
+              "C-B",
+              "M-A",
+              "S-A"
+            ],
+            "rows": [
+              "R4"
+            ],
+            "total": 1
+          }
+        ],
+        "itemBarcodeCount": 0
+      }
+    },
+    {
+      "id": "P03",
+      "form": "Multiple1",
+      "input": {
+        "rowIds": [
+          "R1",
+          "R2"
+        ]
+      },
+      "expected": {
+        "status": "PDF_READY",
+        "pages": 1,
+        "itemBarcodeValues": [
+          "R1",
+          "R2"
+        ],
+        "total": 5
+      }
+    },
+    {
+      "id": "P04",
+      "form": "Multiple2",
+      "input": {
+        "rowIds": [
+          "R1",
+          "R2",
+          "R3",
+          "R4"
+        ]
+      },
+      "expected": {
+        "status": "PDF_READY",
+        "pages": 1,
+        "groups": [
+          {
+            "key": [
+              "C-A"
+            ],
+            "total": 9
+          },
+          {
+            "key": [
+              "C-B"
+            ],
+            "total": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "P05",
+      "form": "Multiple3",
+      "input": {
+        "rowIds": [
+          "R1",
+          "R2",
+          "R3",
+          "R4"
+        ]
+      },
+      "expected": {
+        "status": "PDF_READY",
+        "pages": 1,
+        "groups": [
+          {
+            "key": [
+              "C-A",
+              "M-A",
+              "S-A"
+            ],
+            "total": 5
+          },
+          {
+            "key": [
+              "C-A",
+              "M-B",
+              "S-B"
+            ],
+            "total": 4
+          },
+          {
+            "key": [
+              "C-B",
+              "M-A",
+              "S-A"
+            ],
+            "total": 1
+          }
+        ]
+      }
+    },
+    {
+      "id": "P06",
+      "form": "worker-code128",
+      "input": {
+        "fixture": "worker"
+      },
+      "expected": {
+        "status": "PDF_READY",
+        "pages": 1,
+        "decode": {
+          "format": "CODE_128",
+          "text": "S00000001"
+        }
+      }
+    },
+    {
+      "id": "P07",
+      "form": "worker-qr",
+      "input": {
+        "fixture": "worker"
+      },
+      "expected": {
+        "status": "PDF_READY",
+        "pages": 1,
+        "decode": {
+          "format": "QR",
+          "text": "S00000001"
+        }
+      }
+    },
+    {
+      "id": "P08",
+      "form": "packing-label",
+      "input": {
+        "fixture": "pack"
+      },
+      "expected": {
+        "status": "PDF_READY",
+        "pages": 1,
+        "paperMm": [
+          100,
+          60
+        ],
+        "deviceRole": "label",
+        "decode": {
+          "format": "QR",
+          "text": "PACK-TEST-1"
+        }
+      }
+    },
+    {
+      "id": "P09",
+      "form": "outbound-list",
+      "input": {
+        "fixture": "outbound"
+      },
+      "expected": {
+        "status": "PDF_READY",
+        "pages": 1,
+        "documentRef": "OUT-TEST-1",
+        "rows": [
+          "R1",
+          "R2"
+        ],
+        "total": 5
+      }
+    },
+    {
+      "id": "P10",
+      "form": "shipment",
+      "input": {
+        "fixture": "shipment",
+        "rowsPerPage": 2
+      },
+      "expected": {
+        "status": "PDF_READY",
+        "pages": 2,
+        "deviceRole": "shipment",
+        "documentRef": "SHIP-TEST-1",
+        "rows": [
+          "R1",
+          "R2",
+          "R3",
+          "R4"
+        ],
+        "total": 10
+      }
+    },
+    {
+      "id": "P11",
+      "form": "Single",
+      "input": {
+        "rowIds": []
+      },
+      "expected": {
+        "status": "EMPTY_SELECTION",
+        "artifactCount": 0
+      }
+    },
+    {
+      "id": "P12",
+      "form": "unknown",
+      "input": {
+        "rowIds": [
+          "R1"
+        ]
+      },
+      "expected": {
+        "status": "UNKNOWN_FORM",
+        "artifactCount": 0
+      }
+    },
+    {
+      "id": "P13",
+      "form": "shipment",
+      "input": {
+        "fixture": "shipment",
+        "omit": [
+          "id"
+        ]
+      },
+      "expected": {
+        "status": "INVALID_INPUT",
+        "artifactCount": 0
+      }
+    },
+    {
+      "id": "P14",
+      "form": "shipment",
+      "input": {
+        "steps": [
+          {
+            "fixture": "shipment",
+            "inject": "render-error"
+          },
+          {
+            "fixture": "shipment"
+          },
+          {
+            "fixture": "shipment"
+          }
+        ]
+      },
+      "expected": {
+        "stepStatuses": [
+          "RENDER_FAILED",
+          "PDF_READY",
+          "PDF_READY"
+        ],
+        "documentRefs": [
+          "SHIP-TEST-1",
+          "SHIP-TEST-1"
+        ],
+        "businessWrites": 0,
+        "virtualSubmissions": 0
+      }
+    }
+  ],
+  "devices": {
+    "document": "VIRTUAL-DOCUMENT",
+    "shipment": "VIRTUAL-SHIPMENT",
+    "label": "VIRTUAL-LABEL"
+  }
+}

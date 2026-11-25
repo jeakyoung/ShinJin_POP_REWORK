@@ -4,6 +4,7 @@ import DemoLogin from './DemoLogin'
 import WorkOrders from './WorkOrders'
 import DrawingWork from './DrawingWork'
 import Transfer from './Transfer'
+import OutputPreview from './output/OutputPreview'
 import Shipping from './Shipping'
 import RfidDemo from './RfidDemo'
 import { loadContext, loadSession, loadWorkHistory, SessionExpired, signOut } from './workHistoryApi'
@@ -22,7 +23,7 @@ export default function App() {
   const [identity, setIdentity] = useState<Identity>()
   const [sessionNotice, setSessionNotice] = useState('')
   const [loggingOut, setLoggingOut] = useState(false)
-  const [view, setView] = useState<'history' | 'orders' | 'drawing' | 'transfer' | 'rfid' | 'shipping'>('history')
+  const [view, setView] = useState<'history' | 'orders' | 'drawing' | 'transfer' | 'rfid' | 'shipping' | 'output'>('history')
   const [date, setDate] = useState('')
   const [result, setResult] = useState<Result>({ state: 'idle' })
   const activeSearch = useRef<AbortController | null>(null)
@@ -94,7 +95,7 @@ export default function App() {
     <main>
       <header>
         <p className="system-name">신진 생산관리</p>
-        <h1>{identity && view === 'shipping' ? '출하' : identity && view === 'rfid' ? 'RFID·파렛트' : identity && view === 'transfer' ? '공장이송' : identity && view === 'drawing' ? '도면가공 008' : identity && view === 'orders' ? '작업지시' : '작업이력'}</h1>
+        <h1>{identity && view === 'output' ? '합성 출력' : identity && view === 'shipping' ? '출하' : identity && view === 'rfid' ? 'RFID·파렛트' : identity && view === 'transfer' ? '공장이송' : identity && view === 'drawing' ? '도면가공 008' : identity && view === 'orders' ? '작업지시' : '작업이력'}</h1>
         <p>합성 데이터로 조회 흐름을 확인하는 화면입니다.</p>
       </header>
       {!context && (
@@ -148,6 +149,10 @@ export default function App() {
               clearResult()
               setView('shipping')
             }}>출하</button>
+            <button type="button" aria-pressed={view === 'output'} disabled={loggingOut} onClick={() => {
+              clearResult()
+              setView('output')
+            }}>합성 출력</button>
           </nav>
         </section>
       )}
@@ -155,6 +160,9 @@ export default function App() {
         <Shipping key={JSON.stringify([identity.terminal.id, identity.worker.id])}
           actor={{ terminal: identity.terminal.id, worker: identity.worker.id }}
           onSessionExpired={expireSession} />
+      )}
+      {context && identity && view === 'output' && !loggingOut && (
+        <OutputPreview key={JSON.stringify([identity.terminal.id, identity.worker.id])} onSessionExpired={expireSession} />
       )}
       {context && identity && view === 'transfer' && !loggingOut && (
         <Transfer key={JSON.stringify([identity.terminal.id, identity.worker.id])}
