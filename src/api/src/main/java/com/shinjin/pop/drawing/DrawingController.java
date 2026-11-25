@@ -63,8 +63,21 @@ public class DrawingController {
             new SharedLot("F1", "000001", new StockKey("SHARED-008", Bin.MANUAL, "ITEM-SHARED"), BigDecimal.valueOf(6)),
             new SharedLot("F1", "000001", new StockKey("SHARED-008", Bin.DRAWING, "ITEM-SHARED"), BigDecimal.valueOf(5)));
 
-    private final InMemoryDrawingDomain domain = new InMemoryDrawingDomain(
-            Clock.fixed(Instant.parse("2026-11-25T01:00:00Z"), ZoneOffset.UTC), SEEDS, GROUPS, SHARED_LOTS);
+    private final InMemoryDrawingDomain domain;
+
+    DrawingController(InMemoryDrawingDomain domain) {
+        this.domain = domain;
+    }
+
+    @Bean
+    static InMemoryDrawingDomain drawingDomain() {
+        return new InMemoryDrawingDomain(
+                Clock.fixed(Instant.parse("2026-11-25T01:00:00Z"), ZoneOffset.UTC), SEEDS, GROUPS, SHARED_LOTS);
+    }
+
+    static List<PlanKey> scopedPlanKeys(Session session) {
+        return SEEDS.stream().map(Seed::key).filter(key -> sameSite(session, key)).toList();
+    }
 
     record PlanOption(String key, String fgUse2, String item, String cutLot, BigDecimal orderQuantity) {}
     record Material(String lot, String warehouse, String item, BigDecimal qty) {
@@ -205,7 +218,7 @@ public class DrawingController {
                 .findFirst().orElseThrow().getKey(), stock.item(), quantity);
     }
 
-    private static Session session(HttpServletRequest request) {
+    static Session session(HttpServletRequest request) {
         var identity = DemoSessionController.requireIdentity(request);
         String terminal = identity.terminal() == null ? null : identity.terminal().id();
         String worker = identity.worker() == null ? null : identity.worker().id();
@@ -263,7 +276,7 @@ public class DrawingController {
         }
     }
 
-    private static String format(PlanKey key) {
+    static String format(PlanKey key) {
         return String.join("/", key.factory(), key.site(), key.date().format(DATE_KEY), Integer.toString(key.sequence()));
     }
 
