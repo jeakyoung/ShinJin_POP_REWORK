@@ -1,3 +1,5 @@
+﻿import ScanInput from './ScanInput'
+import type { Route } from './scan-contract'
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { SessionExpired, SessionRequestError } from './workHistoryApi'
@@ -20,7 +22,7 @@ const quantity = new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 3 })
 const positionKey = ({ warehouse, location }: StockLocation) => JSON.stringify([warehouse, location])
 const positionLabel = ({ warehouse, location }: StockLocation) => [warehouse, location].join(' / ')
 
-export default function WorkOrders({ onSessionExpired }: { onSessionExpired: () => void }) {
+export default function WorkOrders({ actor, onSessionExpired }: { actor: string; onSessionExpired: () => void }) {
   const [status, setStatus] = useState<OrderStatus | ''>('')
   const [attempt, setAttempt] = useState(0)
   const [orders, setOrders] = useState<Load<WorkOrder[]>>({ state: 'loading' })
@@ -28,6 +30,7 @@ export default function WorkOrders({ onSessionExpired }: { onSessionExpired: () 
   const [detail, setDetail] = useState<Load<WorkOrderDetail>>({ state: 'loading' })
   const [detailAttempt, setDetailAttempt] = useState(0)
 
+  const [scanNotice, setScanNotice] = useState('')
   const [lotCode, setLotCode] = useState('')
   const [stockPosition, setStockPosition] = useState('')
   const [materialQuantity, setMaterialQuantity] = useState('')
@@ -82,6 +85,26 @@ export default function WorkOrders({ onSessionExpired }: { onSessionExpired: () 
     setDetail({ state: 'loading' })
     setSelected(order)
     setDetailAttempt((value) => value + 1)
+  }
+
+  function handleScan(route: Route) {
+    setScanNotice('')
+    if (route.kind === 'work-order') {
+      const order = orders.state === 'ready' && orders.data.find((entry) =>
+        entry.planDate === route.planDate && entry.planSequence === route.sequence)
+      if (order) selectOrder(order)
+      else setScanNotice('현재 작업지시 목록에서 찾을 수 없습니다.')
+    } else if (route.kind === 'lot') {
+      const found = detail.state === 'ready' && detail.data.materials.find((entry) => entry.lotCode === route.code)
+      if (!found) {
+        setScanNotice('선택한 작업지시에서 LOT를 찾을 수 없습니다.')
+        return
+      }
+      setLotCode(found.lotCode)
+      setStockPosition('')
+      setMaterialQuantity('')
+      setScanNotice(found.positions.length > 1 ? '투입 위치를 선택해 주세요.' : 'LOT를 선택했습니다.')
+    }
   }
 
   async function applyAction(current: WorkOrderDetail, action: WorkOrderAction) {
@@ -165,6 +188,10 @@ export default function WorkOrders({ onSessionExpired }: { onSessionExpired: () 
     <>
       <section aria-labelledby="orders-title">
         <h2 id="orders-title">작업지시 목록</h2>
+        <ScanInput actor={actor} disabled={applying} modes={[
+          { value: 'work-order', label: '작업지시' }, { value: 'lot', label: 'LOT' },
+        ]} onRoute={handleScan} />
+        {scanNotice && <p role="status">{scanNotice}</p>}
         <div className="work-order-controls">
           <label>진행 상태
             <select disabled={applying} value={status} onChange={(event) => {
