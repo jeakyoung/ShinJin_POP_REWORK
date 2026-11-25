@@ -2,12 +2,14 @@ import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { SessionExpired, SessionRequestError } from './workHistoryApi'
 import { applyWorkOrderAction, loadWorkOrder, loadWorkOrders } from './workOrdersApi'
-import type { OrderStatus, WorkOrder, WorkOrderAction, WorkOrderDetail } from './workOrdersApi'
+import type { MaterialAction, OrderStatus, StockLocation, WorkOrder, WorkOrderAction, WorkOrderDetail } from './workOrdersApi'
 
 type Load<T> = { state: 'loading' | 'error' } | { state: 'ready'; data: T }
 
 const labels: Record<OrderStatus, string> = { WAITING: '대기', IN_PROGRESS: '진행 중', PAUSED: '중지', COMPLETE: '완료' }
 const actionMessages: Record<WorkOrderAction['action'], string> = {
+  ISSUE_MATERIAL: '자재를 투입했습니다.',
+  RETURN_MATERIAL: '자재를 반납했습니다.',
   START: '작업을 시작했습니다.',
   PAUSE: '작업을 중지했습니다.',
   RESUME: '작업을 재개했습니다.',
@@ -15,6 +17,8 @@ const actionMessages: Record<WorkOrderAction['action'], string> = {
   COMPLETE: '작업을 완료했습니다.',
 }
 const quantity = new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 3 })
+const positionKey = ({ warehouse, location }: StockLocation) => JSON.stringify([warehouse, location])
+const positionLabel = ({ warehouse, location }: StockLocation) => [warehouse, location].join(' / ')
 
 export default function WorkOrders({ onSessionExpired }: { onSessionExpired: () => void }) {
   const [status, setStatus] = useState<OrderStatus | ''>('')
@@ -24,6 +28,9 @@ export default function WorkOrders({ onSessionExpired }: { onSessionExpired: () 
   const [detail, setDetail] = useState<Load<WorkOrderDetail>>({ state: 'loading' })
   const [detailAttempt, setDetailAttempt] = useState(0)
 
+  const [lotCode, setLotCode] = useState('')
+  const [stockPosition, setStockPosition] = useState('')
+  const [materialQuantity, setMaterialQuantity] = useState('')
   const [actualQuantity, setActualQuantity] = useState('')
   const [actionNotice, setActionNotice] = useState('')
   const [applying, setApplying] = useState(false)
@@ -66,6 +73,9 @@ export default function WorkOrders({ onSessionExpired }: { onSessionExpired: () 
   }
 
   function selectOrder(order: WorkOrder) {
+    setLotCode('')
+    setStockPosition('')
+    setMaterialQuantity('')
     setActualQuantity('')
     setActionNotice('')
     setConfirmCancel(false)
@@ -86,6 +96,7 @@ export default function WorkOrders({ onSessionExpired }: { onSessionExpired: () 
       if (request.signal.aborted) return
       setDetail({ state: 'ready', data })
       setActualQuantity('')
+      setMaterialQuantity('')
       setOrders({ state: 'loading' })
       setAttempt((value) => value + 1)
       setActionNotice(actionMessages[action.action])
@@ -100,6 +111,12 @@ export default function WorkOrders({ onSessionExpired }: { onSessionExpired: () 
         setOrders({ state: 'loading' })
         setAttempt((value) => value + 1)
       } else if (error instanceof SessionRequestError && error.status === 400) {
+        if (action.action === 'ISSUE_MATERIAL' || action.action === 'RETURN_MATERIAL') {
+          setActionNotice('LOT 수량을 처리하지 못했습니다. 최신 재고와 투입 수량을 확인해 주세요.')
+          setDetail({ state: 'loading' })
+          setDetailAttempt((value) => value + 1)
+          return
+        }
         setActionNotice(action.action === 'COMPLETE'
           ? '실적수량은 계획수량 이내의 양수로, 소수 셋째 자리까지 입력해 주세요.'
           : '요청을 처리할 수 없습니다. 작업지시 상태를 다시 확인해 주세요.')
@@ -113,6 +130,27 @@ export default function WorkOrders({ onSessionExpired }: { onSessionExpired: () 
     } finally {
       if (activeAction.current === request) activeAction.current = null
       if (!request.signal.aborted) setApplying(false)
+    }
+  }
+
+  const material = detail.state === 'ready' ? detail.data.materials.find((lot) => lot.lotCode === lotCode) : undefined
+  const candidate = material?.positions.length === 1
+    ? material.positions[0]
+    : material?.positions.find(({ position }) => positionKey(position) === stockPosition)
+  const canReturn = detail.state === 'ready'
+    && (detail.data.plan.status === 'IN_PROGRESS' || detail.data.plan.status === 'PAUSED')
+  const amount = Number(materialQuantity)
+  const validMaterialQuantity = /^[0-9]+(?:\.[0-9]{1,3})?$/.test(materialQuantity)
+    && Number.isFinite(amount) && amount > 0
+
+  function moveMaterial(current: WorkOrderDetail, action: MaterialAction) {
+    if (!material || !validMaterialQuantity) return
+    const values = { lotCode: material.lotCode, quantity: amount }
+    if (action === 'ISSUE_MATERIAL' && candidate && amount <= candidate.availableQuantity) {
+      void applyAction(current, { action, ...values, ...candidate.position })
+    }
+    if (action === 'RETURN_MATERIAL' && canReturn && amount <= material.issuedQuantity) {
+      void applyAction(current, { action, ...values })
     }
   }
 
@@ -181,8 +219,82 @@ export default function WorkOrders({ onSessionExpired }: { onSessionExpired: () 
                 {detail.data.steps.map((step) => <li key={step.name}>{step.name} · {labels[step.status]}</li>)}
               </ol>
               {detail.data.actualQuantity !== null && <p>실적수량 {quantity.format(detail.data.actualQuantity)}</p>}
+              <h3 id="materials-title">LOT 자재</h3>
+              <div className="table-scroll">
+                <table aria-labelledby="materials-title">
+                  <thead><tr><th scope="col">LOT</th><th scope="col">창고 / 로케이션별 재고</th><th scope="col">현재 투입량</th></tr></thead>
+                  <tbody>{detail.data.materials.map((lot) => (
+                    <tr key={lot.lotCode}>
+                      <td>{lot.lotCode}</td>
+                      <td>{lot.positions.map(({ position, availableQuantity }) => (
+                        <div key={positionKey(position)}>{positionLabel(position)} · {quantity.format(availableQuantity)}</div>
+                      ))}</td>
+                      <td>{quantity.format(lot.issuedQuantity)}</td>
+                    </tr>
+                  ))}</tbody>
+                </table>
+              </div>
+              {detail.data.plan.status !== 'COMPLETE' && !confirmCancel && (
+                <div className="work-order-action">
+                  <label>LOT
+                    <select value={lotCode} disabled={applying} onChange={(event) => {
+                      setLotCode(event.target.value)
+                      setStockPosition('')
+                    }}>
+                      <option value="">LOT 선택</option>
+                      {detail.data.materials.map((lot) => <option key={lot.lotCode}>{lot.lotCode}</option>)}
+                    </select>
+                  </label>
+                  <label>투입 창고 / 로케이션
+                    <select value={candidate ? positionKey(candidate.position) : ''}
+                      disabled={applying || !material || material.positions.length === 1}
+                      onChange={(event) => setStockPosition(event.target.value)}>
+                      <option value="">위치 선택</option>
+                      {material?.positions.map(({ position, availableQuantity }) => (
+                        <option key={positionKey(position)} value={positionKey(position)}>
+                          {positionLabel(position)} · {quantity.format(availableQuantity)}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>자재 수량 (소수 3자리까지)
+                    <input inputMode="decimal" value={materialQuantity} disabled={applying}
+                      onChange={(event) => setMaterialQuantity(event.target.value)} />
+                  </label>
+                  <button type="button" disabled={applying || !validMaterialQuantity || !candidate || amount > candidate.availableQuantity}
+                    onClick={() => moveMaterial(detail.data, 'ISSUE_MATERIAL')}>투입</button>
+                  {canReturn && (
+                    <>
+                      <button type="button" disabled={applying || !validMaterialQuantity || !material || amount > material.issuedQuantity}
+                        onClick={() => moveMaterial(detail.data, 'RETURN_MATERIAL')}>반납</button>
+                      <p>반납 위치 {positionLabel(detail.data.returnPosition)}</p>
+                    </>
+                  )}
+                </div>
+              )}
+              {detail.data.materialEvents.length > 0 && (
+                <div className="table-scroll">
+                  <table>
+                    <caption>자재 이동 내역</caption>
+                    <thead><tr>
+                      <th scope="col">구분</th><th scope="col">LOT</th><th scope="col">수량</th>
+                      <th scope="col">창고 / 로케이션</th><th scope="col">작업자</th>
+                    </tr></thead>
+                    <tbody>{detail.data.materialEvents.map((event) => (
+                      <tr key={event.revision}>
+                        <td>{event.action === 'ISSUE_MATERIAL' ? '투입' : '반납'}</td><td>{event.lotCode}</td>
+                        <td>{quantity.format(event.quantity)}</td><td>{positionLabel(event.position)}</td>
+                        <td>{event.workerId}</td>
+                      </tr>
+                    ))}</tbody>
+                  </table>
+                </div>
+              )}
+              {detail.data.plan.status === 'WAITING' && !detail.data.materials.some((lot) => lot.issuedQuantity > 0) && (
+                <p>작업을 시작하려면 LOT 자재를 투입하세요.</p>
+              )}
               {detail.data.plan.status === 'WAITING' && (
-                <button type="button" disabled={applying} onClick={() => {
+                <button type="button" disabled={applying || !detail.data.materials.some((lot) => lot.issuedQuantity > 0)} onClick={() => {
                   void applyAction(detail.data, { action: 'START' })
                 }}>작업 시작</button>
               )}

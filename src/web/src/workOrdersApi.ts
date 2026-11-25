@@ -12,6 +12,9 @@ export type WorkOrder = {
   status: OrderStatus
 }
 
+export type StockLocation = { warehouse: string; location: string }
+export type MaterialAction = 'ISSUE_MATERIAL' | 'RETURN_MATERIAL'
+
 export type WorkOrderDetail = {
   plan: WorkOrder
   steps: { name: string; status: OrderStatus }[]
@@ -19,6 +22,13 @@ export type WorkOrderDetail = {
   startedBy: string | null
   completedBy: string | null
   revision: number
+  materials: {
+    lotCode: string
+    issuedQuantity: number
+    positions: { position: StockLocation; availableQuantity: number }[]
+  }[]
+  returnPosition: StockLocation
+  materialEvents: { action: MaterialAction; lotCode: string; quantity: number; position: StockLocation; workerId: string; revision: number }[]
 }
 
 export function loadWorkOrders(status: OrderStatus | '', signal: AbortSignal) {
@@ -31,7 +41,11 @@ export function loadWorkOrder(plan: WorkOrder, signal: AbortSignal) {
   return getSessionData<WorkOrderDetail>(`/api/pop/work-orders/${date}/${plan.planSequence}`, signal)
 }
 
-export type WorkOrderAction = { action: 'START' | 'PAUSE' | 'RESUME' | 'CANCEL_START' } | { action: 'COMPLETE'; actualQuantity: number }
+export type WorkOrderAction =
+  | { action: 'START' | 'PAUSE' | 'RESUME' | 'CANCEL_START' }
+  | { action: 'COMPLETE'; actualQuantity: number }
+  | ({ action: 'ISSUE_MATERIAL'; lotCode: string; quantity: number } & StockLocation)
+  | { action: 'RETURN_MATERIAL'; lotCode: string; quantity: number }
 
 export function applyWorkOrderAction(detail: WorkOrderDetail, action: WorkOrderAction, signal: AbortSignal) {
   const { plan, revision } = detail

@@ -24,7 +24,8 @@ import org.springframework.web.server.ResponseStatusException;
 @RestController
 @RequestMapping("/api/pop/work-orders")
 public class WorkOrderController {
-    public record Command(WorkOrderFixtures.Action action, BigDecimal actualQuantity, Long expectedRevision) {}
+    public record Command(WorkOrderFixtures.Action action, BigDecimal actualQuantity, Long expectedRevision,
+            String lotCode, BigDecimal quantity, String warehouse, String location) {}
     private final WorkOrderFixtures fixtures;
 
     WorkOrderController(WorkOrderFixtures fixtures) {
@@ -63,7 +64,8 @@ public class WorkOrderController {
 
         try {
             return fixtures.apply(identity.terminal().id(), planDate, planSequence,
-                            command.action(), command.actualQuantity(), command.expectedRevision(), identity.worker().id())
+                            command.action(), command.actualQuantity(), command.expectedRevision(), identity.worker().id(),
+                            command.lotCode(), command.quantity(), command.warehouse(), command.location())
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Work order unavailable"));
         } catch (IllegalArgumentException error) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, error.getMessage());
