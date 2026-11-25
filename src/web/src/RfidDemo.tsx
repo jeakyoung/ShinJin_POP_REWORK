@@ -1,4 +1,5 @@
-﻿import { useEffect, useRef, useState } from 'react'
+﻿import RfidPhotos from './RfidPhotos'
+import { useEffect, useRef, useState } from 'react'
 import ScanInput from './ScanInput'
 import { SessionExpired } from './workHistoryApi'
 type Command =
@@ -141,6 +142,7 @@ export default function RfidDemo({ actor, onSessionExpired }: { actor: string; o
       <ol>{state.history.map((row) => <li key={row.eventId}>
         {row.direction === 'IN' ? '입고' : '출고'} · {row.pallet} · {row.tag} · {row.items.join(', ')}
       </li>)}</ol>
+      <RfidPhotos actor={actor} movementCount={state.history.length} onSessionExpired={onSessionExpired} />
     </section>
   )
 }
