@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
-import { SessionExpired } from './workHistoryApi'
-import { loadWorkOrder, loadWorkOrders } from './workOrdersApi'
-import type { OrderStatus, WorkOrder, WorkOrderDetail } from './workOrdersApi'
+import { useEffect, useRef, useState } from 'react'
+import type { FormEvent } from 'react'
+import { SessionExpired, SessionRequestError } from './workHistoryApi'
+import { applyWorkOrderAction, loadWorkOrder, loadWorkOrders } from './workOrdersApi'
+import type { OrderStatus, WorkOrder, WorkOrderAction, WorkOrderDetail } from './workOrdersApi'
 
 type Load<T> = { state: 'loading' | 'error' } | { state: 'ready'; data: T }
 
@@ -15,6 +16,13 @@ export default function WorkOrders({ onSessionExpired }: { onSessionExpired: () 
   const [selected, setSelected] = useState<WorkOrder>()
   const [detail, setDetail] = useState<Load<WorkOrderDetail>>({ state: 'loading' })
   const [detailAttempt, setDetailAttempt] = useState(0)
+
+  const [actualQuantity, setActualQuantity] = useState('')
+  const [actionNotice, setActionNotice] = useState('')
+  const [applying, setApplying] = useState(false)
+  const activeAction = useRef<AbortController | null>(null)
+
+  useEffect(() => () => activeAction.current?.abort(), [])
 
   useEffect(() => {
     const request = new AbortController()
@@ -43,14 +51,63 @@ export default function WorkOrders({ onSessionExpired }: { onSessionExpired: () 
 
   function refresh() {
     setSelected(undefined)
+    setActionNotice('')
     setOrders({ state: 'loading' })
     setAttempt((value) => value + 1)
   }
 
   function selectOrder(order: WorkOrder) {
+    setActualQuantity('')
+    setActionNotice('')
     setDetail({ state: 'loading' })
     setSelected(order)
     setDetailAttempt((value) => value + 1)
+  }
+
+  async function applyAction(plan: WorkOrder, action: WorkOrderAction) {
+    if (activeAction.current) return
+    const request = new AbortController()
+    activeAction.current = request
+    setApplying(true)
+    setActionNotice('')
+    try {
+      const data = await applyWorkOrderAction(plan, action, request.signal)
+      if (request.signal.aborted) return
+      setDetail({ state: 'ready', data })
+      setActualQuantity('')
+      setOrders({ state: 'loading' })
+      setAttempt((value) => value + 1)
+      setActionNotice(action.action === 'START' ? '작업을 시작했습니다.' : '작업을 완료했습니다.')
+    } catch (error) {
+      if (request.signal.aborted) return
+      if (error instanceof SessionExpired) {
+        onSessionExpired()
+      } else if (error instanceof SessionRequestError && error.status === 409) {
+        setActionNotice('다른 요청으로 상태가 바뀌었습니다. 최신 상태를 표시합니다.')
+        setDetail({ state: 'loading' })
+        setDetailAttempt((value) => value + 1)
+        setOrders({ state: 'loading' })
+        setAttempt((value) => value + 1)
+      } else if (error instanceof SessionRequestError && error.status === 400) {
+        setActionNotice('실적수량은 계획수량 이내의 양수로, 소수 셋째 자리까지 입력해 주세요.')
+      } else {
+        setActionNotice('응답을 확인하지 못했습니다. 다시 조회해 상태를 확인해 주세요.')
+        setDetail({ state: 'loading' })
+        setDetailAttempt((value) => value + 1)
+        setOrders({ state: 'loading' })
+        setAttempt((value) => value + 1)
+      }
+    } finally {
+      if (activeAction.current === request) activeAction.current = null
+      if (!request.signal.aborted) setApplying(false)
+    }
+  }
+
+  function complete(event: FormEvent<HTMLFormElement>, plan: WorkOrder) {
+    event.preventDefault()
+    const amount = Number(actualQuantity)
+    if (!Number.isFinite(amount) || amount <= 0 || amount > plan.plannedQuantity) return
+    void applyAction(plan, { action: 'COMPLETE', actualQuantity: amount })
   }
 
   return (
@@ -59,7 +116,7 @@ export default function WorkOrders({ onSessionExpired }: { onSessionExpired: () 
         <h2 id="orders-title">작업지시 목록</h2>
         <div className="work-order-controls">
           <label>진행 상태
-            <select value={status} onChange={(event) => {
+            <select disabled={applying} value={status} onChange={(event) => {
               setStatus(event.target.value as OrderStatus | '')
               refresh()
             }}>
@@ -69,7 +126,7 @@ export default function WorkOrders({ onSessionExpired }: { onSessionExpired: () 
               <option value="COMPLETE">완료</option>
             </select>
           </label>
-          <button type="button" onClick={refresh}>새로 조회</button>
+          <button type="button" disabled={applying} onClick={refresh}>새로 조회</button>
         </div>
         <p role="status">
           {orders.state === 'loading' && '작업지시를 조회 중입니다.'}
@@ -85,7 +142,7 @@ export default function WorkOrders({ onSessionExpired }: { onSessionExpired: () 
               </tr></thead>
               <tbody>{orders.data.map((order) => (
                 <tr key={`${order.planDate}/${order.planSequence}`}>
-                  <td><button type="button" className="order-link" onClick={() => selectOrder(order)}>
+                  <td><button type="button" className="order-link" disabled={applying} onClick={() => selectOrder(order)}>
                     {order.orderNumber} / {order.orderLine}
                   </button></td>
                   <td>{order.planDate} / {order.planSequence}</td><td>{order.itemName}</td><td>{order.process}</td>
@@ -105,10 +162,29 @@ export default function WorkOrders({ onSessionExpired }: { onSessionExpired: () 
             <button type="button" onClick={() => selectOrder(selected)}>상세 다시 조회</button>
           </>}
           {detail.state === 'ready' && (
-            <ol className="process-steps">
-              {detail.data.steps.map((step) => <li key={step.name}>{step.name} · {labels[step.status]}</li>)}
-            </ol>
+            <>
+              <ol className="process-steps">
+                {detail.data.steps.map((step) => <li key={step.name}>{step.name} · {labels[step.status]}</li>)}
+              </ol>
+              {detail.data.actualQuantity !== null && <p>실적수량 {quantity.format(detail.data.actualQuantity)}</p>}
+              {detail.data.plan.status === 'WAITING' && (
+                <button type="button" disabled={applying} onClick={() => {
+                  void applyAction(detail.data.plan, { action: 'START' })
+                }}>작업 시작</button>
+              )}
+              {detail.data.plan.status === 'IN_PROGRESS' && (
+                <form className="work-order-action" onSubmit={(event) => complete(event, detail.data.plan)}>
+                  <label>실적수량
+                    <input type="number" min="0.001" max={detail.data.plan.plannedQuantity} step="0.001"
+                      required disabled={applying} value={actualQuantity}
+                      onChange={(event) => setActualQuantity(event.target.value)} />
+                  </label>
+                  <button disabled={applying}>작업 완료</button>
+                </form>
+              )}
+            </>
           )}
+          {(applying || actionNotice) && <p role="status">{applying ? '처리 중입니다.' : actionNotice}</p>}
         </section>
       )}
     </>

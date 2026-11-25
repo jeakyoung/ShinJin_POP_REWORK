@@ -78,9 +78,18 @@ export function loadWorkHistory(date: string, signal: AbortSignal) {
   return getSessionData<WorkEntry[]>(`/api/pop/work-history?${new URLSearchParams({ date })}`, signal)
 }
 
-export async function getSessionData<T>(path: string, signal: AbortSignal): Promise<T> {
-  const response = await fetch(path, { signal, cache: 'no-store' })
+export class SessionRequestError extends Error {
+  readonly status: number
+
+  constructor(status: number) {
+    super(`HTTP ${status}`)
+    this.status = status
+  }
+}
+
+export async function getSessionData<T>(path: string, signal: AbortSignal, init?: RequestInit): Promise<T> {
+  const response = await fetch(path, { ...init, signal, cache: 'no-store' })
   if (response.status === 401) throw new SessionExpired()
-  if (!response.ok) throw new Error(`HTTP ${response.status}`)
+  if (!response.ok) throw new SessionRequestError(response.status)
   return response.json()
 }

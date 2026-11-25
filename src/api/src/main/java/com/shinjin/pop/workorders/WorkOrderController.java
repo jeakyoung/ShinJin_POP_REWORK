@@ -1,5 +1,6 @@
 package com.shinjin.pop.workorders;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -9,8 +10,11 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.context.annotation.Profile;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -20,6 +24,7 @@ import org.springframework.web.server.ResponseStatusException;
 @RestController
 @RequestMapping("/api/pop/work-orders")
 public class WorkOrderController {
+    public record Command(WorkOrderFixtures.Action action, BigDecimal actualQuantity) {}
     private final WorkOrderFixtures fixtures;
 
     WorkOrderController(WorkOrderFixtures fixtures) {
@@ -44,5 +49,25 @@ public class WorkOrderController {
 
         return fixtures.find(terminal.id(), planDate, planSequence)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Work order unavailable"));
+    }
+
+    @PostMapping(path = "/{planDate}/{planSequence}/actions", consumes = MediaType.APPLICATION_JSON_VALUE)
+    WorkOrderFixtures.Detail apply(
+            @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate planDate,
+            @PathVariable int planSequence, @RequestBody Command command, HttpServletRequest request) {
+        var identity = DemoSessionController.requireIdentity(request);
+        if (planSequence < 1 || command == null || command.action() == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid work order command");
+        }
+
+        try {
+            return fixtures.apply(identity.terminal().id(), planDate, planSequence,
+                            command.action(), command.actualQuantity(), identity.worker().id())
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Work order unavailable"));
+        } catch (IllegalArgumentException error) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, error.getMessage());
+        } catch (IllegalStateException error) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, error.getMessage());
+        }
     }
 }
