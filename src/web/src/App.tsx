@@ -14,6 +14,9 @@ import RfidDemo from './RfidDemo'
 import ProcurementReceiving from './procurement/ProcurementReceiving'
 import { loadContext, loadSession, loadWorkHistory, SessionExpired, signOut } from './workHistoryApi'
 import type { Identity, PopContext, WorkEntry } from './workHistoryApi'
+import Expendables from './management/Expendables'
+import ExpendableReturns from './management/ExpendableReturns'
+import RepairHistory from './management/RepairHistory'
 
 type Result =
   | { state: 'idle' | 'loading' | 'error' }
@@ -28,7 +31,7 @@ export default function App() {
   const [identity, setIdentity] = useState<Identity>()
   const [sessionNotice, setSessionNotice] = useState('')
   const [loggingOut, setLoggingOut] = useState(false)
-  const [view, setView] = useState<'history' | 'orders' | 'drawing' | 'transfer' | 'rfid' | 'shipping' | 'output' | 'procurement' | 'inventory' | 'admin' | 'planning' | 'production-report'>('history')
+  const [view, setView] = useState<'history' | 'orders' | 'drawing' | 'transfer' | 'rfid' | 'shipping' | 'output' | 'procurement' | 'inventory' | 'admin' | 'planning' | 'production-report' | 'supplies' | 'supplyReturn' | 'repairs'>('history')
   const [date, setDate] = useState('')
   const [result, setResult] = useState<Result>({ state: 'idle' })
   const activeSearch = useRef<AbortController | null>(null)
@@ -100,7 +103,7 @@ export default function App() {
     <main>
       <header>
         <p className="system-name">신진 생산관리</p>
-        <h1>{identity && view === 'production-report' ? '최종생산조회' : identity && view === 'planning' ? '생산계획' : identity && view === 'admin' ? '단말 설정' : identity && view === 'inventory' ? '재고이동' : identity && view === 'procurement' ? 'ESCO·발주입고' : identity && view === 'output' ? '합성 출력' : identity && view === 'shipping' ? '출하' : identity && view === 'rfid' ? 'RFID·파렛트' : identity && view === 'transfer' ? '공장이송' : identity && view === 'drawing' ? '도면가공 008' : identity && view === 'orders' ? '작업지시' : '작업이력'}</h1>
+        <h1>{identity && view === 'supplies' ? '소모품 출고' : identity && view === 'supplyReturn' ? '소모품 반납' : identity && view === 'repairs' ? '설비수리' : identity && view === 'production-report' ? '최종생산조회' : identity && view === 'planning' ? '생산계획' : identity && view === 'admin' ? '단말 설정' : identity && view === 'inventory' ? '재고이동' : identity && view === 'procurement' ? 'ESCO·발주입고' : identity && view === 'output' ? '합성 출력' : identity && view === 'shipping' ? '출하' : identity && view === 'rfid' ? 'RFID·파렛트' : identity && view === 'transfer' ? '공장이송' : identity && view === 'drawing' ? '도면가공 008' : identity && view === 'orders' ? '작업지시' : '작업이력'}</h1>
         <p>합성 데이터로 조회 흐름을 확인하는 화면입니다.</p>
       </header>
       {!context && (
@@ -174,6 +177,18 @@ export default function App() {
             }}>생산계획</button>
             <button type="button" aria-pressed={view === 'production-report'} disabled={loggingOut}
               onClick={() => { clearResult(); setView('production-report') }}>최종생산조회</button>
+            <button type="button" aria-pressed={view === 'supplies'} disabled={loggingOut} onClick={() => {
+              clearResult()
+              setView('supplies')
+            }}>소모품 출고</button>
+            <button type="button" aria-pressed={view === 'supplyReturn'} disabled={loggingOut} onClick={() => {
+              clearResult()
+              setView('supplyReturn')
+            }}>소모품 반납</button>
+            <button type="button" aria-pressed={view === 'repairs'} disabled={loggingOut} onClick={() => {
+              clearResult()
+              setView('repairs')
+            }}>설비수리</button>
           </nav>
         </section>
       )}
@@ -222,6 +237,13 @@ export default function App() {
           onSessionExpired={expireSession} />
       )}
 
+      {context && identity && !loggingOut && view === 'supplies' && (
+        <Expendables actor={{ terminalId: identity.terminal.id, workerId: identity.worker.id }} onSessionExpired={expireSession} />
+      )}
+      {context && identity && !loggingOut && view === 'supplyReturn' && (
+        <ExpendableReturns actor={{ terminalId: identity.terminal.id, workerId: identity.worker.id }} onSessionExpired={expireSession} />
+      )}
+      {context && identity && !loggingOut && view === 'repairs' && <RepairHistory onSessionExpired={expireSession} />}
       {context && identity && view === 'history' && (
         <section aria-labelledby="filter-title">
           <h2 id="filter-title">조회 조건</h2>
