@@ -20,6 +20,7 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -27,6 +28,13 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 import synthetic.drawing.DrawingDomain.*;
 import synthetic.drawing.InMemoryDrawingDomain;
+import synthetic.drawing.InMemoryDrawingDomain.GroupAction;
+import synthetic.drawing.InMemoryDrawingDomain.GroupCommand;
+import synthetic.drawing.InMemoryDrawingDomain.GroupLine;
+import synthetic.drawing.InMemoryDrawingDomain.GroupResult;
+import synthetic.drawing.InMemoryDrawingDomain.GroupSeed;
+import synthetic.drawing.InMemoryDrawingDomain.GroupView;
+import synthetic.drawing.InMemoryDrawingDomain.SharedLot;
 
 @Profile("demo")
 @RestController
@@ -42,10 +50,21 @@ public class DrawingController {
             seed("F1", "000001", 2, OrderType.DRAWING_DEFERRED, "B", true),
             seed("F1", "000001", 3, OrderType.OTHER, "C", true),
             seed("F1", "000001", 4, OrderType.DRAWING, "D", false),
+            seed("F1", "000001", 5, OrderType.DRAWING, "G1", false),
+            seed("F1", "000001", 6, OrderType.DRAWING, "G2", false),
+            seed("F1", "000001", 7, OrderType.DRAWING, "G3", false),
+            seed("F1", "000001", 8, OrderType.DRAWING, "G4", false),
             seed("F2", "000002", 1, OrderType.DRAWING, "E", true));
 
+    private static final List<GroupSeed> GROUPS = List.of(
+            new GroupSeed("PG-008-A", List.of(groupKey(5), groupKey(6))),
+            new GroupSeed("PG-008-B", List.of(groupKey(7), groupKey(8))));
+    private static final List<SharedLot> SHARED_LOTS = List.of(
+            new SharedLot("F1", "000001", new StockKey("SHARED-008", Bin.MANUAL, "ITEM-SHARED"), BigDecimal.valueOf(6)),
+            new SharedLot("F1", "000001", new StockKey("SHARED-008", Bin.DRAWING, "ITEM-SHARED"), BigDecimal.valueOf(5)));
+
     private final InMemoryDrawingDomain domain = new InMemoryDrawingDomain(
-            Clock.fixed(Instant.parse("2026-11-25T01:00:00Z"), ZoneOffset.UTC), SEEDS);
+            Clock.fixed(Instant.parse("2026-11-25T01:00:00Z"), ZoneOffset.UTC), SEEDS, GROUPS, SHARED_LOTS);
 
     record PlanOption(String key, String fgUse2, String item, String cutLot, BigDecimal orderQuantity) {}
     record Material(String lot, String warehouse, String item, BigDecimal qty) {
@@ -53,11 +72,17 @@ public class DrawingController {
     }
     record ShipmentView(String id, Material material, boolean deferred, String startedAt, String finishedAt) {}
     record PlanView(State state, String plateFlag, long version, String ownerTerminalId,
-                    boolean bypassedPack1, String shipPlanId, ShipmentView shipment) {}
+                    boolean bypassedPack1, String shipPlanId, ShipmentView shipment, String activeGroupId) {}
     record ScanBody(Decision decision) {}
     record ScanView(boolean accepted, String scanToken, List<Material> materials) {}
     record CommandBody(Action action, Long expectedVersion, String requestId, String lot, BigDecimal qty,
                        BigDecimal goodQty, String scanToken, List<Material> inputs) {}
+
+    record GroupCandidateView(Material material, List<String> eligiblePlans) {}
+    record GroupMemberView(String key, PlanView snapshot, GroupResult result, List<Material> drawingInputs) {}
+    record GroupResponse(String id, List<GroupMemberView> members, List<GroupCandidateView> candidates) {}
+    record GroupBody(GroupAction action, String requestId, List<GroupMemberBody> members) {}
+    record GroupMemberBody(String key, Long expectedVersion, List<Material> inputs, BigDecimal goodQty) {}
 
     @Bean
     static WebServerFactoryCustomizer<TomcatServletWebServerFactory> drawingKeys() {
@@ -68,6 +93,41 @@ public class DrawingController {
     List<PlanOption> plans(HttpServletRequest request) {
         var session = session(request);
         return SEEDS.stream().filter(seed -> sameSite(session, seed.key())).map(DrawingController::option).toList();
+    }
+
+    @GetMapping("/groups")
+    List<String> groups(HttpServletRequest request) {
+        return domain.groups(session(request));
+    }
+
+    @GetMapping("/groups/{id}")
+    ResponseEntity<?> group(HttpServletRequest request, @PathVariable String id) {
+        return groupResponse(domain.group(session(request), id));
+    }
+
+    @PostMapping("/groups/{id}/commands")
+    ResponseEntity<?> groupCommand(HttpServletRequest request, @PathVariable String id, @RequestBody GroupBody body) {
+        var identity = session(request);
+        var access = domain.group(identity, id);
+        if (access.status() != 200) return error(access.status(), access.error());
+        if (body.members() == null || body.members().stream().anyMatch(member -> member == null
+                || member.key() == null || member.expectedVersion() == null || member.expectedVersion() < 0)) {
+            return error(422, "INVALID_GROUP_MEMBERS");
+        }
+        var lines = body.members().stream().map(member -> new GroupLine(parse(member.key()), member.expectedVersion(),
+                inputs(member.inputs()), member.goodQty())).toList();
+        return groupResponse(domain.executeGroup(identity, id, new GroupCommand(body.action(), body.requestId(), lines)));
+    }
+
+    private static ResponseEntity<?> groupResponse(Reply<GroupView> result) {
+        if (result.status() != 200) return error(result.status(), result.error());
+        var group = result.value();
+        return ResponseEntity.ok(new GroupResponse(group.id(),
+                group.members().stream().map(member -> new GroupMemberView(format(member.key()), view(member.snapshot()), member.result(),
+                        materials(member.drawingInputs()))).toList(),
+                group.candidates().stream().map(candidate -> new GroupCandidateView(
+                        material(candidate.stock(), candidate.available()),
+                        candidate.eligiblePlans().stream().map(DrawingController::format).toList())).toList()));
     }
 
     @GetMapping("/active")
@@ -88,7 +148,7 @@ public class DrawingController {
             var details = domain.audit(session, key);
             return ResponseEntity.ok(Map.of("inventory", details.inventory().entrySet().stream()
                     .map(entry -> material(entry.getKey(), entry.getValue())).toList(),
-                    "records", details.records()));
+                    "records", details.records(), "drawingInputs", materials(details.drawingInputs())));
         }
         return ResponseEntity.ok(view(result.value()));
     }
@@ -102,8 +162,7 @@ public class DrawingController {
         var result = domain.scan(session, key, body.decision());
         if (result.status() != 200) return error(result.status(), result.error());
         var scan = result.value();
-        return ResponseEntity.ok(new ScanView(scan.accepted(), scan.token(), scan.materials().stream()
-                .map(input -> material(input.stock(), input.quantity())).toList()));
+        return ResponseEntity.ok(new ScanView(scan.accepted(), scan.token(), materials(scan.materials())));
     }
 
     @PostMapping({"/plans/{key}/commands", "/plans/{factory}/{site}/{date}/{seq}/commands"})
@@ -117,12 +176,20 @@ public class DrawingController {
         if (body.expectedVersion() == null || body.expectedVersion() < 0) return error(422, "VERSION_REQUIRED");
         var seed = SEEDS.stream().filter(item -> item.key().equals(key)).findFirst().orElseThrow();
         var stock = body.lot() == null ? null : new StockKey(body.lot(), Bin.CUT, seed.item());
-        var inputs = body.inputs() == null ? List.<Input>of() : body.inputs().stream()
-                .map(item -> item == null ? new Input(null, null) : new Input(item.stock(), item.qty())).toList();
+        var inputs = inputs(body.inputs());
         var amount = body.action() == Action.DRAW_FINISH ? body.goodQty() : body.qty();
         var result = domain.execute(session, key, new Command(body.action(), body.expectedVersion(),
                 body.requestId(), stock, amount, body.scanToken(), inputs));
         return result.status() == 200 ? ResponseEntity.ok(view(result.value())) : error(result.status(), result.error());
+    }
+
+    private static List<Material> materials(List<Input> inputs) {
+        return inputs.stream().map(input -> material(input.stock(), input.quantity())).toList();
+    }
+
+    private static List<Input> inputs(List<Material> materials) {
+        return materials == null ? List.of() : materials.stream()
+                .map(item -> item == null ? new Input(null, null) : new Input(item.stock(), item.qty())).toList();
     }
 
     private static PlanView view(Snapshot snapshot) {
@@ -130,7 +197,7 @@ public class DrawingController {
         return new PlanView(snapshot.state(), snapshot.plateFlag(), snapshot.version(), snapshot.ownerTerminal(),
                 snapshot.bypassedPack1(), shipment == null ? null : shipment.id(),
                 shipment == null ? null : new ShipmentView(shipment.id(), material(shipment.stock(), shipment.quantity()),
-                        shipment.deferred(), shipment.startedAt().toString(), shipment.finishedAt().toString()));
+                        shipment.deferred(), shipment.startedAt().toString(), shipment.finishedAt().toString()), snapshot.activeGroupId());
     }
 
     private static Material material(StockKey stock, BigDecimal quantity) {
@@ -155,6 +222,10 @@ public class DrawingController {
 
     private static boolean sameSite(Session session, PlanKey key) {
         return session.factory().equals(key.factory()) && session.site().equals(key.site());
+    }
+
+    private static PlanKey groupKey(int sequence) {
+        return new PlanKey("F1", "000001", DATE, sequence);
     }
 
     private static Seed seed(String factory, String site, int sequence, OrderType type, String code, boolean hasRemnant) {

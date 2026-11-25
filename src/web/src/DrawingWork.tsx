@@ -1,24 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 import { SessionExpired } from './workHistoryApi'
+import DrawingGroupWork from './DrawingGroupWork'
+import { drawingRequest as request, drawingApi as api, drawingStates as states, DrawingError } from './drawingApi'
+import type { DrawingDetail as Detail, DrawingMaterial as Material } from './drawingApi'
 
 type Option = { key: string; fgUse2: string; item: string; cutLot: string; orderQuantity: number }
-type Material = { lot: string; warehouse: string; item: string; qty: number }
-type State = 'CUT_READY' | 'PACK1_ACTIVE' | 'DRAW_READY' | 'DRAW_ACTIVE' | 'PACK2_READY' | 'PACK2_ACTIVE' | 'SHIP_READY'
-type Detail = {
-  state: State; plateFlag: string | null; version: number; ownerTerminalId: string | null; bypassedPack1: boolean
-  shipPlanId: string | null; shipment: { material: Material; deferred: boolean } | null
-}
 type Scan = { accepted: boolean; scanToken: string; materials: Material[] }
 type Action = 'PACK1_START' | 'PACK1_FINISH' | 'DRAW_START' | 'DRAW_FINISH' | 'PACK2_START' | 'PACK2_FINISH'
 type Input = { action: Action; lot?: string; qty?: number; goodQty?: number; scanToken?: string; inputs?: Material[] }
 type Command = Input & { requestId: string; expectedVersion: number }
 
-const api = '/api/drawing-008'
 const url = (key: string) => api + '/plans/' + encodeURIComponent(key)
-const states: Record<State, string> = {
-  CUT_READY: '절단 완료', PACK1_ACTIVE: '1차 포장 중', DRAW_READY: '도면가공 대기', DRAW_ACTIVE: '도면가공 중',
-  PACK2_READY: '2차 포장 대기', PACK2_ACTIVE: '2차 포장 중', SHIP_READY: '출하 준비',
-}
 const messages: Record<string, string> = {
   STALE_VERSION: '다른 요청이 먼저 반영되었습니다. 최신 상태를 표시합니다.',
   TERMINAL_MISMATCH: '다른 단말에서 진행 중인 단계입니다.',
@@ -29,22 +21,6 @@ const messages: Record<string, string> = {
   INSUFFICIENT_INPUT: '투입 수량이 재고를 초과합니다.',
   SCAN_TOKEN_INVALID: '스캔이 만료되었습니다. 다시 스캔하세요.',
 }
-class DrawingError extends Error {}
-
-async function request<T>(path: string, signal: AbortSignal, body?: object): Promise<T> {
-  const response = await fetch(path, {
-    signal, cache: 'no-store', method: body ? 'POST' : 'GET',
-    headers: body ? { 'Content-Type': 'application/json' } : undefined,
-    body: body ? JSON.stringify(body) : undefined,
-  })
-  if (response.status === 401) throw new SessionExpired()
-  if (!response.ok) {
-    const data = await response.json().catch(() => null)
-    throw new DrawingError(data?.error ?? 'HTTP_' + response.status)
-  }
-  return response.json()
-}
-
 export default function DrawingWork({ terminalId, onSessionExpired }: { terminalId: string; onSessionExpired: () => void }) {
   const [plans, setPlans] = useState<Option[]>([])
   const [active, setActive] = useState<string[]>([])
@@ -58,6 +34,7 @@ export default function DrawingWork({ terminalId, onSessionExpired }: { terminal
   const [busy, setBusy] = useState(false)
   const [retry, setRetry] = useState<Command>()
   const current = useRef<AbortController | null>(null)
+  const selectedKey = useRef<string | undefined>(undefined)
 
   function showError(error: unknown) {
     if (error instanceof SessionExpired) onSessionExpired()
@@ -93,6 +70,7 @@ export default function DrawingWork({ terminalId, onSessionExpired }: { terminal
 
   async function load(option: Option) {
     await run(async (signal) => {
+      selectedKey.current = option.key
       setSelected(option)
       setDetail(undefined)
       setScan(undefined)
@@ -212,7 +190,7 @@ export default function DrawingWork({ terminalId, onSessionExpired }: { terminal
                 onClick={() => command({ action: 'DRAW_START', scanToken: scan.scanToken, inputs: materials })}>008 시작</button>
             </div>
           )}
-          {(detail.state === 'PACK1_ACTIVE' || detail.state === 'DRAW_ACTIVE' || detail.state === 'PACK2_READY' || detail.state === 'PACK2_ACTIVE') && (
+          {(detail.state === 'PACK1_ACTIVE' || (detail.state === 'DRAW_ACTIVE' && !detail.activeGroupId) || detail.state === 'PACK2_READY' || detail.state === 'PACK2_ACTIVE') && (
             <label>{detail.state === 'DRAW_ACTIVE' ? '008 양품 수량' : '포장 수량'}
               <input type="number" min="0.001" step="0.001" value={qty} disabled={disabled}
                 placeholder={detail.state.startsWith('PACK2') ? '비우면 남은 산출량 전부' : undefined}
@@ -222,7 +200,7 @@ export default function DrawingWork({ terminalId, onSessionExpired }: { terminal
           {detail.state === 'PACK1_ACTIVE' &&
             <button type="button" disabled={disabled || !validQty}
               onClick={() => command({ action: 'PACK1_FINISH', lot: selected.cutLot, qty: Number(qty) })}>1차 포장 완료</button>}
-          {detail.state === 'DRAW_ACTIVE' &&
+          {detail.state === 'DRAW_ACTIVE' && !detail.activeGroupId &&
             <button type="button" disabled={disabled || !validQty}
               onClick={() => command({ action: 'DRAW_FINISH', goodQty: Number(qty) })}>008 완료</button>}
           {detail.state === 'PACK2_READY' &&
@@ -235,6 +213,22 @@ export default function DrawingWork({ terminalId, onSessionExpired }: { terminal
           {retry && <button type="button" disabled={busy} onClick={() => void send(selected, retry)}>같은 요청 다시 보내기</button>}
         </>
       )}
+      <DrawingGroupWork terminalId={terminalId} onSessionExpired={onSessionExpired}
+        onPlan={(key) => {
+          const option = plans.find((plan) => plan.key === key)
+          if (option) void load(option)
+        }}
+        onChanged={async (keys, signal) => {
+          const key = selectedKey.current
+          setActive(await request<string[]>(api + '/active', signal))
+          if (!key || !keys.includes(key)) return
+          const fresh = await request<Detail>(url(key), signal)
+          if (selectedKey.current !== key || current.current) return
+          setDetail(fresh)
+          setScan(undefined)
+          setConfirm(false)
+          setQty('')
+        }} />
       <p role="status">{busy ? '처리 중입니다.' : notice}</p>
     </section>
   )

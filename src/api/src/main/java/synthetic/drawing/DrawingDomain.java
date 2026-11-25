@@ -26,7 +26,7 @@ public interface DrawingDomain {
         public Command { inputs = inputs == null ? List.of() : List.copyOf(inputs); }
     }
     record Snapshot(State state, String plateFlag, long version, String ownerTerminal,
-                    boolean bypassedPack1, Shipment shipment) {}
+                    boolean bypassedPack1, Shipment shipment, String activeGroupId) {}
     record Shipment(String id, StockKey stock, BigDecimal quantity, boolean deferred,
                     Instant startedAt, Instant finishedAt) {}
     record Scan(boolean accepted, String token, List<Input> materials) {
