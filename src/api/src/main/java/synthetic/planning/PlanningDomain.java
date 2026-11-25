@@ -50,6 +50,16 @@ public interface PlanningDomain {
                    PlanKey targetPlan, String warehouse, BigDecimal quantity, Spec spec,
                    MaterialKey sourceMaterial, BigDecimal inputQuantity) {}
     record Result(long revision, Plan plan) {}
+    record ManagementCommand(String requestId, Long expectedRevision, String warehouse, Spec spec, BigDecimal quantity) {}
+    record ManagementPlan(String id, java.time.YearMonth month, String warehouse, String item, Spec spec,
+                          BigDecimal quantity, Actor createdBy) {}
+    record BatchCommand(String requestId, Long expectedRevision, List<Command> rows) {}
+    record FollowupResult(long revision, ManagementPlan management, List<Plan> plans) {}
+    record FollowupView(long revision, List<ManagementPlan> management) {}
+
+    Reply<FollowupView> followups(Actor actor);
+    Reply<FollowupResult> addManagement(Actor actor, ManagementCommand command);
+    Reply<FollowupResult> batch(Actor actor, BatchCommand command);
     record Reply<T>(int status, String error, T value) {}
 
     Reply<View> view(Actor actor, Filter filter);

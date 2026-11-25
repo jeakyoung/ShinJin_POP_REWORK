@@ -60,6 +60,21 @@ public final class PlanningDemoController {
         return response(planning.execute(actor(request), command));
     }
 
+    @GetMapping("/followups")
+    public ResponseEntity<?> followups(HttpServletRequest request) {
+        return response(planning.followups(actor(request)));
+    }
+
+    @PostMapping("/management")
+    public ResponseEntity<?> management(HttpServletRequest request, @RequestBody ManagementCommand command) {
+        return response(planning.addManagement(actor(request), command));
+    }
+
+    @PostMapping("/batch")
+    public ResponseEntity<?> batch(HttpServletRequest request, @RequestBody BatchCommand command) {
+        return response(planning.batch(actor(request), command));
+    }
+
     @ExceptionHandler(HttpMessageNotReadableException.class)
     ResponseEntity<Failure> malformed() {
         return failure(400, "MALFORMED_COMMAND");

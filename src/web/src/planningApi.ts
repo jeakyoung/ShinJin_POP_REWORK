@@ -18,10 +18,18 @@ export type View = {
 }
 export type Filter = { from: string; to: string; status: Status | ''; branch: Branch | '' }
 type CommandBase = { requestId: string; expectedRevision: number; warehouse: string; quantity: string }
-export type Command = CommandBase & (
+export type SingleCommand = CommandBase & (
   | { action: 'REVERSE_ISSUE'; originalOrder: OrderKey }
   | { action: 'CHANGE_SPEC'; targetPlan: PlanKey; spec: Spec<string>; sourceMaterial: MaterialKey; inputQuantity: string }
 )
+
+type FollowupBase = { requestId: string; expectedRevision: number }
+export type Command = SingleCommand | FollowupBase & (
+  | { action: 'MANAGEMENT'; warehouse: string; spec: Spec<string>; quantity: string }
+  | { action: 'BATCH'; rows: SingleCommand[] }
+)
+export type Management = { id: string; month: string; warehouse: string; item: string; quantity: number }
+export type CommandResult = { revision: number; plan?: Plan; management?: Management; plans?: Plan[] }
 
 export class PlanningError extends Error {
   readonly status: number
@@ -51,8 +59,18 @@ export async function loadPlanning(filter: Filter, signal?: AbortSignal) {
 }
 
 export async function sendPlanning(command: Command) {
-  return read<{ revision: number; plan: Plan }>(await fetch(base + '/commands', {
+  const route = command.action === 'MANAGEMENT' ? '/management'
+    : command.action === 'BATCH' ? '/batch' : '/commands'
+  const payload = command.action === 'MANAGEMENT' || command.action === 'BATCH'
+    ? Object.fromEntries(Object.entries(command).filter(([key]) => key !== 'action')) : command
+  return read<CommandResult>(await fetch(base + route, {
     method: 'POST', credentials: 'same-origin',
-    headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(command),
+    headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+  }))
+}
+
+export async function loadManagement(signal: AbortSignal) {
+  return read<{ revision: number; management: Management[] }>(await fetch(base + '/followups', {
+    credentials: 'same-origin', cache: 'no-store', signal,
   }))
 }

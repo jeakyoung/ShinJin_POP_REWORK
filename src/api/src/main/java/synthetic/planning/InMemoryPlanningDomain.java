@@ -7,12 +7,16 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.List;
+import java.util.ArrayList;
+import java.time.YearMonth;
 import java.util.Objects;
 import java.util.Set;
 
 public final class InMemoryPlanningDomain implements PlanningDomain {
     private static final BigDecimal ZERO = new BigDecimal("0.000");
     private static final BigDecimal MAX = new BigDecimal("999999.999");
+    private record FollowupReceipt(Actor actor, Object command, Object result) {}
     private record Receipt(Actor actor, Command command, Result result) {}
     private record Draft(OrderKey origin, PlanKey parent, Branch branch, String item, Spec spec,
                          MaterialUse materialUse, boolean newCatalogItem) {}
@@ -25,8 +29,24 @@ public final class InMemoryPlanningDomain implements PlanningDomain {
         final Map<MaterialKey, Material> materials = new LinkedHashMap<>();
         final Map<Spec, String> catalog = new HashMap<>();
         final Map<String, Receipt> receipts = new HashMap<>();
+        final Map<String, FollowupReceipt> followupReceipts = new HashMap<>();
+        final Map<String, ManagementPlan> management = new LinkedHashMap<>();
         long revision;
         int sequence;
+
+        Ledger(Ledger source) {
+            terminals = source.terminals;
+            warehouses = source.warehouses;
+            orders.putAll(source.orders);
+            plans.putAll(source.plans);
+            materials.putAll(source.materials);
+            catalog.putAll(source.catalog);
+            receipts.putAll(source.receipts);
+            followupReceipts.putAll(source.followupReceipts);
+            management.putAll(source.management);
+            revision = source.revision;
+            sequence = source.sequence;
+        }
 
         Ledger(Seed seed) {
             terminals = seed.terminals();
@@ -74,6 +94,13 @@ public final class InMemoryPlanningDomain implements PlanningDomain {
         }
         if (!valid(raw)) return fail(422, "INVALID_COMMAND");
         Command command = normalize(raw);
+        var otherReceipt = ledger.followupReceipts.get(command.requestId());
+        if (otherReceipt != null) return otherReceipt.actor().equals(actor)
+                ? fail(409, "REQUEST_ID_REUSED") : fail(403, "COMMAND_ACTOR_MISMATCH");
+        return applyOne(ledger, actor, command);
+    }
+
+    private Reply<Result> applyOne(Ledger ledger, Actor actor, Command command) {
         Receipt receipt = ledger.receipts.get(command.requestId());
         if (receipt != null) {
             if (!receipt.actor().equals(actor)) return fail(403, "COMMAND_ACTOR_MISMATCH");
@@ -84,6 +111,89 @@ public final class InMemoryPlanningDomain implements PlanningDomain {
 
         return command.action() == Action.REVERSE_ISSUE
                 ? reverse(ledger, actor, command) : change(ledger, actor, command);
+    }
+
+    @Override
+    public synchronized Reply<FollowupView> followups(Actor actor) {
+        if (!valid(actor)) return fail(401, "LOGIN_REQUIRED");
+        Ledger ledger = ledgers.get(actor.site());
+        if (!allowed(ledger, actor)) return fail(403, "TERMINAL_OUT_OF_SCOPE");
+        return ok(new FollowupView(ledger.revision, List.copyOf(ledger.management.values())));
+    }
+
+    @Override
+    public synchronized Reply<FollowupResult> addManagement(Actor actor, ManagementCommand raw) {
+        if (raw == null || !valid(raw.spec()) || !amount(raw.quantity()) || blank(raw.warehouse())
+                || List.of(raw.quantity(), raw.spec().thickness(), raw.spec().width(), raw.spec().length())
+                .stream().anyMatch(value -> value.compareTo(BigDecimal.ONE) < 0)) {
+            return fail(422, "INVALID_MANAGEMENT");
+        }
+        var command = new ManagementCommand(raw.requestId(), raw.expectedRevision(), raw.warehouse(),
+                normalize(raw.spec()), raw.quantity().setScale(3));
+        var gate = gate(actor, command.requestId(), command.expectedRevision(), command, FollowupResult.class);
+        if (gate != null) return gate;
+        Ledger ledger = ledgers.get(actor.site());
+        if (!ledger.warehouses.contains(command.warehouse())) return fail(403, "WAREHOUSE_OUT_OF_SCOPE");
+        YearMonth month = YearMonth.now(clock);
+        long next = ledger.management.values().stream().filter(row -> month.equals(row.month())).count() + 1;
+        String id = "MANAGEMENT-DEMO-" + month + "-" + next;
+        String item = ledger.catalog.computeIfAbsent(command.spec(), spec -> id + "-ITEM");
+        var row = new ManagementPlan(id, month, command.warehouse(), item, command.spec(), command.quantity(), actor);
+        ledger.management.put(id, row);
+        var result = new FollowupResult(++ledger.revision, row, List.of());
+        return remember(ledger, actor, command.requestId(), command, result);
+    }
+
+    @Override
+    public synchronized Reply<FollowupResult> batch(Actor actor, BatchCommand raw) {
+        if (raw == null || raw.rows() == null || raw.rows().isEmpty() || raw.rows().size() > 50
+                || raw.rows().stream().anyMatch(row -> row == null)) return fail(422, "INVALID_BATCH");
+        var rows = raw.rows().stream().map(row -> new Command(row.action(), raw.requestId(), raw.expectedRevision(),
+                row.originalOrder(), row.targetPlan(), row.warehouse(), row.quantity(), row.spec(),
+                row.sourceMaterial(), row.inputQuantity())).toList();
+        if (rows.stream().anyMatch(row -> !valid(row) || row.action() != rows.get(0).action())) {
+            return fail(422, "INVALID_BATCH");
+        }
+        var command = new BatchCommand(raw.requestId(), raw.expectedRevision(),
+                rows.stream().map(InMemoryPlanningDomain::normalize)
+                        .map(row -> new Command(row.action(), null, null, row.originalOrder(), row.targetPlan(),
+                                row.warehouse(), row.quantity(), row.spec(), row.sourceMaterial(), row.inputQuantity())).toList());
+        var gate = gate(actor, command.requestId(), command.expectedRevision(), command, FollowupResult.class);
+        if (gate != null) return gate;
+        Ledger ledger = ledgers.get(actor.site());
+        Ledger draft = new Ledger(ledger);
+        var plans = new ArrayList<Plan>();
+        for (Command row : command.rows()) {
+            if (!draft.warehouses.contains(row.warehouse())) return fail(403, "WAREHOUSE_OUT_OF_SCOPE");
+            Reply<Result> applied = row.action() == Action.REVERSE_ISSUE ? reverse(draft, actor, row) : change(draft, actor, row);
+            if (applied.status() != 200) return fail(applied.status(), applied.error());
+            plans.add(applied.value().plan());
+        }
+        draft.revision = ledger.revision + 1;
+        var result = new FollowupResult(draft.revision, null, List.copyOf(plans));
+        ledgers.put(actor.site(), draft);
+        return remember(draft, actor, command.requestId(), command, result);
+    }
+
+    private <T> Reply<T> gate(Actor actor, String id, Long revision, Object command, Class<T> type) {
+        if (!valid(actor)) return fail(401, "LOGIN_REQUIRED");
+        Ledger ledger = ledgers.get(actor.site());
+        if (!allowed(ledger, actor) || !ledger.terminals.get(actor.terminal())) return fail(403, "TERMINAL_OUT_OF_SCOPE");
+        if (blank(id) || id.length() > 128 || revision == null || revision < 0) return fail(422, "INVALID_COMMAND");
+        var prior = ledger.followupReceipts.get(id);
+        if (prior != null) {
+            if (!prior.actor().equals(actor)) return fail(403, "COMMAND_ACTOR_MISMATCH");
+            return prior.command().equals(command) ? ok(type.cast(prior.result())) : fail(409, "REQUEST_ID_REUSED");
+        }
+        var one = ledger.receipts.get(id);
+        if (one != null) return one.actor().equals(actor)
+                ? fail(409, "REQUEST_ID_REUSED") : fail(403, "COMMAND_ACTOR_MISMATCH");
+        return ledger.revision == revision ? null : fail(409, "STALE_REVISION");
+    }
+
+    private static <T> Reply<T> remember(Ledger ledger, Actor actor, String key, Object command, T result) {
+        ledger.followupReceipts.put(key, new FollowupReceipt(actor, command, result));
+        return ok(result);
     }
 
     private Reply<Result> reverse(Ledger ledger, Actor actor, Command command) {
@@ -144,7 +254,7 @@ public final class InMemoryPlanningDomain implements PlanningDomain {
         ledger.sequence = plan.key().sequence();
         ledger.plans.put(plan.key(), plan);
         Result result = new Result(++ledger.revision, plan);
-        ledger.receipts.put(command.requestId(), new Receipt(actor, command, result));
+        if (command.requestId() != null) ledger.receipts.put(command.requestId(), new Receipt(actor, command, result));
         return ok(result);
     }
 

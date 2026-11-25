@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
-import { loadPlanning, PlanningError, sendPlanning } from './planningApi'
-import type { Branch, Command, Filter, OrderKey, PlanKey, Spec, Status, View, WorkState } from './planningApi'
+import { loadManagement, loadPlanning, PlanningError, sendPlanning } from './planningApi'
+import type { Branch, Command, Filter, Management, OrderKey, PlanKey, SingleCommand, Spec, Status, View, WorkState } from './planningApi'
 
 const emptyFilter: Filter = { from: '', to: '', status: '', branch: '' }
 const statuses: Record<Status, string> = { PLANNED: '계획', STARTED: '작업 중', COMPLETED: '완료' }
@@ -36,6 +36,7 @@ const definitiveRejections = new Set([
   'MALFORMED_COMMAND', 'INVALID_COMMAND', 'TERMINAL_OUT_OF_SCOPE', 'COMMAND_ACTOR_MISMATCH',
   'REQUEST_ID_REUSED', 'STALE_REVISION', 'WAREHOUSE_OUT_OF_SCOPE', 'ORDER_NOT_FOUND',
   'ORDER_QUANTITY_EXCEEDED', 'PLAN_NOT_FOUND', 'PLAN_NOT_EDITABLE', 'SPEC_UNCHANGED',
+  'INVALID_MANAGEMENT', 'INVALID_BATCH',
   'PLAN_QUANTITY_EXCEEDED', 'MATERIAL_NOT_FOUND', 'MATERIAL_SPEC_MISMATCH', 'INSUFFICIENT_MATERIAL',
 ])
 
@@ -62,15 +63,21 @@ export default function Planning({ actor, onSessionExpired }: Props) {
   const [inputQty, setInputQty] = useState('')
   const [dimensions, setDimensions] = useState({ thickness: '', width: '', length: '' })
   const [workState, setWorkState] = useState<WorkState>('FINISHED')
+  const [management, setManagement] = useState<Management[]>([])
+  const [managementDraft, setManagementDraft] = useState({
+    warehouse: '', quality: '', workState: 'FINISHED' as WorkState, thickness: '', width: '', length: '', quantity: '',
+  })
+  const [batch, setBatch] = useState<SingleCommand[]>([])
   const [notice, setNotice] = useState('')
   const [busy, setBusy] = useState(false)
   const [retry, setRetry] = useState<Command | null>(() => readRetry(storageKey))
   const inFlight = useRef(false)
-  const lifetime = useRef(0)
+  const lifetime = useRef({ epoch: 0 })
 
   useLayoutEffect(() => {
-    lifetime.current++
-    return () => { lifetime.current++ }
+    const token = lifetime.current
+    token.epoch++
+    return () => { token.epoch++ }
   }, [storageKey])
   const sameActor = view?.actor.terminal === actor.terminal && view.actor.worker === actor.worker
 
@@ -95,6 +102,19 @@ export default function Planning({ actor, onSessionExpired }: Props) {
     return () => abort.abort()
   }, [onSessionExpired])
 
+  useEffect(() => {
+    if (view?.revision === undefined) return
+    const abort = new AbortController()
+    void loadManagement(abort.signal).then(result => {
+      if (!abort.signal.aborted) setManagement(result.management)
+    }).catch(error => {
+      if (abort.signal.aborted) return
+      if (error instanceof PlanningError && error.status === 401) onSessionExpired()
+      else setNotice('관리계획 조회 실패')
+    })
+    return () => abort.abort()
+  }, [view?.revision, onSessionExpired])
+
   function report(error: unknown) {
     if (error instanceof PlanningError && error.status === 401) onSessionExpired()
     else setNotice(error instanceof PlanningError ? messages[error.message] ?? `계획 요청 실패 (${error.status})`
@@ -104,19 +124,19 @@ export default function Planning({ actor, onSessionExpired }: Props) {
   async function search(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (inFlight.current) return
-    const generation = lifetime.current
+    const generation = lifetime.current.epoch
     inFlight.current = true
     setBusy(true)
     try {
       const next = await loadPlanning(filter)
-      if (generation !== lifetime.current) return
+      if (generation !== lifetime.current.epoch) return
       setView(next)
       setNotice('')
     } catch (error) {
-      if (generation !== lifetime.current) return
+      if (generation !== lifetime.current.epoch) return
       report(error)
     } finally {
-      if (generation === lifetime.current) {
+      if (generation === lifetime.current.epoch) {
         inFlight.current = false
         setBusy(false)
       }
@@ -131,16 +151,21 @@ export default function Planning({ actor, onSessionExpired }: Props) {
       setNotice('재시도 사본을 저장할 수 없습니다.')
       return
     }
-    const generation = lifetime.current
+    const generation = lifetime.current.epoch
     inFlight.current = true
     setBusy(true)
     try {
       const result = await sendPlanning(command)
-      if (generation !== lifetime.current) return
+      if (generation !== lifetime.current.epoch) return
       clearRetry(command)
-      setNotice(`${branches[result.plan.branch]} 계획 ${planText(result.plan.key)}을 발행했습니다.`)
+      if (result.plan) setNotice(`${branches[result.plan.branch]} 계획 ${planText(result.plan.key)}을 발행했습니다.`)
+      if (result.management) setNotice(result.management.id + ' 관리계획 등록')
+      if (result.plans) {
+        setBatch([])
+        setNotice(result.plans.length + '건 일괄 발행')
+      }
     } catch (error) {
-      if (generation !== lifetime.current) return
+      if (generation !== lifetime.current.epoch) return
       if (error instanceof PlanningError && error.status >= 400 && error.status < 500
           && definitiveRejections.has(error.message)) clearRetry(command)
       report(error)
@@ -152,13 +177,13 @@ export default function Planning({ actor, onSessionExpired }: Props) {
     }
     try {
       const next = await loadPlanning(filter)
-      if (generation !== lifetime.current) return
+      if (generation !== lifetime.current.epoch) return
       setView(next)
     } catch (error) {
-      if (generation !== lifetime.current) return
+      if (generation !== lifetime.current.epoch) return
       report(error)
     } finally {
-      if (generation === lifetime.current) {
+      if (generation === lifetime.current.epoch) {
         inFlight.current = false
         setBusy(false)
       }
@@ -176,19 +201,23 @@ export default function Planning({ actor, onSessionExpired }: Props) {
   const specValid = !!plan && !!material && !!warehouse && positive(qty) && positive(inputQty)
     && positive(dimensions.thickness) && positive(dimensions.width) && positive(dimensions.length)
 
-  function reverse(event: FormEvent<HTMLFormElement>) {
+  function reverse(event: FormEvent<HTMLFormElement>, enqueue = false) {
     event.preventDefault()
     if (!view || !canEdit || !reverseValid || !order) return
-    void execute({ action: 'REVERSE_ISSUE', requestId: crypto.randomUUID(), expectedRevision: view.revision,
-      originalOrder: order.key, warehouse: reverseWarehouse, quantity: reverseQty })
+    const command: SingleCommand = { action: 'REVERSE_ISSUE', requestId: crypto.randomUUID(), expectedRevision: view.revision,
+      originalOrder: order.key, warehouse: reverseWarehouse, quantity: reverseQty }
+    if (enqueue) setBatch(current => [...current, command])
+    else void execute(command)
   }
 
-  function change(event: FormEvent<HTMLFormElement>) {
+  function change(event: FormEvent<HTMLFormElement>, enqueue = false) {
     event.preventDefault()
     if (!view || !canEdit || !specValid || !plan || !material) return
-    void execute({ action: 'CHANGE_SPEC', requestId: crypto.randomUUID(), expectedRevision: view.revision,
+    const command: SingleCommand = { action: 'CHANGE_SPEC', requestId: crypto.randomUUID(), expectedRevision: view.revision,
       targetPlan: plan.key, sourceMaterial: material.key, warehouse, quantity: qty, inputQuantity: inputQty,
-      spec: { quality: plan.spec.quality, workState, ...dimensions } })
+      spec: { quality: plan.spec.quality, workState, ...dimensions } }
+    if (enqueue) setBatch(current => [...current, command])
+    else void execute(command)
   }
 
   return (
@@ -223,7 +252,7 @@ export default function Planning({ actor, onSessionExpired }: Props) {
             </tr>)}</tbody>
           </table></div>}
 
-        <form onSubmit={reverse}>
+        <form onSubmit={event => reverse(event, (event.nativeEvent as SubmitEvent).submitter?.id === "queue-reverse")}>
           <fieldset disabled={!canEdit}>
             <legend>생산계획 역발행</legend>
             <label>원 주문 <select required value={orderId} onChange={e => setOrderId(e.target.value)}>
@@ -236,11 +265,12 @@ export default function Planning({ actor, onSessionExpired }: Props) {
             </select></label>{' '}
             <label>발행 수량 <input required inputMode="decimal" value={reverseQty} onChange={e => setReverseQty(e.target.value)} /></label>{' '}
             <button disabled={!reverseValid}>역발행</button>
+            <button id="queue-reverse" disabled={!reverseValid || batch.some(row => row.action !== "REVERSE_ISSUE")}>일괄 발행 행 추가</button>
             {order && <p>원 규격 {specText(order.spec)}</p>}
           </fieldset>
         </form>
 
-        <form onSubmit={change}>
+        <form onSubmit={event => change(event, (event.nativeEvent as SubmitEvent).submitter?.id === "queue-spec")}>
           <fieldset disabled={!canEdit}>
             <legend>제품규격 변경 발행</legend>
             <label>대상 계획 <select required value={planId} onChange={e => {
@@ -271,9 +301,44 @@ export default function Planning({ actor, onSessionExpired }: Props) {
             <label>길이 <input required inputMode="decimal" value={dimensions.length}
               onChange={e => setDimensions({ ...dimensions, length: e.target.value })} /></label>{' '}
             <button disabled={!specValid}>규격 변경 발행</button>
+            <button id="queue-spec" disabled={!specValid || batch.some(row => row.action !== "CHANGE_SPEC")}>일괄 발행 행 추가</button>
             {plan && <p>원 규격 {specText(plan.spec)}</p>}
           </fieldset>
         </form>
+        <form onSubmit={event => {
+          event.preventDefault()
+          const { warehouse, quantity, ...spec } = managementDraft
+          void execute({ action: 'MANAGEMENT', requestId: crypto.randomUUID(), expectedRevision: view.revision,
+            warehouse, quantity, spec })
+        }}>
+          <fieldset disabled={!canEdit}>
+            <legend>관리계획 직접입력</legend>
+            <label>창고 <select required value={managementDraft.warehouse}
+              onChange={event => setManagementDraft({ ...managementDraft, warehouse: event.target.value })}>
+              <option value="">창고 선택</option>{view.warehouses.map(value => <option key={value}>{value}</option>)}
+            </select></label>
+            <label>제품 상태 <select value={managementDraft.workState}
+              onChange={event => setManagementDraft({ ...managementDraft, workState: event.target.value as WorkState })}>
+              {Object.entries(workStates).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+            </select></label>
+            {([['quality', '재질'], ['thickness', '두께'], ['width', '폭'], ['length', '길이'], ['quantity', '수량']] as const)
+              .map(([field, label]) => <label key={field}>{label} <input required value={managementDraft[field]}
+                onChange={event => setManagementDraft({ ...managementDraft, [field]: event.target.value })} /></label>)}
+            <button>관리계획 적용</button>
+          </fieldset>
+        </form>
+        {management.length > 0 && <ul aria-label="관리계획 목록">
+          {management.map(row => <li key={row.id}>{row.id} / {row.warehouse} / {row.item} / {row.quantity}</li>)}
+        </ul>}
+        {batch.length > 0 && <fieldset disabled={!canEdit}>
+          <legend>일괄 발행</legend>
+          <ul>{batch.map(row => <li key={row.requestId}>
+            {row.action === 'REVERSE_ISSUE' ? orderText(row.originalOrder) : planText(row.targetPlan)} / {row.quantity}
+            <button type="button" onClick={() => setBatch(current => current.filter(item => item !== row))}>제거</button>
+          </li>)}</ul>
+          <button type="button" onClick={() => void execute({ action: 'BATCH', requestId: crypto.randomUUID(),
+            expectedRevision: view.revision, rows: batch })}>일괄 발행</button>
+        </fieldset>}
       </>}
     </section>
   )

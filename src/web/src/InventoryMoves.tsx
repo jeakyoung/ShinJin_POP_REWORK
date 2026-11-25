@@ -63,11 +63,12 @@ export default function InventoryMoves({ actor, onSessionExpired }: Props) {
   const [busy, setBusy] = useState(false)
   const [retry, setRetry] = useState<Command | null>(() => readRetry(storageKey))
   const inFlight = useRef(false)
-  const lifetime = useRef(0)
+  const lifetime = useRef({ epoch: 0 })
 
   useLayoutEffect(() => {
-    lifetime.current++
-    return () => { lifetime.current++ }
+    const token = lifetime.current
+    token.epoch++
+    return () => { token.epoch++ }
   }, [storageKey])
   const sameActor = view?.actor.terminal === actor.terminal && view.actor.worker === actor.worker
 
@@ -100,19 +101,19 @@ export default function InventoryMoves({ actor, onSessionExpired }: Props) {
 
   async function refresh() {
     if (inFlight.current) return
-    const generation = lifetime.current
+    const generation = lifetime.current.epoch
     inFlight.current = true
     setBusy(true)
     try {
       const next = await loadInventory()
-      if (generation !== lifetime.current) return
+      if (generation !== lifetime.current.epoch) return
       setView(next)
       setNotice('')
     } catch (error) {
-      if (generation !== lifetime.current) return
+      if (generation !== lifetime.current.epoch) return
       report(error)
     } finally {
-      if (generation === lifetime.current) {
+      if (generation === lifetime.current.epoch) {
         inFlight.current = false
         setBusy(false)
       }
@@ -127,17 +128,17 @@ export default function InventoryMoves({ actor, onSessionExpired }: Props) {
       setNotice('재시도 사본을 저장할 수 없습니다.')
       return
     }
-    const generation = lifetime.current
+    const generation = lifetime.current.epoch
     inFlight.current = true
     setBusy(true)
     try {
       await sendInventory(command)
-      if (generation !== lifetime.current) return
+      if (generation !== lifetime.current.epoch) return
       clearRetry(command)
       setQuantity('')
       setNotice(command.action === 'MOVE' ? '재고이동을 기록했습니다.' : '재고이동을 취소했습니다.')
     } catch (error) {
-      if (generation !== lifetime.current) return
+      if (generation !== lifetime.current.epoch) return
       if (error instanceof InventoryError && error.status >= 400 && error.status < 500
           && definitiveRejections.has(error.message)) clearRetry(command)
       report(error)
@@ -149,13 +150,13 @@ export default function InventoryMoves({ actor, onSessionExpired }: Props) {
     }
     try {
       const next = await loadInventory()
-      if (generation !== lifetime.current) return
+      if (generation !== lifetime.current.epoch) return
       setView(next)
     } catch (error) {
-      if (generation !== lifetime.current) return
+      if (generation !== lifetime.current.epoch) return
       report(error)
     } finally {
-      if (generation === lifetime.current) {
+      if (generation === lifetime.current.epoch) {
         inFlight.current = false
         setBusy(false)
       }
