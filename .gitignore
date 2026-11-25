@@ -30,3 +30,12 @@ artifacts/
 *.dll
 *.exe
 *.repx
+
+# Maven build output and machine-specific Spring settings
+target/
+application.local.properties
+application-*.local.properties
+application.local.yml
+application.local.yaml
+application-*.local.yml
+application-*.local.yaml

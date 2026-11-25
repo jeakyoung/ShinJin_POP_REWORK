@@ -2,17 +2,11 @@
 
 ## 백엔드
 
-ASP.NET Core .NET 10 LTS와 Microsoft.Data.SqlClient를 채택합니다. 기존 업무는 C#에서 명시적 SQL 매개변수, 저장 프로시저, 인라인 SQL, 복수 연결과 트랜잭션으로 구성되어 있습니다. 기존 동작을 API로 옮길 때 SQL 타입과 정확도, 결과 컬럼, 트랜잭션 순서를 보존하기에 적합합니다. 업무 쓰기는 작업 시작·완료·출하·취소처럼 명시적인 엔드포인트로 나눕니다. POP와 ERP 연결을 각각 관리하고 전표 키 대조와 재시도 계약을 정의합니다.
-
-| 후보 | 판단 |
-|---|---|
-| ASP.NET Core | C# 업무 로직과 SqlClient 기반을 재사용하고 나중에 .NET 리포트 렌더러도 연동할 수 있음 |
-| Node.js / NestJS | API 구현은 가능하나 C# 업무 처리를 옮겨야 하고 DevExpress .NET 렌더러는 별도 연동 필요 |
-| 기존 .NET Framework | 현행 리포트와 Windows 장치 호환용으로 유지 가치가 있음. 신규 API의 호스팅은 ASP.NET Core를 사용 |
+업무 API는 Spring Boot 4.0, Java 17, Microsoft JDBC Driver for SQL Server로 구성합니다. 기존 POP와 ERP 연결을 분리하고 저장 프로시저 인자, 정밀도, 결과 컬럼과 트랜잭션 순서를 업무 단위로 옮깁니다. SQL 연결은 업무에서 요청할 때 열립니다. API 기동과 상태 확인에는 DB 연결이 필요 없습니다.
 
 첫 업무 전환은 로그인·POP 단말 설정·조회입니다. 이후 출력 및 장비를 단말에서 검증하고 일반 생산·도면가공·포장, 출하·공장이송·더존 순으로 확대합니다. 같은 작업장·업무의 쓰기 주체는 한쪽으로 지정합니다.
 
-- [.NET 지원 정책](https://dotnet.microsoft.com/en-us/platform/support/policy/dotnet-core)
+- [Spring Boot 4.0 시스템 요구 사항](https://docs.spring.io/spring-boot/4.0/system-requirements.html)
 
 ## 출력 위험과 선택
 
@@ -27,7 +21,7 @@ ASP.NET Core .NET 10 LTS와 Microsoft.Data.SqlClient를 채택합니다. 기존 
 | 인쇄 이력 | 기존 인쇄 횟수 트리거 지점과 취소·재시도 규칙을 확인합니다. PDF 생성, 미리보기, 인쇄 요청, 실제 인쇄를 구분하며 미리보기만으로 물리적 출력 성공을 기록하지 않습니다. |
 | Linux 렌더링 | Linux로 이동할 때는 DevExpress Drawing의 Skia 구성, 네이티브 패키지, 한글 폰트 및 실제 출력 대조를 추가 검증합니다. |
 
-초기에는 검증된 WinForms 출력 경로를 병행합니다. 첫 이관 후보는 지원 버전으로 올린 DevExpress 렌더러에서 PDF를 생성하고 React에서 미리보는 방식입니다. 초기 렌더러 검증은 기존 단말과 같은 계열의 Windows 폰트·환경에서 시작합니다. 웹 뷰어가 필요한 경우 ASP.NET Core Reporting과 JavaScript 패키지의 버전·라이선스를 함께 검증합니다. JSX나 HTML로 양식을 새로 만드는 방식은 출력 승인 후에 개별적으로 판단합니다.
+초기에는 검증된 WinForms 출력 경로를 병행합니다. 첫 이관 후보는 Windows의 별도 .NET DevExpress 렌더러에서 PDF를 생성하고 React에서 미리보는 방식입니다. 리포트 렌더러의 통합 지점은 Spring API에서 호출할 내부 인터페이스로 검토합니다. 초기 렌더러 검증은 기존 단말과 같은 계열의 Windows 폰트·환경에서 시작합니다. 웹 뷰어가 필요한 경우 ASP.NET Core Reporting과 JavaScript 패키지의 버전·라이선스를 함께 검증합니다. JSX나 HTML로 양식을 새로 만드는 방식은 출력 승인 후에 개별적으로 판단합니다.
 
 출력 승인에는 대표 작업지시서·포장·출하·작업자 양식의 기준 PDF와 실물 출력물, 바코드 재판독, 재인쇄·취소 결과가 필요합니다. 현재 기반 코드에서는 DevExpress 실행, PDF 생성, 운영 DB 조회, 실제 프린터 검증을 수행하지 않았습니다.
 

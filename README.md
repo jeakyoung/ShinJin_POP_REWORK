@@ -1,16 +1,16 @@
 # ShinJin POP Rework
 
-신진 MES/POP의 React 전환 프로젝트입니다. 시작 화면에서 API 연결을 확인할 수 있습니다. 현재 API에는 프로세스 상태 확인 엔드포인트만 있습니다.
+신진 MES/POP의 React 및 Spring Boot 전환 프로젝트입니다. 시작 화면에서 API 연결을 확인할 수 있습니다.
 
 ## 개발 환경
 
-.NET 10 SDK, Node.js 22.12 이상 및 npm이 필요합니다.
+Java 17, Maven 3.6.3 이상, Node.js 22.12 이상 및 npm이 필요합니다.
 
 PowerShell 터미널 1에서 API를 실행합니다.
 
 ```powershell
-$env:ASPNETCORE_ENVIRONMENT = "Development"
-dotnet run --project src/api --no-launch-profile --urls http://127.0.0.1:5080
+cd src/api
+mvn.cmd spring-boot:run
 ```
 
 PowerShell 터미널 2에서 웹을 실행합니다.
@@ -21,17 +21,18 @@ npm.cmd ci
 npm.cmd run dev
 ```
 
-브라우저에서 http://localhost:5173 을 엽니다. Vite가 `/api`를 API로 전달합니다. 배포 시 같은 출처에서 웹 정적 파일과 `/api`를 제공하는 구성을 권장합니다.
+브라우저에서 http://localhost:5173 을 엽니다. Vite는 `/api`를 기본값 `127.0.0.1:5080`에 전달합니다. 배포 시 같은 출처에서 웹 정적 파일과 `/api`를 제공하는 구성을 권장합니다.
 
 ## 설정
 
-향후 DB 연결은 서버의 `ConnectionStrings:Pop`, `ConnectionStrings:Erp`를 사용합니다. 개발은 .NET User Secrets 또는 Git에서 제외된 `src/api/appsettings.Local.json`, 배포는 `ConnectionStrings__Pop`, `ConnectionStrings__Erp` 환경 변수 또는 배포 환경의 비밀 저장소를 사용합니다. 실제 값은 브라우저나 `VITE_` 변수에 두지 않습니다. `/api/health/live`는 DB와 독립적으로 동작합니다.
+POP와 ERP 연결은 `SHINJIN_DB_POP_URL`과 `SHINJIN_DB_ERP_URL`로 각각 설정합니다. SQL 인증을 사용하는 경우 각 `URL`에 대응하는 `USERNAME`과 `PASSWORD` 환경 변수를 지정합니다. 로컬 개발에서는 `src/api/application.local.properties`에 `shinjin.db.pop.url`, `shinjin.db.erp.url`, 필요 시 같은 접두사의 `username`, `password`를 넣을 수 있습니다. API는 이 파일을 실행 디렉터리에서 읽습니다. 실제 값은 Git, 브라우저 및 `VITE_` 변수에 두지 않습니다.
+
+현재 API는 `GET /api/health/live`를 제공하며, 이 요청과 애플리케이션 시작에는 DB 연결이 필요 없습니다.
 
 ## 빌드
 
 ```powershell
-dotnet restore --locked-mode
-dotnet build --no-restore
+mvn.cmd -f src/api/pom.xml verify
 cd src/web
 npm.cmd ci
 npm.cmd run lint
