@@ -40,9 +40,43 @@ export function loadContext(signal: AbortSignal) {
   return get<PopContext>('/api/pop/context', signal)
 }
 
-export function loadWorkHistory(
-  filters: { terminalId: string; workerId: string; date: string },
-  signal: AbortSignal,
-) {
-  return get<WorkEntry[]>(`/api/pop/work-history?${new URLSearchParams(filters)}`, signal)
+export type Identity = { terminal: Omit<Terminal, 'workers'>; worker: Worker }
+
+export async function loadSession(signal: AbortSignal): Promise<Identity | undefined> {
+  const response = await fetch('/api/pop/session', { signal })
+  if (response.status === 401) return undefined
+  if (!response.ok) throw new Error(`HTTP ${response.status}`)
+  return response.json()
+}
+
+export function signIn(input: { terminalId: string; method: string; identifier: string; passcode: string }) {
+  return post<Identity>('/api/pop/session', input)
+}
+
+export async function signOut() {
+  const response = await fetch('/api/pop/session/logout', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: '{}',
+  })
+  if (!response.ok) throw new Error(`HTTP ${response.status}`)
+}
+
+async function post<T>(path: string, body: object): Promise<T> {
+  const response = await fetch(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!response.ok) throw new Error(`HTTP ${response.status}`)
+  return response.json()
+}
+
+export class SessionExpired extends Error {}
+
+export async function loadWorkHistory(date: string, signal: AbortSignal): Promise<WorkEntry[]> {
+  const response = await fetch(`/api/pop/work-history?${new URLSearchParams({ date })}`, { signal })
+  if (response.status === 401) throw new SessionExpired()
+  if (!response.ok) throw new Error(`HTTP ${response.status}`)
+  return response.json()
 }

@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
-import { loadContext, loadWorkHistory } from './workHistoryApi'
-import type { PopContext, WorkEntry } from './workHistoryApi'
+import DemoLogin from './DemoLogin'
+import { loadContext, loadSession, loadWorkHistory, SessionExpired, signOut } from './workHistoryApi'
+import type { Identity, PopContext, WorkEntry } from './workHistoryApi'
 
 type Result =
   | { state: 'idle' | 'loading' | 'error' }
@@ -13,20 +14,19 @@ export default function App() {
   const [context, setContext] = useState<PopContext>()
   const [contextError, setContextError] = useState(false)
   const [contextAttempt, setContextAttempt] = useState(0)
-  const [terminalId, setTerminalId] = useState('')
-  const [workerId, setWorkerId] = useState('')
+  const [identity, setIdentity] = useState<Identity>()
+  const [sessionNotice, setSessionNotice] = useState('')
+  const [loggingOut, setLoggingOut] = useState(false)
   const [date, setDate] = useState('')
   const [result, setResult] = useState<Result>({ state: 'idle' })
   const activeSearch = useRef<AbortController | null>(null)
 
   useEffect(() => {
     const controller = new AbortController()
-    loadContext(controller.signal).then((data) => {
+    Promise.all([loadContext(controller.signal), loadSession(controller.signal)]).then(([data, session]) => {
       if (controller.signal.aborted) return
-      const first = data.terminals[0]
       setContext(data)
-      setTerminalId(first?.id ?? '')
-      setWorkerId(first?.workers[0]?.id ?? '')
+      setIdentity(session)
       setDate(data.sampleDate)
     }).catch(() => {
       if (!controller.signal.aborted) setContextError(true)
@@ -36,27 +36,45 @@ export default function App() {
 
   useEffect(() => () => activeSearch.current?.abort(), [])
 
-  const terminal = context?.terminals.find((item) => item.id === terminalId)
-  const worker = terminal?.workers.find((item) => item.id === workerId)
-
   function clearResult() {
     activeSearch.current?.abort()
     setResult({ state: 'idle' })
   }
 
+  async function logout() {
+    setLoggingOut(true)
+    setSessionNotice('')
+    clearResult()
+    try {
+      await signOut()
+      setIdentity(undefined)
+    } catch {
+      setSessionNotice('로그아웃하지 못했습니다. 다시 시도해 주세요.')
+    } finally {
+      setLoggingOut(false)
+    }
+  }
+
   async function search(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!terminal || !worker || !date) return
+    if (!identity || !date || loggingOut) return
 
     activeSearch.current?.abort()
     const controller = new AbortController()
     activeSearch.current = controller
     setResult({ state: 'loading' })
     try {
-      const rows = await loadWorkHistory({ terminalId, workerId, date }, controller.signal)
+      const rows = await loadWorkHistory(date, controller.signal)
       if (!controller.signal.aborted) setResult({ state: 'ready', rows })
-    } catch {
-      if (!controller.signal.aborted) setResult({ state: 'error' })
+    } catch (error) {
+      if (controller.signal.aborted) return
+      if (error instanceof SessionExpired) {
+        setIdentity(undefined)
+        setSessionNotice('세션이 만료되었습니다. 다시 로그인해 주세요.')
+        clearResult()
+      } else {
+        setResult({ state: 'error' })
+      }
     } finally {
       if (activeSearch.current === controller) activeSearch.current = null
     }
@@ -82,34 +100,32 @@ export default function App() {
           ) : <p>단말 설정을 불러오는 중입니다.</p>}
         </section>
       )}
-      {context && (
+      {sessionNotice && <p role="status" className="session-notice">{sessionNotice}</p>}
+      {context && !identity && <DemoLogin context={context} onLogin={(session) => {
+        setIdentity(session)
+        setSessionNotice('')
+        setDate(context.sampleDate)
+        clearResult()
+      }} />}
+      {context && identity && (
         <section aria-labelledby="filter-title">
-          <h2 id="filter-title">조회 조건</h2>
+          <div className="session-header">
+            <div>
+              <h2 id="filter-title">조회 조건</h2>
+              <p>{identity.worker.name} · {identity.worker.department}</p>
+              <p>{identity.terminal.factory} · {identity.terminal.workCenter} · {identity.terminal.name}</p>
+            </div>
+            <button type="button" disabled={loggingOut} onClick={logout}>로그아웃</button>
+          </div>
           <form onSubmit={search}>
-            <label>POP 단말
-              <select value={terminalId} onChange={(event) => {
-                const next = context.terminals.find((item) => item.id === event.target.value)
-                setTerminalId(event.target.value)
-                setWorkerId(next?.workers[0]?.id ?? '')
-                clearResult()
-              }}>
-                {context.terminals.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-              </select>
-            </label>
-            <label>작업자
-              <select value={workerId} onChange={(event) => { setWorkerId(event.target.value); clearResult() }}>
-                {terminal?.workers.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-              </select>
-            </label>
             <label>작업일
               <input required type="date" value={date} onChange={(event) => { setDate(event.target.value); clearResult() }} />
             </label>
-            <button disabled={!worker || !date || result.state === 'loading'}>조회</button>
+            <button disabled={!date || loggingOut || result.state === 'loading'}>조회</button>
           </form>
-          {terminal && <p className="context">{terminal.factory} · {terminal.workCenter} · {worker?.department}</p>}
         </section>
       )}
-      {context && (
+      {context && identity && (
         <section aria-labelledby="results-title">
           <h2 id="results-title">조회 결과</h2>
           <p role="status">

@@ -27,3 +27,7 @@ table { width: 100%; border-collapse: collapse; white-space: nowrap; }
 th, td { border-bottom: 1px solid #d9e0e6; padding: 0.7rem; text-align: left; }
 th { background: #edf2f5; }
 .numeric { text-align: right; font-variant-numeric: tabular-nums; }
+
+fieldset { min-width: 0; width: 100%; border: 0; margin: 0; padding: 0; display: flex; flex-wrap: wrap; align-items: end; gap: 0.75rem; }
+.session-header { display: flex; flex-wrap: wrap; align-items: start; justify-content: space-between; gap: 0.75rem; margin-bottom: 1rem; }
+.session-notice { margin-bottom: 1rem; }
