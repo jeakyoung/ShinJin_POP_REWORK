@@ -49,9 +49,9 @@ export async function loadTransfers(signal?: AbortSignal): Promise<TransferState
   return read(await fetch(base, { signal, credentials: 'same-origin', cache: 'no-store' }))
 }
 
-export async function sendTransfer(command: Command, simulatePopFailure = false) {
+export async function sendTransfer(command: Command, simulatePopFailure = false, signal?: AbortSignal) {
   return read<{ code: 'OK'; transfer: Transfer; actor: Actor }>(await fetch(base + '/commands', {
-    method: 'POST',
+    method: 'POST', signal,
     credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ command, simulatePopFailure }),

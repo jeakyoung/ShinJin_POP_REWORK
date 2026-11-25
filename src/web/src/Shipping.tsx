@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { loadShipping, loadShippingDocument, loadShippingPdf, sendShipping, ShippingError } from './shippingApi'
 import type { Action, Command, ShippingRow } from './shippingApi'
 import { DocumentPages } from './output/OutputPreview'
@@ -45,13 +45,22 @@ export default function Shipping({ actor, onSessionExpired }: Props) {
   const [documentNotice, setDocumentNotice] = useState('')
   const [documentBusy, setDocumentBusy] = useState(false)
   const documentRequest = useRef<AbortController | null>(null)
-  const inFlight = useRef(false)
+  const activeRequest = useRef<AbortController | null>(null)
   const sameActor = data?.terminal === actor.terminal && data.worker === actor.worker
 
-  function storePending(command: Command | null) {
-    if (command) sessionStorage.setItem(storageKey, JSON.stringify(command))
-    else sessionStorage.removeItem(storageKey)
+  function storePending(command: Command) {
+    sessionStorage.setItem(storageKey, JSON.stringify(command))
     setPending(command)
+  }
+
+  function clearPending(requestId: string) {
+    const current = readPending(storageKey)
+    if (current?.requestId === requestId) {
+      sessionStorage.removeItem(storageKey)
+      setPending(null)
+    } else {
+      setPending(current)
+    }
   }
 
   function report(error: unknown) {
@@ -63,9 +72,11 @@ export default function Shipping({ actor, onSessionExpired }: Props) {
       : '서버 응답을 확인할 수 없습니다. 명령은 같은 키로 다시 보낼 수 있습니다.')
   }
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const abort = new AbortController()
-    loadShipping(abort.signal).then(setData).catch(error => {
+    loadShipping(abort.signal).then((next) => {
+      if (!abort.signal.aborted) setData(next)
+    }).catch(error => {
       if (abort.signal.aborted) return
       if (error instanceof ShippingError && error.status === 401) onSessionExpired()
       else setNotice(error instanceof ShippingError ? messages[error.message] ?? '출하 조회 실패' : '출하 조회 실패')
@@ -73,7 +84,10 @@ export default function Shipping({ actor, onSessionExpired }: Props) {
     return () => abort.abort()
   }, [onSessionExpired])
 
-  useEffect(() => () => documentRequest.current?.abort(), [])
+  useLayoutEffect(() => () => {
+    activeRequest.current?.abort()
+    documentRequest.current?.abort()
+  }, [])
 
   async function runDocument(task: (signal: AbortSignal) => Promise<void>) {
     if (documentRequest.current) return
@@ -110,56 +124,58 @@ export default function Shipping({ actor, onSessionExpired }: Props) {
     })
   }
 
-  async function refresh() {
-    if (inFlight.current) return
-    inFlight.current = true
+  async function run(task: (signal: AbortSignal) => Promise<void>) {
+    if (activeRequest.current) return
+    const request = new AbortController()
+    activeRequest.current = request
     setBusy(true)
     try {
-      setData(await loadShipping())
-      setNotice('')
+      await task(request.signal)
     } catch (error) {
-      report(error)
+      if (!request.signal.aborted) report(error)
     } finally {
-      inFlight.current = false
-      setBusy(false)
+      activeRequest.current = null
+      if (!request.signal.aborted) setBusy(false)
     }
   }
 
-  async function execute(command: Command) {
-    if (inFlight.current || !sameActor) return
-    try {
-      storePending(command)
-    } catch {
-      setNotice('재시도 사본을 저장할 수 없습니다.')
-      return
-    }
-    inFlight.current = true
-    setBusy(true)
-    let reprintNumber: string | undefined
-    try {
-      const updated = await sendShipping(command)
-      storePending(null)
-      if (command.action === 'REPRINT') reprintNumber = updated.shipment?.number
-      if (command.action === 'CANCEL' && updated.shipment?.number === document?.number) setDocument(undefined)
-      setNotice(`${labels[command.action]} 완료`)
-    } catch (error) {
-      if (error instanceof ShippingError && error.status < 500 && error.status !== 401) storePending(null)
-      report(error)
-      if (error instanceof ShippingError && error.status === 401) {
-        inFlight.current = false
-        setBusy(false)
+  function refresh() {
+    void run(async (signal) => {
+      const next = await loadShipping(signal)
+      if (signal.aborted) return
+      setData(next)
+      setNotice('')
+    })
+  }
+
+  function execute(command: Command) {
+    if (!sameActor) return
+    void run(async (signal) => {
+      try {
+        storePending(command)
+      } catch {
+        setNotice('재시도 사본을 저장할 수 없습니다.')
         return
       }
-    }
-    try {
-      setData(await loadShipping())
+      let reprintNumber: string | undefined
+      try {
+        const updated = await sendShipping(command, signal)
+        if (signal.aborted) return
+        clearPending(command.requestId)
+        if (command.action === 'REPRINT') reprintNumber = updated.shipment?.number
+        if (command.action === 'CANCEL' && updated.shipment?.number === document?.number) setDocument(undefined)
+        setNotice(`${labels[command.action]} 완료`)
+      } catch (error) {
+        if (signal.aborted) return
+        if (error instanceof ShippingError && error.status === 401) throw error
+        if (error instanceof ShippingError && error.status < 500) clearPending(command.requestId)
+        report(error)
+      }
+      const next = await loadShipping(signal)
+      if (signal.aborted) return
+      setData(next)
       if (reprintNumber) await openDocument(reprintNumber)
-    } catch (error) {
-      report(error)
-    } finally {
-      inFlight.current = false
-      setBusy(false)
-    }
+    })
   }
 
   function start(row: ShippingRow, action: Action) {

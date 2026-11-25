@@ -37,9 +37,9 @@ export async function loadShipping(signal?: AbortSignal) {
   return read<ShippingState>(await fetch(path, { signal, credentials: 'same-origin', cache: 'no-store' }))
 }
 
-export async function sendShipping(command: Command) {
+export async function sendShipping(command: Command, signal?: AbortSignal) {
   return read<ShippingRow>(await fetch(path + '/commands', {
-    method: 'POST',
+    method: 'POST', signal,
     credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(command),

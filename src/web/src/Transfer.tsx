@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { loadTransfers, sendTransfer, TransferError } from './transferApi'
 import type { Action, Actor, Command, Status, TransferState } from './transferApi'
@@ -74,10 +74,13 @@ export default function Transfer({ actor, onSessionExpired }: Props) {
   const [quantity, setQuantity] = useState('1')
   const [mode, setMode] = useState<'REQUEST' | 'QUICK_TRANSFER'>('REQUEST')
   const [simulate, setSimulate] = useState(false)
+  const activeRequest = useRef<AbortController | null>(null)
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const controller = new AbortController()
-    loadTransfers(controller.signal).then(setState).catch(error => {
+    loadTransfers(controller.signal).then((next) => {
+      if (!controller.signal.aborted) setState(next)
+    }).catch(error => {
       if (controller.signal.aborted) return
       if (error instanceof TransferError && error.status === 401) onSessionExpired()
       else setNotice(message(error))
@@ -85,69 +88,85 @@ export default function Transfer({ actor, onSessionExpired }: Props) {
     return () => controller.abort()
   }, [onSessionExpired])
 
-  function saveRetry(command: Command | null) {
-    if (command) sessionStorage.setItem(retryKey, JSON.stringify(command))
-    else sessionStorage.removeItem(retryKey)
+  useLayoutEffect(() => () => activeRequest.current?.abort(), [])
+
+  function saveRetry(command: Command) {
+    sessionStorage.setItem(retryKey, JSON.stringify(command))
     setRetry(command)
   }
 
-  async function reload() {
+  function clearRetry(commandId: string) {
+    const current = readRetry(retryKey)
+    if (current?.commandId === commandId) {
+      sessionStorage.removeItem(retryKey)
+      setRetry(null)
+    } else {
+      setRetry(current)
+    }
+  }
+
+  async function run(work: (signal: AbortSignal) => Promise<void>) {
+    if (activeRequest.current) return
+    const request = new AbortController()
+    activeRequest.current = request
+    setBusy(true)
     try {
-      const next = await loadTransfers()
-      setState(next)
+      await work(request.signal)
     } catch (error) {
+      if (request.signal.aborted) return
       if (error instanceof TransferError && error.status === 401) {
         setState(null)
         onSessionExpired()
+      } else {
+        setNotice(message(error))
       }
-      throw error
-    }
-  }
-
-  async function refresh() {
-    setBusy(true)
-    try {
-      await reload()
-      setNotice('')
-    } catch (error) {
-      setNotice(message(error))
     } finally {
-      setBusy(false)
+      activeRequest.current = null
+      if (!request.signal.aborted) setBusy(false)
     }
   }
 
-  async function execute(command: Command, injectFailure = false) {
-    if (!state || busy || !sameActor(actor, state.actor)) return
-    try {
-      saveRetry(command)
-    } catch {
-      setNotice('재시도 사본을 저장할 수 없습니다. 브라우저 저장소 설정을 확인해 주세요.')
-      return
-    }
-    setBusy(true)
-    setNotice('')
-    try {
-      await sendTransfer(command, injectFailure)
-      saveRetry(null)
-      setNotice(`${actionText[command.action]} 반영 완료`)
-    } catch (error) {
-      if (error instanceof TransferError && error.status === 401) {
-        setBusy(false)
-        onSessionExpired()
+  function refresh() {
+    void run(async (signal) => {
+      const next = await loadTransfers(signal)
+      if (signal.aborted) return
+      setState(next)
+      setNotice('')
+    })
+  }
+
+  function execute(command: Command, injectFailure = false) {
+    if (!state || !sameActor(actor, state.actor)) return
+    void run(async (signal) => {
+      try {
+        saveRetry(command)
+      } catch {
+        setNotice('재시도 사본을 저장할 수 없습니다. 브라우저 저장소 설정을 확인해 주세요.')
         return
       }
-      const definitiveFailure = error instanceof TransferError && error.status < 500
-        && error.code !== 'ERP_DETAIL_MISMATCH'
-      if (definitiveFailure) saveRetry(null)
-      setNotice(message(error))
-    }
-    try {
-      await reload()
-    } catch (error) {
-      setNotice(previous => [previous, message(error)].filter(Boolean).join(' '))
-    } finally {
-      setBusy(false)
-    }
+      setNotice('')
+      try {
+        await sendTransfer(command, injectFailure, signal)
+        if (signal.aborted) return
+        clearRetry(command.commandId)
+        setNotice(`${actionText[command.action]} 반영 완료`)
+      } catch (error) {
+        if (signal.aborted) return
+        if (error instanceof TransferError && error.status === 401) throw error
+        const definitiveFailure = error instanceof TransferError && error.status < 500
+          && error.code !== 'ERP_DETAIL_MISMATCH'
+        if (definitiveFailure) clearRetry(command.commandId)
+        setNotice(message(error))
+      }
+      try {
+        const next = await loadTransfers(signal)
+        if (!signal.aborted) setState(next)
+      } catch (error) {
+        if (signal.aborted) return
+        if (error instanceof TransferError && error.status === 401) throw error
+        setNotice(previous => [previous, message(error)].filter(Boolean).join(' '))
+      }
+    })
   }
 
   function create(event: FormEvent<HTMLFormElement>) {
