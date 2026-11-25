@@ -69,7 +69,7 @@ public class DemoSessionController {
         return ResponseEntity.noContent().build();
     }
 
-    static Identity requireIdentity(HttpServletRequest request) {
+    public static Identity requireIdentity(HttpServletRequest request) {
         var session = request.getSession(false);
         if (session != null && session.getAttribute(SESSION_KEY) instanceof Identity identity) {
             return identity;

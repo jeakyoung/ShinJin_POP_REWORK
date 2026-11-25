@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import DemoLogin from './DemoLogin'
+import WorkOrders from './WorkOrders'
 import { loadContext, loadSession, loadWorkHistory, SessionExpired, signOut } from './workHistoryApi'
 import type { Identity, PopContext, WorkEntry } from './workHistoryApi'
 
@@ -17,6 +18,7 @@ export default function App() {
   const [identity, setIdentity] = useState<Identity>()
   const [sessionNotice, setSessionNotice] = useState('')
   const [loggingOut, setLoggingOut] = useState(false)
+  const [view, setView] = useState<'history' | 'orders'>('history')
   const [date, setDate] = useState('')
   const [result, setResult] = useState<Result>({ state: 'idle' })
   const activeSearch = useRef<AbortController | null>(null)
@@ -36,10 +38,16 @@ export default function App() {
 
   useEffect(() => () => activeSearch.current?.abort(), [])
 
-  function clearResult() {
+  const clearResult = useCallback(() => {
     activeSearch.current?.abort()
     setResult({ state: 'idle' })
-  }
+  }, [])
+
+  const expireSession = useCallback(() => {
+    setIdentity(undefined)
+    setSessionNotice('세션이 만료되었습니다. 다시 로그인해 주세요.')
+    clearResult()
+  }, [clearResult])
 
   async function logout() {
     setLoggingOut(true)
@@ -69,9 +77,7 @@ export default function App() {
     } catch (error) {
       if (controller.signal.aborted) return
       if (error instanceof SessionExpired) {
-        setIdentity(undefined)
-        setSessionNotice('세션이 만료되었습니다. 다시 로그인해 주세요.')
-        clearResult()
+        expireSession()
       } else {
         setResult({ state: 'error' })
       }
@@ -84,7 +90,7 @@ export default function App() {
     <main>
       <header>
         <p className="system-name">신진 생산관리</p>
-        <h1>작업이력</h1>
+        <h1>{identity && view === 'orders' ? '작업지시' : '작업이력'}</h1>
         <p>합성 데이터로 조회 흐름을 확인하는 화면입니다.</p>
       </header>
       {!context && (
@@ -103,20 +109,35 @@ export default function App() {
       {sessionNotice && <p role="status" className="session-notice">{sessionNotice}</p>}
       {context && !identity && <DemoLogin context={context} onLogin={(session) => {
         setIdentity(session)
+        setView('history')
         setSessionNotice('')
         setDate(context.sampleDate)
         clearResult()
       }} />}
       {context && identity && (
-        <section aria-labelledby="filter-title">
+        <section aria-label="단말 및 메뉴">
           <div className="session-header">
             <div>
-              <h2 id="filter-title">조회 조건</h2>
               <p>{identity.worker.name} · {identity.worker.department}</p>
               <p>{identity.terminal.factory} · {identity.terminal.workCenter} · {identity.terminal.name}</p>
             </div>
             <button type="button" disabled={loggingOut} onClick={logout}>로그아웃</button>
           </div>
+          <nav aria-label="업무 화면" className="pop-nav">
+            <button type="button" aria-pressed={view === 'history'} disabled={loggingOut} onClick={() => {
+              setView('history')
+            }}>작업이력</button>
+            <button type="button" aria-pressed={view === 'orders'} disabled={loggingOut} onClick={() => {
+              clearResult()
+              setView('orders')
+            }}>작업지시</button>
+          </nav>
+        </section>
+      )}
+      {context && identity && view === 'orders' && !loggingOut && <WorkOrders onSessionExpired={expireSession} />}
+      {context && identity && view === 'history' && (
+        <section aria-labelledby="filter-title">
+          <h2 id="filter-title">조회 조건</h2>
           <form onSubmit={search}>
             <label>작업일
               <input required type="date" value={date} onChange={(event) => { setDate(event.target.value); clearResult() }} />
@@ -125,7 +146,7 @@ export default function App() {
           </form>
         </section>
       )}
-      {context && identity && (
+      {context && identity && view === 'history' && (
         <section aria-labelledby="results-title">
           <h2 id="results-title">조회 결과</h2>
           <p role="status">

@@ -74,8 +74,12 @@ async function post<T>(path: string, body: object): Promise<T> {
 
 export class SessionExpired extends Error {}
 
-export async function loadWorkHistory(date: string, signal: AbortSignal): Promise<WorkEntry[]> {
-  const response = await fetch(`/api/pop/work-history?${new URLSearchParams({ date })}`, { signal })
+export function loadWorkHistory(date: string, signal: AbortSignal) {
+  return getSessionData<WorkEntry[]>(`/api/pop/work-history?${new URLSearchParams({ date })}`, signal)
+}
+
+export async function getSessionData<T>(path: string, signal: AbortSignal): Promise<T> {
+  const response = await fetch(path, { signal, cache: 'no-store' })
   if (response.status === 401) throw new SessionExpired()
   if (!response.ok) throw new Error(`HTTP ${response.status}`)
   return response.json()

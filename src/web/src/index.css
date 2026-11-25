@@ -31,3 +31,11 @@ th { background: #edf2f5; }
 fieldset { min-width: 0; width: 100%; border: 0; margin: 0; padding: 0; display: flex; flex-wrap: wrap; align-items: end; gap: 0.75rem; }
 .session-header { display: flex; flex-wrap: wrap; align-items: start; justify-content: space-between; gap: 0.75rem; margin-bottom: 1rem; }
 .session-notice { margin-bottom: 1rem; }
+
+.pop-nav, .work-order-controls { display: flex; flex-wrap: wrap; align-items: end; gap: 0.75rem; }
+.pop-nav button[aria-pressed="false"] { color: #184a66; background: #edf2f5; }
+.work-order-controls { margin-bottom: 0.75rem; }
+.work-order-controls label { flex: 0 1 12rem; }
+.order-link { min-height: 2rem; padding: 0.15rem 0.35rem; color: #184a66; background: #edf2f5; text-decoration: underline; }
+.process-steps { padding-left: 1.5rem; }
+.process-steps li { padding: 0.4rem 0; }
