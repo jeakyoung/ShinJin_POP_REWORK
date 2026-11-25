@@ -6,6 +6,7 @@ import DrawingWork from './DrawingWork'
 import Transfer from './Transfer'
 import OutputPreview from './output/OutputPreview'
 import Shipping from './Shipping'
+import Planning from './Planning'
 import TerminalSettingsDemo from './TerminalSettingsDemo'
 import InventoryMoves from './InventoryMoves'
 import RfidDemo from './RfidDemo'
@@ -26,7 +27,7 @@ export default function App() {
   const [identity, setIdentity] = useState<Identity>()
   const [sessionNotice, setSessionNotice] = useState('')
   const [loggingOut, setLoggingOut] = useState(false)
-  const [view, setView] = useState<'history' | 'orders' | 'drawing' | 'transfer' | 'rfid' | 'shipping' | 'output' | 'procurement' | 'inventory' | 'admin'>('history')
+  const [view, setView] = useState<'history' | 'orders' | 'drawing' | 'transfer' | 'rfid' | 'shipping' | 'output' | 'procurement' | 'inventory' | 'admin' | 'planning'>('history')
   const [date, setDate] = useState('')
   const [result, setResult] = useState<Result>({ state: 'idle' })
   const activeSearch = useRef<AbortController | null>(null)
@@ -98,7 +99,7 @@ export default function App() {
     <main>
       <header>
         <p className="system-name">신진 생산관리</p>
-        <h1>{identity && view === 'admin' ? '단말 설정' : identity && view === 'inventory' ? '재고이동' : identity && view === 'procurement' ? 'ESCO·발주입고' : identity && view === 'output' ? '합성 출력' : identity && view === 'shipping' ? '출하' : identity && view === 'rfid' ? 'RFID·파렛트' : identity && view === 'transfer' ? '공장이송' : identity && view === 'drawing' ? '도면가공 008' : identity && view === 'orders' ? '작업지시' : '작업이력'}</h1>
+        <h1>{identity && view === 'planning' ? '생산계획' : identity && view === 'admin' ? '단말 설정' : identity && view === 'inventory' ? '재고이동' : identity && view === 'procurement' ? 'ESCO·발주입고' : identity && view === 'output' ? '합성 출력' : identity && view === 'shipping' ? '출하' : identity && view === 'rfid' ? 'RFID·파렛트' : identity && view === 'transfer' ? '공장이송' : identity && view === 'drawing' ? '도면가공 008' : identity && view === 'orders' ? '작업지시' : '작업이력'}</h1>
         <p>합성 데이터로 조회 흐름을 확인하는 화면입니다.</p>
       </header>
       {!context && (
@@ -166,11 +167,20 @@ export default function App() {
             }}>재고이동</button>
             <button type="button" aria-pressed={view === 'admin'} disabled={loggingOut}
               onClick={() => { clearResult(); setView('admin') }}>단말 설정</button>
+            <button type="button" aria-pressed={view === 'planning'} disabled={loggingOut} onClick={() => {
+              clearResult()
+              setView('planning')
+            }}>생산계획</button>
           </nav>
         </section>
       )}
       {context && identity && view === 'inventory' && !loggingOut && (
         <InventoryMoves key={JSON.stringify([identity.terminal.id, identity.worker.id])}
+          actor={{ terminal: identity.terminal.id, worker: identity.worker.id }}
+          onSessionExpired={expireSession} />
+      )}
+      {context && identity && view === 'planning' && !loggingOut && (
+        <Planning key={JSON.stringify([identity.terminal.id, identity.worker.id])}
           actor={{ terminal: identity.terminal.id, worker: identity.worker.id }}
           onSessionExpired={expireSession} />
       )}
