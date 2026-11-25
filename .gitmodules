@@ -1,0 +1,4 @@
+[submodule "docs/vault"]
+	path = docs/vault
+	url = https://github.com/jeakyoung/obsidian-database.git
+	branch = main
