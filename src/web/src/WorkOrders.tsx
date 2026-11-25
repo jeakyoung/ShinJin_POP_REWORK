@@ -6,7 +6,14 @@ import type { OrderStatus, WorkOrder, WorkOrderAction, WorkOrderDetail } from '.
 
 type Load<T> = { state: 'loading' | 'error' } | { state: 'ready'; data: T }
 
-const labels: Record<OrderStatus, string> = { WAITING: '대기', IN_PROGRESS: '진행 중', COMPLETE: '완료' }
+const labels: Record<OrderStatus, string> = { WAITING: '대기', IN_PROGRESS: '진행 중', PAUSED: '중지', COMPLETE: '완료' }
+const actionMessages: Record<WorkOrderAction['action'], string> = {
+  START: '작업을 시작했습니다.',
+  PAUSE: '작업을 중지했습니다.',
+  RESUME: '작업을 재개했습니다.',
+  CANCEL_START: '작업 시작을 취소했습니다.',
+  COMPLETE: '작업을 완료했습니다.',
+}
 const quantity = new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 3 })
 
 export default function WorkOrders({ onSessionExpired }: { onSessionExpired: () => void }) {
@@ -20,6 +27,7 @@ export default function WorkOrders({ onSessionExpired }: { onSessionExpired: () 
   const [actualQuantity, setActualQuantity] = useState('')
   const [actionNotice, setActionNotice] = useState('')
   const [applying, setApplying] = useState(false)
+  const [confirmCancel, setConfirmCancel] = useState(false)
   const activeAction = useRef<AbortController | null>(null)
 
   useEffect(() => () => activeAction.current?.abort(), [])
@@ -52,6 +60,7 @@ export default function WorkOrders({ onSessionExpired }: { onSessionExpired: () 
   function refresh() {
     setSelected(undefined)
     setActionNotice('')
+    setConfirmCancel(false)
     setOrders({ state: 'loading' })
     setAttempt((value) => value + 1)
   }
@@ -59,25 +68,27 @@ export default function WorkOrders({ onSessionExpired }: { onSessionExpired: () 
   function selectOrder(order: WorkOrder) {
     setActualQuantity('')
     setActionNotice('')
+    setConfirmCancel(false)
     setDetail({ state: 'loading' })
     setSelected(order)
     setDetailAttempt((value) => value + 1)
   }
 
-  async function applyAction(plan: WorkOrder, action: WorkOrderAction) {
+  async function applyAction(current: WorkOrderDetail, action: WorkOrderAction) {
     if (activeAction.current) return
     const request = new AbortController()
     activeAction.current = request
     setApplying(true)
     setActionNotice('')
+    setConfirmCancel(false)
     try {
-      const data = await applyWorkOrderAction(plan, action, request.signal)
+      const data = await applyWorkOrderAction(current, action, request.signal)
       if (request.signal.aborted) return
       setDetail({ state: 'ready', data })
       setActualQuantity('')
       setOrders({ state: 'loading' })
       setAttempt((value) => value + 1)
-      setActionNotice(action.action === 'START' ? '작업을 시작했습니다.' : '작업을 완료했습니다.')
+      setActionNotice(actionMessages[action.action])
     } catch (error) {
       if (request.signal.aborted) return
       if (error instanceof SessionExpired) {
@@ -89,7 +100,9 @@ export default function WorkOrders({ onSessionExpired }: { onSessionExpired: () 
         setOrders({ state: 'loading' })
         setAttempt((value) => value + 1)
       } else if (error instanceof SessionRequestError && error.status === 400) {
-        setActionNotice('실적수량은 계획수량 이내의 양수로, 소수 셋째 자리까지 입력해 주세요.')
+        setActionNotice(action.action === 'COMPLETE'
+          ? '실적수량은 계획수량 이내의 양수로, 소수 셋째 자리까지 입력해 주세요.'
+          : '요청을 처리할 수 없습니다. 작업지시 상태를 다시 확인해 주세요.')
       } else {
         setActionNotice('응답을 확인하지 못했습니다. 다시 조회해 상태를 확인해 주세요.')
         setDetail({ state: 'loading' })
@@ -103,11 +116,11 @@ export default function WorkOrders({ onSessionExpired }: { onSessionExpired: () 
     }
   }
 
-  function complete(event: FormEvent<HTMLFormElement>, plan: WorkOrder) {
+  function complete(event: FormEvent<HTMLFormElement>, current: WorkOrderDetail) {
     event.preventDefault()
     const amount = Number(actualQuantity)
-    if (!Number.isFinite(amount) || amount <= 0 || amount > plan.plannedQuantity) return
-    void applyAction(plan, { action: 'COMPLETE', actualQuantity: amount })
+    if (!Number.isFinite(amount) || amount <= 0 || amount > current.plan.plannedQuantity) return
+    void applyAction(current, { action: 'COMPLETE', actualQuantity: amount })
   }
 
   return (
@@ -123,6 +136,7 @@ export default function WorkOrders({ onSessionExpired }: { onSessionExpired: () 
               <option value="">전체</option>
               <option value="WAITING">대기</option>
               <option value="IN_PROGRESS">진행 중</option>
+              <option value="PAUSED">중지</option>
               <option value="COMPLETE">완료</option>
             </select>
           </label>
@@ -169,11 +183,35 @@ export default function WorkOrders({ onSessionExpired }: { onSessionExpired: () 
               {detail.data.actualQuantity !== null && <p>실적수량 {quantity.format(detail.data.actualQuantity)}</p>}
               {detail.data.plan.status === 'WAITING' && (
                 <button type="button" disabled={applying} onClick={() => {
-                  void applyAction(detail.data.plan, { action: 'START' })
+                  void applyAction(detail.data, { action: 'START' })
                 }}>작업 시작</button>
               )}
-              {detail.data.plan.status === 'IN_PROGRESS' && (
-                <form className="work-order-action" onSubmit={(event) => complete(event, detail.data.plan)}>
+              {(detail.data.plan.status === 'IN_PROGRESS' || detail.data.plan.status === 'PAUSED') && (
+                <div className="work-order-controls work-order-transitions">
+                  {detail.data.plan.status === 'IN_PROGRESS' ? (
+                    <button type="button" disabled={applying || confirmCancel} onClick={() => {
+                      void applyAction(detail.data, { action: 'PAUSE' })
+                    }}>작업 중지</button>
+                  ) : (
+                    <button type="button" disabled={applying || confirmCancel} onClick={() => {
+                      void applyAction(detail.data, { action: 'RESUME' })
+                    }}>작업 재개</button>
+                  )}
+                  {confirmCancel ? (
+                    <>
+                      <p>이 작업을 대기 상태로 되돌릴까요?</p>
+                      <button type="button" disabled={applying} onClick={() => {
+                        void applyAction(detail.data, { action: 'CANCEL_START' })
+                      }}>시작 취소 확인</button>
+                      <button type="button" disabled={applying} onClick={() => setConfirmCancel(false)}>돌아가기</button>
+                    </>
+                  ) : (
+                    <button type="button" disabled={applying} onClick={() => setConfirmCancel(true)}>작업 시작 취소</button>
+                  )}
+                </div>
+              )}
+              {detail.data.plan.status === 'IN_PROGRESS' && !confirmCancel && (
+                <form className="work-order-action" onSubmit={(event) => complete(event, detail.data)}>
                   <label>실적수량
                     <input type="number" min="0.001" max={detail.data.plan.plannedQuantity} step="0.001"
                       required disabled={applying} value={actualQuantity}

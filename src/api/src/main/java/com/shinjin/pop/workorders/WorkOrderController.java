@@ -24,7 +24,7 @@ import org.springframework.web.server.ResponseStatusException;
 @RestController
 @RequestMapping("/api/pop/work-orders")
 public class WorkOrderController {
-    public record Command(WorkOrderFixtures.Action action, BigDecimal actualQuantity) {}
+    public record Command(WorkOrderFixtures.Action action, BigDecimal actualQuantity, Long expectedRevision) {}
     private final WorkOrderFixtures fixtures;
 
     WorkOrderController(WorkOrderFixtures fixtures) {
@@ -56,13 +56,14 @@ public class WorkOrderController {
             @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate planDate,
             @PathVariable int planSequence, @RequestBody Command command, HttpServletRequest request) {
         var identity = DemoSessionController.requireIdentity(request);
-        if (planSequence < 1 || command == null || command.action() == null) {
+        if (planSequence < 1 || command == null || command.action() == null
+                || command.expectedRevision() == null || command.expectedRevision() < 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid work order command");
         }
 
         try {
             return fixtures.apply(identity.terminal().id(), planDate, planSequence,
-                            command.action(), command.actualQuantity(), identity.worker().id())
+                            command.action(), command.actualQuantity(), command.expectedRevision(), identity.worker().id())
                     .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Work order unavailable"));
         } catch (IllegalArgumentException error) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, error.getMessage());

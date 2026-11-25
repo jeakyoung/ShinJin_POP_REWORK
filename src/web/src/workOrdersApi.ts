@@ -1,6 +1,6 @@
 import { getSessionData } from './workHistoryApi'
 
-export type OrderStatus = 'WAITING' | 'IN_PROGRESS' | 'COMPLETE'
+export type OrderStatus = 'WAITING' | 'IN_PROGRESS' | 'PAUSED' | 'COMPLETE'
 export type WorkOrder = {
   planDate: string
   planSequence: number
@@ -18,6 +18,7 @@ export type WorkOrderDetail = {
   actualQuantity: number | null
   startedBy: string | null
   completedBy: string | null
+  revision: number
 }
 
 export function loadWorkOrders(status: OrderStatus | '', signal: AbortSignal) {
@@ -30,13 +31,14 @@ export function loadWorkOrder(plan: WorkOrder, signal: AbortSignal) {
   return getSessionData<WorkOrderDetail>(`/api/pop/work-orders/${date}/${plan.planSequence}`, signal)
 }
 
-export type WorkOrderAction = { action: 'START' } | { action: 'COMPLETE'; actualQuantity: number }
+export type WorkOrderAction = { action: 'START' | 'PAUSE' | 'RESUME' | 'CANCEL_START' } | { action: 'COMPLETE'; actualQuantity: number }
 
-export function applyWorkOrderAction(plan: WorkOrder, action: WorkOrderAction, signal: AbortSignal) {
+export function applyWorkOrderAction(detail: WorkOrderDetail, action: WorkOrderAction, signal: AbortSignal) {
+  const { plan, revision } = detail
   const date = encodeURIComponent(plan.planDate)
   return getSessionData<WorkOrderDetail>(`/api/pop/work-orders/${date}/${plan.planSequence}/actions`, signal, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(action),
+    body: JSON.stringify({ ...action, expectedRevision: revision }),
   })
 }

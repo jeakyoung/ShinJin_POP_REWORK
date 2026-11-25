@@ -41,3 +41,4 @@ fieldset { min-width: 0; width: 100%; border: 0; margin: 0; padding: 0; display:
 .process-steps li { padding: 0.4rem 0; }
 
 .work-order-action label { flex: 0 1 12rem; }
+.work-order-transitions { margin: 0.75rem 0; align-items: center; }

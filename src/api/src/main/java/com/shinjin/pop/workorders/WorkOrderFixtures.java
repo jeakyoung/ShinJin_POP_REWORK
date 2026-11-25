@@ -12,20 +12,20 @@ import org.springframework.stereotype.Component;
 @Component
 @Profile("demo")
 class WorkOrderFixtures {
-    enum State { WAITING, IN_PROGRESS, COMPLETE }
+    enum State { WAITING, IN_PROGRESS, PAUSED, COMPLETE }
 
     record Summary(LocalDate planDate, int planSequence, String orderNumber, int orderLine,
             String itemName, String process, BigDecimal plannedQuantity, State status) {}
 
     record Step(String name, State status) {}
 
-    record Detail(Summary plan, List<Step> steps, BigDecimal actualQuantity, String startedBy, String completedBy) {
+    record Detail(Summary plan, List<Step> steps, BigDecimal actualQuantity, String startedBy, String completedBy, long revision) {
         Detail(Summary plan, List<Step> steps) {
-            this(plan, steps, null, null, null);
+            this(plan, steps, null, null, null, 0);
         }
     }
 
-    enum Action { START, COMPLETE }
+    enum Action { START, PAUSE, RESUME, CANCEL_START, COMPLETE }
 
     private record ScopedPlan(String terminalId, Detail detail) {}
 
@@ -63,13 +63,13 @@ class WorkOrderFixtures {
     }
 
     synchronized Optional<Detail> apply(String terminalId, LocalDate date, int sequence,
-            Action action, BigDecimal actualQuantity, String workerId) {
+            Action action, BigDecimal actualQuantity, long expectedRevision, String workerId) {
         for (int index = 0; index < plans.size(); index++) {
             var current = plans.get(index);
             var plan = current.detail().plan();
             if (current.terminalId().equals(terminalId) && plan.planDate().equals(date)
                     && plan.planSequence() == sequence) {
-                var updated = transition(current.detail(), action, actualQuantity, workerId);
+                var updated = transition(current.detail(), action, actualQuantity, expectedRevision, workerId);
                 plans.set(index, new ScopedPlan(terminalId, updated));
                 return Optional.of(updated);
             }
@@ -77,26 +77,41 @@ class WorkOrderFixtures {
         return Optional.empty();
     }
 
-    private Detail transition(Detail current, Action action, BigDecimal actualQuantity, String workerId) {
+    private Detail transition(Detail current, Action action, BigDecimal actualQuantity, long expectedRevision, String workerId) {
         var plan = current.plan();
-        boolean starting = action == Action.START;
-        State expected = starting ? State.WAITING : State.IN_PROGRESS;
-        State next = starting ? State.IN_PROGRESS : State.COMPLETE;
-        if (plan.status() != expected) {
-            throw new IllegalStateException("Work order is in a different state");
+        boolean allowed = switch (action) {
+            case START -> plan.status() == State.WAITING;
+            case PAUSE, COMPLETE -> plan.status() == State.IN_PROGRESS;
+            case RESUME -> plan.status() == State.PAUSED;
+            case CANCEL_START -> plan.status() == State.IN_PROGRESS || plan.status() == State.PAUSED;
+        };
+        if (!allowed || current.revision() != expectedRevision) {
+            throw new IllegalStateException("Work order is in a different state or revision");
         }
 
-        if (starting ? actualQuantity != null : !isValidQuantity(actualQuantity, plan.plannedQuantity())) {
+        if (action == Action.COMPLETE ? !isValidQuantity(actualQuantity, plan.plannedQuantity()) : actualQuantity != null) {
             throw new IllegalArgumentException("Invalid actual quantity for the action");
         }
+
+        State next = switch (action) {
+            case START, RESUME -> State.IN_PROGRESS;
+            case PAUSE -> State.PAUSED;
+            case CANCEL_START -> State.WAITING;
+            case COMPLETE -> State.COMPLETE;
+        };
 
         var summary = new Summary(plan.planDate(), plan.planSequence(), plan.orderNumber(),
                 plan.orderLine(), plan.itemName(), plan.process(), plan.plannedQuantity(), next);
         var steps = current.steps().stream()
                 .map(step -> step.name().equals(plan.process()) ? new Step(step.name(), next) : step)
                 .toList();
-        return new Detail(summary, steps, actualQuantity,
-                starting ? workerId : current.startedBy(), starting ? null : workerId);
+        String startedBy = switch (action) {
+            case START -> workerId;
+            case CANCEL_START -> null;
+            default -> current.startedBy();
+        };
+        return new Detail(summary, steps, actualQuantity, startedBy,
+                action == Action.COMPLETE ? workerId : null, current.revision() + 1);
     }
 
     private boolean isValidQuantity(BigDecimal actual, BigDecimal planned) {
