@@ -27,7 +27,9 @@ public class WorkHistoryFixtures {
                     new Worker("DEMO-W01", "샘플 작업자 A", "생산 1팀"),
                     new Worker("DEMO-W02", "샘플 작업자 B", "생산 1팀"))),
             new Terminal("DEMO-B", "POP B", "샘플 2공장", "포장 작업장", List.of(
-                    new Worker("DEMO-W03", "샘플 작업자 C", "생산 2팀"))));
+                    new Worker("DEMO-W03", "샘플 작업자 C", "생산 2팀"))),
+            new Terminal("DEMO-A2", "POP A2", "\uc0d8\ud50c 1\uacf5\uc7a5", "\ud3ec\uc7a5 \uc791\uc5c5\uc7a5", List.of(
+                    new Worker("DEMO-W04", "\uc0d8\ud50c \uc791\uc5c5\uc790 D", "\uc0dd\uc0b0 1\ud300"))));
 
     private final List<Work> work = List.of(
             new Work("DEMO-A", "DEMO-W01", SAMPLE_DATE, new Entry(
