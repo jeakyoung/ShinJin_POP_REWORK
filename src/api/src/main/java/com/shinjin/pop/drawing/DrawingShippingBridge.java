@@ -6,6 +6,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.server.ResponseStatusException;
 import synthetic.drawing.DrawingDomain;
+import synthetic.drawing.DrawingDomain.Session;
 import synthetic.drawing.DrawingDomain.State;
 import synthetic.shipping.ShippingDomain;
 
@@ -25,10 +26,19 @@ public final class DrawingShippingBridge {
         this.drawing = drawing;
     }
 
+    public ShippingDomain.Actor actor(HttpServletRequest request) {
+        return actor(DrawingController.session(request));
+    }
+
+    private static ShippingDomain.Actor actor(Session session) {
+        return new ShippingDomain.Actor(new ShippingDomain.Scope(session.factory(), session.site()),
+                session.terminal(), session.operator());
+    }
+
     public Feed read(HttpServletRequest request) {
         var session = DrawingController.session(request);
-        var scope = new ShippingDomain.Scope(session.factory(), session.site());
-        var actor = new ShippingDomain.Actor(scope, session.terminal(), session.operator());
+        var actor = actor(session);
+        var scope = actor.scope();
         String terminal = switch (actor.terminal()) {
             case "DEMO-A", "DEMO-A2" -> "DEMO-A";
             case "DEMO-B" -> "DEMO-B";

@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { loadShipping, sendShipping, ShippingError } from './shippingApi'
+import { loadShipping, loadShippingDocument, loadShippingPdf, sendShipping, ShippingError } from './shippingApi'
 import type { Action, Command, ShippingRow } from './shippingApi'
+import { DocumentPages } from './output/OutputPreview'
+import { outputMessage, savePdf } from './output/outputDocument'
+import type { Contract } from './output/outputDocument'
 
 const labels: Record<Action, string> = {
   CONFIRM: '출하 확정', CANCEL: '출하 취소', REPRINT: '재출력 기록',
@@ -38,6 +41,10 @@ export default function Shipping({ actor, onSessionExpired }: Props) {
   const [pending, setPending] = useState<Command | null>(() => readPending(storageKey))
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState('')
+  const [document, setDocument] = useState<{ number: string; result: Contract }>()
+  const [documentNotice, setDocumentNotice] = useState('')
+  const [documentBusy, setDocumentBusy] = useState(false)
+  const documentRequest = useRef<AbortController | null>(null)
   const inFlight = useRef(false)
   const sameActor = data?.terminal === actor.terminal && data.worker === actor.worker
 
@@ -66,6 +73,43 @@ export default function Shipping({ actor, onSessionExpired }: Props) {
     return () => abort.abort()
   }, [onSessionExpired])
 
+  useEffect(() => () => documentRequest.current?.abort(), [])
+
+  async function runDocument(task: (signal: AbortSignal) => Promise<void>) {
+    if (documentRequest.current) return
+    const request = new AbortController()
+    documentRequest.current = request
+    setDocumentBusy(true)
+    setDocumentNotice('')
+    try {
+      await task(request.signal)
+    } catch (error) {
+      if (request.signal.aborted) return
+      if (error instanceof ShippingError && error.status === 401) onSessionExpired()
+      else setDocumentNotice(error instanceof ShippingError
+        ? messages[error.message] ?? outputMessage(error.message)
+        : '출하 PDF를 불러오지 못했습니다.')
+    } finally {
+      documentRequest.current = null
+      if (!request.signal.aborted) setDocumentBusy(false)
+    }
+  }
+
+  function openDocument(number: string) {
+    return runDocument(async (signal) => {
+      setDocument(undefined)
+      const result = await loadShippingDocument(number, signal)
+      if (!signal.aborted) setDocument({ number, result })
+    })
+  }
+
+  function downloadDocument(number: string) {
+    void runDocument(async (signal) => {
+      const pdf = await loadShippingPdf(number, signal)
+      if (!signal.aborted) savePdf(pdf, number + '.pdf')
+    })
+  }
+
   async function refresh() {
     if (inFlight.current) return
     inFlight.current = true
@@ -91,9 +135,12 @@ export default function Shipping({ actor, onSessionExpired }: Props) {
     }
     inFlight.current = true
     setBusy(true)
+    let reprintNumber: string | undefined
     try {
-      await sendShipping(command)
+      const updated = await sendShipping(command)
       storePending(null)
+      if (command.action === 'REPRINT') reprintNumber = updated.shipment?.number
+      if (command.action === 'CANCEL' && updated.shipment?.number === document?.number) setDocument(undefined)
       setNotice(`${labels[command.action]} 완료`)
     } catch (error) {
       if (error instanceof ShippingError && error.status < 500 && error.status !== 401) storePending(null)
@@ -106,6 +153,7 @@ export default function Shipping({ actor, onSessionExpired }: Props) {
     }
     try {
       setData(await loadShipping())
+      if (reprintNumber) await openDocument(reprintNumber)
     } catch (error) {
       report(error)
     } finally {
@@ -136,7 +184,7 @@ export default function Shipping({ actor, onSessionExpired }: Props) {
               <th scope="col">작업</th>
             </tr></thead>
             <tbody>{data.rows.map(row => {
-              const disabled = busy || !!pending || !sameActor || data.terminal !== row.handoff.shippingTerminal
+              const disabled = busy || documentBusy || !!pending || !sameActor || data.terminal !== row.handoff.shippingTerminal
               return <tr key={row.handoff.id}>
                 <th scope="row">{row.handoff.packingRef}</th>
                 <td>{row.handoff.lot} · {row.handoff.item}</td><td>{row.handoff.quantity}</td>
@@ -146,6 +194,8 @@ export default function Shipping({ actor, onSessionExpired }: Props) {
                   {row.status === 'READY' && <button type="button" disabled={disabled}
                     onClick={() => start(row, 'CONFIRM')}>{labels.CONFIRM}</button>}
                   {row.status === 'SHIPPED' && <>
+                    <button type="button" disabled={disabled || !row.shipment}
+                      onClick={() => { if (row.shipment) void openDocument(row.shipment.number) }}>PDF 미리보기</button>{' '}
                     <button type="button" disabled={disabled} onClick={() => start(row, 'CANCEL')}>{labels.CANCEL}</button>{' '}
                     <button type="button" disabled={disabled} onClick={() => start(row, 'REPRINT')}>{labels.REPRINT}</button>
                   </>}
@@ -155,6 +205,18 @@ export default function Shipping({ actor, onSessionExpired }: Props) {
           </table>
         </div>
       )}
+      {document && (
+        <section className="synthetic-output" aria-label="출하 PDF 미리보기">
+          <h3>출하 PDF {document.number}</h3>
+          {document.result.status === 'PDF_READY' ? (
+            <>
+              <button type="button" disabled={documentBusy || busy} onClick={() => downloadDocument(document.number)}>출하 PDF 다운로드</button>
+              <DocumentPages pages={document.result.preview} />
+            </>
+          ) : <p role="status">{outputMessage(document.result.status)}</p>}
+        </section>
+      )}
+      {documentNotice && <p role="status">{documentNotice}</p>}
     </section>
   )
 }

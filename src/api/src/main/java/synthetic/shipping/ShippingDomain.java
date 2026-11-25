@@ -20,5 +20,6 @@ public interface ShippingDomain {
 
     void publish(Handoff handoff);
     List<Snapshot> list(Actor actor);
+    Reply document(Actor actor, String shipmentNumber);
     Reply execute(Actor actor, Command command);
 }

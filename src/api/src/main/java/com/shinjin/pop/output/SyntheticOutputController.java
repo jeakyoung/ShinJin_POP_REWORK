@@ -3,12 +3,9 @@ package com.shinjin.pop.output;
 import com.shinjin.pop.history.DemoSessionController;
 import jakarta.servlet.http.HttpServletRequest;
 
-import java.io.IOException;
 import java.util.List;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
-import org.springframework.core.io.ClassPathResource;
 import org.springframework.http.CacheControl;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
@@ -18,7 +15,6 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
-import tools.jackson.databind.ObjectMapper;
 
 @RestController
 @Profile("demo")
@@ -26,11 +22,8 @@ import tools.jackson.databind.ObjectMapper;
 public class SyntheticOutputController {
     private final SyntheticOutput renderer;
 
-    public SyntheticOutputController(ObjectMapper mapper,
-            @Value("${shinjin.demo.output-font:}") String font) throws IOException {
-        try (var input = new ClassPathResource("synthetic-output-vectors.json").getInputStream()) {
-            renderer = new SyntheticOutput(mapper.readTree(input), font);
-        }
+    public SyntheticOutputController(SyntheticOutput renderer) {
+        this.renderer = renderer;
     }
 
     @GetMapping

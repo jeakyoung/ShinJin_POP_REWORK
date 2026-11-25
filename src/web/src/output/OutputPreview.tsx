@@ -1,24 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import { getSessionData, SessionExpired } from '../workHistoryApi'
+import { outputMessage, savePdf } from './outputDocument'
+import type { Contract, PreviewPage } from './outputDocument'
 import './outputPreview.css'
 
 type Example = { id: string; step: number; label: string }
-type Text = { x: number; y: number; size: number; color: string; text: string }
-type Block = { x: number; y: number; width: number; height: number; color: string }
-type PreviewPage = { width: number; height: number; texts: Text[]; blocks: Block[] }
-type Contract = {
-  status: string; documentRef: string | null; device: string | null; pages: number; preview: PreviewPage[]
-}
-
 const apiPath = '/api/demo/output'
-const messages: Record<string, string> = {
-  EMPTY_SELECTION: '출력할 행을 선택하세요.',
-  UNKNOWN_FORM: '지원하지 않는 출력 양식입니다.',
-  INVALID_INPUT: '필수 출력 정보가 누락됐거나 올바르지 않습니다.',
-  RENDER_FAILED: '미리보기와 PDF를 생성하지 못했습니다.',
-  FONT_NOT_CONFIGURED: '한글 출력 글꼴이 설정되지 않았습니다. 로컬 글꼴 설정을 확인하세요.',
-  FONT_UNAVAILABLE: '설정된 한글 출력 글꼴 파일을 열 수 없습니다. 로컬 경로를 확인하세요.',
-}
 const key = ({ id, step }: Example) => id + '/' + step
 
 export default function OutputPreview({ onSessionExpired }: { onSessionExpired: () => void }) {
@@ -80,12 +67,7 @@ export default function OutputPreview({ onSessionExpired }: { onSessionExpired: 
       if (!response.ok || response.headers.get('Content-Type') !== 'application/pdf') throw new Error('PDF unavailable')
       const file = await response.blob()
       if (controller.signal.aborted) return
-      const url = URL.createObjectURL(file)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = selected.split('/')[0] + '.pdf'
-      link.click()
-      window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+      savePdf(file, selected.split('/')[0] + '.pdf')
     } catch {
       if (!controller.signal.aborted) setError('PDF를 다운로드하지 못했습니다.')
     } finally {
@@ -121,7 +103,7 @@ export default function OutputPreview({ onSessionExpired }: { onSessionExpired: 
       {error && <p role="status">{error}</p>}
       {!error && selected && !output && <p role="status">미리보기를 생성하고 있습니다.</p>}
       {output && output.status !== 'PDF_READY' && (
-        <p role="status">{messages[output.status] ?? '출력 결과를 확인하세요.'}</p>
+        <p role="status">{outputMessage(output.status)}</p>
       )}
       {output?.status === 'PDF_READY' && (
         <>
@@ -129,18 +111,25 @@ export default function OutputPreview({ onSessionExpired }: { onSessionExpired: 
             <span>{output.documentRef} · {output.device} · {output.pages}페이지</span>
             <button type="button" disabled={downloading} onClick={() => void download()}>PDF 다운로드</button>
           </div>
-          <div className="synthetic-output__pages">
-            {output.preview.map((page, index) => (
-              <svg key={index} role="img" aria-label={`페이지 ${index + 1}`}
-                width={page.width} height={page.height} viewBox={`0 0 ${page.width} ${page.height}`}>
-                {page.blocks.map((mark, i) => <rect key={i} x={mark.x} y={mark.y} width={mark.width}
-                  height={mark.height} fill={mark.color} shapeRendering={mark.color === '#000000' ? 'crispEdges' : undefined} />)}
-                {page.texts.map((mark, i) => <text key={i} x={mark.x} y={mark.y} fontSize={mark.size} fill={mark.color}>{mark.text}</text>)}
-              </svg>
-            ))}
-          </div>
+          <DocumentPages pages={output.preview} />
         </>
       )}
     </section>
+  )
+}
+
+
+export function DocumentPages({ pages }: { pages: PreviewPage[] }) {
+  return (
+    <div className="synthetic-output__pages">
+      {pages.map((page, index) => (
+        <svg key={index} role="img" aria-label={`페이지 ${index + 1}`}
+          width={page.width} height={page.height} viewBox={`0 0 ${page.width} ${page.height}`}>
+          {page.blocks.map((mark, i) => <rect key={i} x={mark.x} y={mark.y} width={mark.width}
+            height={mark.height} fill={mark.color} shapeRendering={mark.color === '#000000' ? 'crispEdges' : undefined} />)}
+          {page.texts.map((mark, i) => <text key={i} x={mark.x} y={mark.y} fontSize={mark.size} fill={mark.color}>{mark.text}</text>)}
+        </svg>
+      ))}
+    </div>
   )
 }

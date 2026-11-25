@@ -9,7 +9,12 @@ import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.apache.pdfbox.pdmodel.font.PDType0Font;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Profile;
+import org.springframework.core.io.ClassPathResource;
+import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 
 import java.awt.Color;
 import java.io.ByteArrayOutputStream;
@@ -24,12 +29,15 @@ import com.google.zxing.WriterException;
 import java.nio.file.Files;
 import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-final class SyntheticOutput {
+@Component
+@Profile("demo")
+public final class SyntheticOutput {
     private static final float POINTS_PER_MM = 72f / 25.4f;
     private static final String INK = "#172832", ACCENT = "#005d66", MUTED = "#435966", RULE = "#b3c6cb";
     private static final Map<String, String> TITLES = Map.of(
@@ -44,11 +52,13 @@ final class SyntheticOutput {
     record Text(float x, float y, float size, String color, String text) {}
     record Block(float x, float y, float width, float height, String color) {}
     record PageView(float width, float height, List<Text> texts, List<Block> blocks) {}
-    record Contract(String status, int artifactCount, String documentRef, List<Integer> paperMm,
+    public record Contract(String status, int artifactCount, String documentRef, List<Integer> paperMm,
                     String deviceRole, String device, int pages, List<String> rows, List<Group> groups,
                     BigDecimal total, List<PageView> preview, int businessWrites, int virtualSubmissions,
                     int physicalSubmissions, int externalTransfers) {}
-    record Output(Contract contract, byte[] pdf) {}
+    public record Output(Contract contract, byte[] pdf) {}
+    public record ShipmentDocument(String number, String packingRef, String lot, String item,
+                                   BigDecimal quantity, boolean deferred, Instant confirmedAt) {}
 
     private record Row(String id, String customer, String material, String spec, BigDecimal quantity, String label) {}
     private record Symbol(String value, boolean qr) {}
@@ -59,8 +69,11 @@ final class SyntheticOutput {
     private record Document(String title, String reference, List<Integer> paper, String role,
                             List<Page> pages, BigDecimal total, List<Group> groups, boolean itemCodes) {}
 
-    SyntheticOutput(JsonNode data, String fontSetting) {
-        this.data = data;
+    public SyntheticOutput(ObjectMapper mapper,
+            @Value("${shinjin.demo.output-font:}") String fontSetting) throws IOException {
+        try (var input = new ClassPathResource("synthetic-output-vectors.json").getInputStream()) {
+            data = mapper.readTree(input);
+        }
         this.fontSetting = fontSetting;
     }
 
@@ -99,6 +112,19 @@ final class SyntheticOutput {
             return failure(error.getMessage());
         }
         if ("render-error".equals(spec.path("inject").asString(""))) return failure("RENDER_FAILED");
+        return render(model);
+    }
+
+    public Output renderShipment(ShipmentDocument shipment) {
+        var row = new Row(shipment.lot(), "원포장 " + shipment.packingRef(), shipment.item(),
+                shipment.deferred() ? "이월" : "일반", shipment.quantity(),
+                "품목 " + shipment.item() + " · 확정 " + shipment.confirmedAt());
+        var page = new Page(List.of(new Section(List.of(row), null)));
+        return render(new Document(TITLES.get("shipment"), shipment.number(), List.of(210, 297),
+                "shipment", List.of(page), shipment.quantity(), List.of(), false));
+    }
+
+    private Output render(Document model) {
         if (fontSetting.isBlank()) return failure("FONT_NOT_CONFIGURED");
         var localFont = localFont(fontSetting);
         if (localFont == null) return failure("FONT_UNAVAILABLE");

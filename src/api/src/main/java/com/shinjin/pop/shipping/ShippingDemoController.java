@@ -1,13 +1,18 @@
 package com.shinjin.pop.shipping;
 
 import com.shinjin.pop.drawing.DrawingShippingBridge;
+import com.shinjin.pop.output.SyntheticOutput;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.CacheControl;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -29,8 +34,11 @@ public final class ShippingDemoController {
     private final DrawingShippingBridge source;
     private final ShippingDomain shipping = new InMemoryShippingDomain(Clock.systemUTC());
 
-    public ShippingDemoController(DrawingShippingBridge source) {
+    private final SyntheticOutput output;
+
+    public ShippingDemoController(DrawingShippingBridge source, SyntheticOutput output) {
         this.source = source;
+        this.output = output;
     }
 
     @GetMapping
@@ -45,6 +53,36 @@ public final class ShippingDemoController {
         var result = shipping.execute(refresh(request), command);
         return ResponseEntity.status(result.status()).cacheControl(CacheControl.noStore())
                 .body(result.status() == 200 ? result.snapshot() : new Failure(result.error()));
+    }
+
+    @GetMapping("/{number}/document")
+    ResponseEntity<?> preview(HttpServletRequest request, @PathVariable String number) {
+        return render(request, number, false);
+    }
+
+    @GetMapping("/{number}/document/pdf")
+    ResponseEntity<?> download(HttpServletRequest request, @PathVariable String number) {
+        return render(request, number, true);
+    }
+
+    private ResponseEntity<?> render(HttpServletRequest request, String number, boolean download) {
+        var document = shipping.document(source.actor(request), number);
+        if (document.status() != 200) {
+            return ResponseEntity.status(document.status()).cacheControl(CacheControl.noStore())
+                    .body(new Failure(document.error()));
+        }
+        var row = document.snapshot();
+        var handoff = row.handoff();
+        var shipment = row.shipment();
+        var result = output.renderShipment(new SyntheticOutput.ShipmentDocument(shipment.number(), handoff.packingRef(),
+                handoff.lot(), handoff.item(), handoff.quantity(), handoff.deferred(), shipment.confirmedAt()));
+        if (!download) return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(result.contract());
+        if (result.pdf() == null) {
+            return ResponseEntity.status(422).cacheControl(CacheControl.noStore()).body(result.contract());
+        }
+        var attachment = ContentDisposition.attachment().filename(shipment.number() + ".pdf").build();
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).contentType(MediaType.APPLICATION_PDF)
+                .header(HttpHeaders.CONTENT_DISPOSITION, attachment.toString()).body(result.pdf());
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)

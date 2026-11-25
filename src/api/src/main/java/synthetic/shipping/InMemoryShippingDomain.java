@@ -55,6 +55,19 @@ public final class InMemoryShippingDomain implements ShippingDomain {
     }
 
     @Override
+    public synchronized Reply document(Actor actor, String shipmentNumber) {
+        if (!valid(actor)) return failure(401, "LOGIN_REQUIRED");
+        if (blank(shipmentNumber)) return failure(404, "SHIPMENT_NOT_FOUND");
+        var found = entries.values().stream().map(entry -> entry.snapshot)
+                .filter(row -> row.shipment() != null && shipmentNumber.equals(row.shipment().number()))
+                .findFirst().orElse(null);
+        if (found == null) return failure(404, "SHIPMENT_NOT_FOUND");
+        var denied = accessError(actor, found.handoff());
+        if (denied != null) return denied;
+        return found.status() == Status.SHIPPED ? success(found) : failure(409, "SHIPMENT_NOT_ACTIVE");
+    }
+
+    @Override
     public synchronized Reply execute(Actor actor, Command command) {
         if (!valid(actor)) return failure(401, "LOGIN_REQUIRED");
         if (command == null || blank(command.handoffId()) || blank(command.requestId())
@@ -65,10 +78,8 @@ public final class InMemoryShippingDomain implements ShippingDomain {
         Entry entry = entries.get(command.handoffId());
         if (entry == null) return failure(404, "HANDOFF_NOT_FOUND");
         Snapshot current = entry.snapshot;
-        if (!actor.scope().equals(current.handoff().scope())) return failure(403, "SITE_MISMATCH");
-        if (!actor.terminal().equals(current.handoff().shippingTerminal())) {
-            return failure(403, "TERMINAL_MISMATCH");
-        }
+        var denied = accessError(actor, current.handoff());
+        if (denied != null) return denied;
 
         Receipt original = entry.receipts.get(command.requestId());
         if (original != null) {
@@ -104,6 +115,12 @@ public final class InMemoryShippingDomain implements ShippingDomain {
         entry.snapshot = updated;
         entry.receipts.put(command.requestId(), new Receipt(actor, command, updated));
         return success(updated);
+    }
+
+    private static Reply accessError(Actor actor, Handoff handoff) {
+        if (!actor.scope().equals(handoff.scope())) return failure(403, "SITE_MISMATCH");
+        if (!actor.terminal().equals(handoff.shippingTerminal())) return failure(403, "TERMINAL_MISMATCH");
+        return null;
     }
 
     private static boolean valid(Actor actor) {
