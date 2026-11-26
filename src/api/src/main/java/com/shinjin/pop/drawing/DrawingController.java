@@ -78,12 +78,14 @@ public class DrawingController {
     private final InMemoryDrawingDomain domain;
     private final DrawingReturnPlaces returnPlaces;
     private final DrawingGoodPlaces goodPlaces;
+    private final com.shinjin.pop.admin.TerminalSettingsDemoController terminalSettings;
 
     private final Map<String, DisplayFields> display;
     private final List<StockFields> stockFields;
     private final Map<PlanKey,Seed> listedSeeds = new java.util.concurrent.ConcurrentHashMap<>();
 
     DrawingController(InMemoryDrawingDomain domain, DrawingReturnPlaces returnPlaces, DrawingGoodPlaces goodPlaces,
+            com.shinjin.pop.admin.TerminalSettingsDemoController terminalSettings,
             @org.springframework.beans.factory.annotation.Value("${shinjin.demo.drawing-screen:classpath:demo/drawing-screen.json}")
             org.springframework.core.io.Resource dataset,
             @org.springframework.beans.factory.annotation.Value("${shinjin.demo.drawing-stock:classpath:demo/drawing-stock.json}")
@@ -91,6 +93,7 @@ public class DrawingController {
         this.domain = domain;
         this.returnPlaces = returnPlaces;
         this.goodPlaces = goodPlaces;
+        this.terminalSettings = terminalSettings;
         try (var input = stockDataset.getInputStream()) {
             stockFields = tools.jackson.databind.json.JsonMapper.builder().build().readValue(input,
                     new tools.jackson.core.type.TypeReference<List<StockFields>>() {});
@@ -123,9 +126,9 @@ public class DrawingController {
             return "014".equals(qualityCode) || "015".equals(qualityCode) ? "S45C" : material;
         }
     }
-    record StockFields(String factory, String site, String lot, String warehouse, String item,
+    record StockFields(String factory, String site, String lot, String warehouse, String item, String location,
                        BigDecimal thickness, BigDecimal width, BigDecimal length) {}
-    record StockView(String lot, String warehouse, String item, BigDecimal thickness, BigDecimal width,
+    record StockView(String lot, String warehouse, String item, String location, BigDecimal thickness, BigDecimal width,
                      BigDecimal length, BigDecimal available) {}
     private List<StockView> stockViews(Session actor, PlanKey key, List<Input> inputs) {
         var balances = domain.inputBalances(actor, key);
@@ -133,16 +136,17 @@ public class DrawingController {
             var row = material(input.stock(), input.quantity());
             var label = stockFields.stream().filter(info -> info.factory().equals(key.factory())
                     && info.site().equals(key.site()) && info.lot().equals(row.lot())
-                    && info.warehouse().equals(row.warehouse()) && info.item().equals(row.item())).findFirst();
-            return new StockView(row.lot(), row.warehouse(), row.item(), label.map(StockFields::thickness).orElse(null),
+                    && java.util.Objects.equals(info.location(), row.location()) && info.warehouse().equals(row.warehouse()) && info.item().equals(row.item())).findFirst();
+            return new StockView(row.lot(), row.warehouse(), row.item(), row.location(), label.map(StockFields::thickness).orElse(null),
                     label.map(StockFields::width).orElse(null), label.map(StockFields::length).orElse(null),
                     balances.getOrDefault(input.stock(), BigDecimal.ZERO));
         }).toList();
     }
     record PlanOption(String key, String fgUse2, String item, String cutLot, BigDecimal orderQuantity, DisplayFields display,
                       DrawingGoodPlaces.Options goodPlaces) {}
-    record Material(String lot, String warehouse, String item, BigDecimal qty) {
-        StockKey stock() { return new StockKey(lot, warehouse == null ? null : BINS.get(warehouse), item); }
+    record Material(String lot, String warehouse, String item, BigDecimal qty, String location) {
+        Material(String lot, String warehouse, String item, BigDecimal qty) { this(lot, warehouse, item, qty, null); }
+        StockKey stock() { return new StockKey(lot, warehouse == null ? null : BINS.get(warehouse), item, location); }
     }
     record ShipmentView(String id, Material material, boolean deferred, String startedAt, String finishedAt) {}
     record PlanView(State state, String plateFlag, long version, String ownerTerminalId,
@@ -327,6 +331,38 @@ public class DrawingController {
                         candidate.eligiblePlans().stream().map(DrawingController::format).toList())).toList()));
     }
 
+    @GetMapping("/material-scan")
+    ResponseEntity<?> materialScan(HttpServletRequest request, @org.springframework.web.bind.annotation.RequestParam String plan,
+            @org.springframework.web.bind.annotation.RequestParam(required=false) String lot) {
+        var actor = session(request);
+        var key = parse(plan);
+        if (key == null) return error(400, "INVALID_PLAN_KEY");
+        var detail = domain.get(actor, key);
+        if (detail.status() != 200) return error(detail.status(), detail.error());
+        var scoped = stockFields.stream().filter(s -> s.factory().equals(key.factory()) && s.site().equals(key.site())).toList();
+        var warehouses = terminalSettings.pinnedWarehouseRoles(request).map(roles -> roles.getOrDefault("issue", List.of()))
+                .orElseGet(() -> scoped.stream().map(StockFields::warehouse).distinct().toList());
+        var spec = display.get(plan);
+        if (lot == null) {
+            var places = warehouses.stream().map(code -> Map.of("code", code, "name", code)).toList();
+            return ResponseEntity.ok(Map.of("issue", places, "auxiliary", List.of(), "initial", "",
+                    "quality", spec == null ? "" : spec.material(), "thickness", spec == null ? "" : spec.thickness().toString(),
+                    "width", spec == null ? "" : spec.width().toString()));
+        }
+        var balances = domain.inputBalances(actor, key);
+        var seed = listedSeeds.get(key);
+        var rows = scoped.stream().filter(s -> seed != null && s.item().equals(seed.item()) && warehouses.contains(s.warehouse())
+                && s.lot().equals(lot)).map(s -> {
+            var available = balances.getOrDefault(new StockKey(s.lot(), BINS.get(s.warehouse()), s.item(), s.location()), BigDecimal.ZERO);
+            return new ScanStock(s.warehouse(), s.location() == null ? "" : s.location(), s.lot(), s.item(),
+                    s.thickness(), s.width(), s.length(), available, spec == null ? "" : spec.material());
+        }).filter(row -> row.available().signum() > 0).toList();
+        return ResponseEntity.ok(rows);
+    }
+
+    record ScanStock(String warehouse, String location, String lot, String material, BigDecimal thickness,
+                     BigDecimal width, BigDecimal length, BigDecimal available, String quality) {}
+
     @GetMapping("/active")
     List<String> active(HttpServletRequest request) {
         return domain.active(session(request)).stream().map(DrawingController::format).toList();
@@ -407,7 +443,7 @@ public class DrawingController {
 
     private static Material material(StockKey stock, BigDecimal quantity) {
         return new Material(stock.lot(), BINS.entrySet().stream().filter(entry -> entry.getValue() == stock.bin())
-                .findFirst().orElseThrow().getKey(), stock.item(), quantity);
+                .findFirst().orElseThrow().getKey(), stock.item(), quantity, stock.location());
     }
 
     static Session session(HttpServletRequest request) {
@@ -439,6 +475,10 @@ public class DrawingController {
         var remnant = new StockKey("REM-" + code, Bin.REMNANT, item);
         var stock = new java.util.HashMap<StockKey, BigDecimal>();
         stock.put(cut, BigDecimal.valueOf(4));
+        if (factory.equals("F1") && code.equals("A")) {
+            stock.put(new StockKey("SCAN-008", Bin.MANUAL, item, "DEMO-L1"), BigDecimal.valueOf(2));
+            stock.put(new StockKey("SCAN-008", Bin.MANUAL, item, "DEMO-L2"), BigDecimal.ONE);
+        }
         if (hasRemnant) stock.put(remnant, BigDecimal.valueOf(2));
         return new Seed(new PlanKey(factory, site, DATE, sequence), type, item, BigDecimal.valueOf(4), cut, remnant, stock);
     }

@@ -273,6 +273,11 @@ public final class EquipmentSettingsController {
         session.setAttribute(APPLIED + ".stages", stages);
     }
 
+    public static String appliedPlant(HttpServletRequest request) {
+        var session=request.getSession(false);
+        return session!=null && session.getAttribute(STATION+".site") instanceof Site site ? site.plant() : "";
+    }
+
     public static Station appliedStation(Station fallback, HttpServletRequest request) {
         var session = request.getSession(false);
         var station = session.getAttribute(STATION) instanceof Station pinned ? pinned : fallback;

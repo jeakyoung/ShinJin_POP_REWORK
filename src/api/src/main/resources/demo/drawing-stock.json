@@ -78,5 +78,7 @@
     "thickness": 3,
     "width": 3,
     "length": 570
-  }
+  },
+  {"factory": "F1", "site": "000001", "lot": "SCAN-008", "warehouse": "012", "item": "ITEM-A", "thickness": 14, "width": 245, "length": 800, "location": "DEMO-L1"},
+  {"factory": "F1", "site": "000001", "lot": "SCAN-008", "warehouse": "012", "item": "ITEM-A", "thickness": 14, "width": 245, "length": 800, "location": "DEMO-L2"}
 ]

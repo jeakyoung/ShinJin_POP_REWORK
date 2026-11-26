@@ -25,16 +25,17 @@ public final class ProcessGroupController {
     public record ReturnRow(String id, String warehouse, String location, BigDecimal thickness, BigDecimal width, BigDecimal length, BigDecimal quantity, String item) {}
     public record CompletedReturns(List<String> plans, List<ReturnRow> rows) {}
     public record ActiveInput(UUID groupId, boolean paused, int quantity) {}
-    public record CompletedInput(UUID groupId, List<String> plans, String lot, int quantity) {}
-    public record View(Station setting, int revision, List<String> ready, List<String> started, List<Entry> results, GroupReturnCatalog.Material material, List<ReturnRow> returns, List<CompletedReturns> completedReturns, ActiveInput activeInput, List<CompletedInput> completedInputs, Map<String,BigDecimal> badTotals) {}
-    public record Command(Integer revision, String action, List<Line> lines, List<ReturnRow> returns, List<String> returnIds, UUID groupId, BigDecimal inputQuantity) {}
-    private record Scope(String terminal, String worker, String profile) {}
+    public record CompletedInput(UUID groupId, List<String> plans, String lot, int quantity,List<GroupMaterialStock.Pick> scanned) {}
+    public record View(Station setting, int revision, List<String> ready, List<String> started, List<Entry> results, GroupReturnCatalog.Material material, List<ReturnRow> returns, List<CompletedReturns> completedReturns, ActiveInput activeInput, List<CompletedInput> completedInputs, Map<String,BigDecimal> badTotals,List<GroupMaterialStock.Pick> scanned) {}
+    public record Command(Integer revision, String action, List<Line> lines, List<ReturnRow> returns, List<String> returnIds, UUID groupId, BigDecimal inputQuantity,List<GroupMaterialStock.Addition> inputs) {}
+    private record Scope(String terminal, String worker, String profile,String plant,String center) {}
 
     private final WorkHistoryFixtures fixtures;
     private final GroupReturnCatalog catalog;
     private final WorkDefects defects = new WorkDefects();
     private final ProductionCatalog production;
-    public ProcessGroupController(WorkHistoryFixtures fixtures, GroupReturnCatalog catalog, ProductionCatalog production) { this.production=production; this.fixtures = fixtures; this.catalog=catalog; }
+    private final GroupMaterialStock stock;
+    public ProcessGroupController(WorkHistoryFixtures fixtures, GroupReturnCatalog catalog, ProductionCatalog production,GroupMaterialStock stock) { this.stock=stock; this.production=production; this.fixtures = fixtures; this.catalog=catalog; }
 
     private final Map<Scope, View> ledgers = new HashMap<>();
 
@@ -43,7 +44,7 @@ public final class ProcessGroupController {
         var assigned = EquipmentSettingsController.appliedStation(fixtures.station(identity.terminal().id()), request);
         if (assigned == null || !assigned.groupCenter() || (profile != null && !profile.equals(assigned.profile())))
             throw error(HttpStatus.FORBIDDEN, "GROUP_TERMINAL_REQUIRED");
-        return new Scope(identity.terminal().id(), identity.worker().id(), assigned.profile());
+        return new Scope(identity.terminal().id(), identity.worker().id(), assigned.profile(),EquipmentSettingsController.appliedPlant(request),assigned.center());
     }
 
     private View view(Scope scope, HttpServletRequest request) {
@@ -51,8 +52,8 @@ public final class ProcessGroupController {
         // Finish an already started batch against its original process sequence.
         if (prior != null && !prior.started().isEmpty()) return prior;
         var setting = EquipmentSettingsController.appliedStation(fixtures.station(scope.terminal()), request);
-        return prior == null ? new View(setting, 0, List.of("PLAN-A", "PLAN-B", "PLAN-C"), List.of(), List.of(), catalog.forTerminal(scope.terminal()), List.of(), List.of(), null, List.of(), Map.of())
-                : new View(setting, prior.revision(), prior.ready(), prior.started(), prior.results(), prior.material(), prior.returns(), prior.completedReturns(), prior.activeInput(), prior.completedInputs(), prior.badTotals());
+        return prior == null ? new View(setting, 0, List.of("PLAN-A", "PLAN-B", "PLAN-C"), List.of(), List.of(), catalog.forTerminal(scope.terminal()), List.of(), List.of(), null, List.of(), Map.of(), List.of())
+                : new View(setting, prior.revision(), prior.ready(), prior.started(), prior.results(), prior.material(), prior.returns(), prior.completedReturns(), prior.activeInput(), prior.completedInputs(), prior.badTotals(),prior.scanned());
     }
 
     private static final class DefectFailure extends ResponseStatusException {
@@ -88,10 +89,65 @@ public final class ProcessGroupController {
             var totals=new HashMap<>(parent.badTotals());
             totals.put(plan,saved.saved().total());
             ledgers.put(scope,new View(parent.setting(),parent.revision()+1,parent.ready(),parent.started(),parent.results(),parent.material(),
-                    parent.returns(),parent.completedReturns(),parent.activeInput(),parent.completedInputs(),Map.copyOf(totals)));
+                    parent.returns(),parent.completedReturns(),parent.activeInput(),parent.completedInputs(),Map.copyOf(totals),parent.scanned()));
             return saved;
         } catch(IllegalArgumentException e){throw new DefectFailure(HttpStatus.UNPROCESSABLE_ENTITY,e.getMessage());}
           catch(IllegalStateException e){throw new DefectFailure(HttpStatus.CONFLICT,e.getMessage());}
+    }
+
+    private List<String> issueWarehouses(View parent, Scope scope, HttpServletRequest request) {
+        if(parent.started().isEmpty() && parent.ready().isEmpty())
+            throw error(HttpStatus.CONFLICT,"WORK_LIST_REQUIRED");
+        var visible=parent.started().isEmpty()?parent.ready():parent.started();
+        if(parent.results().stream().anyMatch(result->visible.contains(result.plan())))
+            throw error(HttpStatus.CONFLICT,"FINISHED_WORK_ORDER");
+        var warehouses=production.terminal(scope.terminal(),request).issue();
+        if(warehouses.isEmpty())throw error(HttpStatus.CONFLICT,"ISSUE_WAREHOUSE_REQUIRED");
+        return warehouses;
+    }
+
+    public record Place(String code,String name) {}
+    public record Picker(List<Place> issue,List<Place> auxiliary,String initial,String quality,BigDecimal thickness,BigDecimal width) {}
+    @GetMapping("/input-material")
+    public synchronized Picker materialContext(HttpServletRequest request) {
+        var scope=scope(request,null);
+        var parent=view(scope,request);
+        var stores=issueWarehouses(parent,scope,request);
+        var spec=parent.material();
+        return new Picker(stores.stream().map(w->new Place(w,w)).toList(),List.of(),stores.get(0),
+                spec==null?"":spec.grade(),spec==null?null:spec.thickness(),spec==null?null:spec.width());
+    }
+
+    private List<GroupMaterialStock.Stock> candidates(View parent,Scope scope,String raw,String requestedCode,HttpServletRequest request) {
+        var stores=issueWarehouses(parent,scope,request);
+        var actor=DemoSessionController.requireIdentity(request);
+        var stages=parent.setting().stages();
+        var first=stages.isEmpty()?"":Objects.toString(stages.get(0).processCode(),"");
+        String code=requestedCode==null?first:requestedCode;
+        if(!code.equals(first) && !actor.workCodes().containsValue(code))throw error(HttpStatus.FORBIDDEN,"WORK_CODE_SCOPE");
+        return stock.lookup(scope.terminal(),actor.terminal().factory(),scope.plant(),parent.setting().center(),stores,code,parent.material(),raw);
+    }
+
+    @PostMapping("/input-material")
+    public synchronized List<GroupMaterialStock.Stock> scanMaterial(@RequestBody GroupMaterialStock.Scan cmd,
+            @RequestHeader(value="X-Pop-Work-Code",required=false) String code,HttpServletRequest request) {
+        var scope=scope(request,null);
+        return candidates(view(scope,request),scope,cmd.raw(),code,request);
+    }
+
+    private List<GroupMaterialStock.Pick> checkedInputs(View parent,Scope scope,Command cmd,HttpServletRequest request){
+        if(cmd.inputs()==null)return parent.scanned();
+        var rows=new ArrayList<GroupMaterialStock.Pick>();
+        var seen=new HashSet<GroupMaterialStock.Stock>();
+        for(var add:cmd.inputs()){
+            if(add==null || add.quantity()<1)throw error(HttpStatus.UNPROCESSABLE_ENTITY,"INVALID_QUANTITY");
+            var item=candidates(parent,scope,add.lot(),request.getHeader("X-Pop-Work-Code"),request).stream()
+                    .filter(s->s.warehouse().equals(add.warehouse())&&s.location().equals(add.location())&&s.material().equals(add.material()))
+                    .findFirst().orElseThrow(()->error(HttpStatus.UNPROCESSABLE_ENTITY,"INVALID_LOCATION"));
+            if(!seen.add(item) || add.quantity()>item.available())throw error(HttpStatus.UNPROCESSABLE_ENTITY,"MATERIAL_STOCK_LIMIT");
+            rows.add(new GroupMaterialStock.Pick(item,add.quantity()));
+        }
+        return List.copyOf(rows);
     }
 
     @GetMapping({"", "/{profile}"})
@@ -104,15 +160,18 @@ public final class ProcessGroupController {
         Scope scope = scope(request, profile);
         View before = view(scope, request);
         var setting = before.setting();
-        if (("START".equals(command.action()) || "FINISH".equals(command.action())) && (setting.stages().isEmpty() || setting.inputQty() < 1)) throw error(HttpStatus.CONFLICT, "GROUP_NOT_CONFIGURED");
         if (!Objects.equals(before.revision(), command.revision())) throw error(HttpStatus.CONFLICT, "STALE_REVISION");
+        boolean posting="START".equals(command.action()) || "FINISH".equals(command.action());
+        var inputs=posting?checkedInputs(before,scope,command,request):before.scanned();
+        if(posting && (setting.stages().isEmpty() || (setting.inputQty()<1 && inputs.isEmpty())))
+            throw error(HttpStatus.CONFLICT,"GROUP_NOT_CONFIGURED");
         boolean stop = "STOP".equals(command.action());
         if (stop || "RESTART".equals(command.action())) {
             var input = requireGroup(before, command);
             if (input.paused() == stop) throw error(HttpStatus.CONFLICT, "WRONG_GROUP_STATE");
             var next = new View(setting, before.revision() + 1, before.ready(), before.started(), before.results(),
                     before.material(), before.returns(), before.completedReturns(),
-                    new ActiveInput(input.groupId(), stop, input.quantity()), before.completedInputs(), before.badTotals());
+                    new ActiveInput(input.groupId(), stop, input.quantity()), before.completedInputs(), before.badTotals(),before.scanned());
             ledgers.put(scope, next);
             return next;
         }
@@ -126,7 +185,7 @@ public final class ProcessGroupController {
                 if (before.material().warehouse(row.warehouse()).scrap()) throw error(HttpStatus.CONFLICT,"SCRAP_DELETE");
                 rows.remove(row);
             }
-            var after = new View(setting,before.revision()+1,before.ready(),before.started(),before.results(),before.material(),List.copyOf(rows),before.completedReturns(),before.activeInput(),before.completedInputs(), before.badTotals());
+            var after = new View(setting,before.revision()+1,before.ready(),before.started(),before.results(),before.material(),List.copyOf(rows),before.completedReturns(),before.activeInput(),before.completedInputs(), before.badTotals(),before.scanned());
             ledgers.put(scope,after);
             return after;
         }
@@ -156,7 +215,7 @@ public final class ProcessGroupController {
             // Older demo clients send only the full started list and its observed revision.
             if (command.inputQuantity() != null || command.groupId() != null) requireGroup(before, command);
             if (input == null || input.paused()) throw error(HttpStatus.CONFLICT, "GROUP_NOT_RUNNING");
-            int quantity = inputQuantity(command.inputQuantity(), input.quantity(), setting.inputQty(), 1);
+            int quantity = inputQuantity(command.inputQuantity(), input.quantity(), setting.inputQty(), inputs.isEmpty()?1:0);
             for (Line line : command.lines()) {
                 if (before.badTotals().containsKey(line.plan()) && (line.bad()==null || before.badTotals().get(line.plan()).compareTo(line.bad())!=0)) throw error(HttpStatus.CONFLICT,"STALE_DEFECT_TOTAL");
                 if (line.good() == null || line.good().compareTo(BigDecimal.ONE) < 0 || line.bad() == null || line.bad().signum() < 0)
@@ -168,7 +227,7 @@ public final class ProcessGroupController {
             for (Stage stage : setting.stages()) {
                 for (Line line : command.lines()) results.add(new Entry(line.plan(), stage, line.good(), line.bad()));
             }
-            completedInputs.add(new CompletedInput(input.groupId(), before.started(), setting.inputLot(), quantity));
+            completedInputs.add(new CompletedInput(input.groupId(), before.started(), setting.inputLot(), quantity,inputs));
             input = null;
             started = List.of();
         } else if ("DELETE".equals(command.action())) {
@@ -181,7 +240,8 @@ public final class ProcessGroupController {
             started = List.copyOf(remaining);
             if (started.isEmpty()) input = null;
         } else throw error(HttpStatus.BAD_REQUEST, "UNKNOWN_ACTION");
-        var after = new View(setting, before.revision() + 1, List.copyOf(ready), started, List.copyOf(results), before.material(), returns, List.copyOf(completed), input, List.copyOf(completedInputs), input == null ? Map.of() : before.badTotals().entrySet().stream().filter(e -> started.contains(e.getKey())).collect(java.util.stream.Collectors.toUnmodifiableMap(Map.Entry::getKey,Map.Entry::getValue)));
+        var after = new View(setting, before.revision() + 1, List.copyOf(ready), started, List.copyOf(results), before.material(), returns, List.copyOf(completed), input, List.copyOf(completedInputs), input == null ? Map.of() : before.badTotals().entrySet().stream().filter(e -> started.contains(e.getKey())).collect(java.util.stream.Collectors.toUnmodifiableMap(Map.Entry::getKey,Map.Entry::getValue)),
+                "FINISH".equals(command.action()) || ("DELETE".equals(command.action()) && (before.started().isEmpty()?ready:started).isEmpty()) ? List.of() : inputs);
         ledgers.put(scope, after);
         // The just-finished group keeps its own results; the next ready list uses the applied station.
         return view(scope, request);

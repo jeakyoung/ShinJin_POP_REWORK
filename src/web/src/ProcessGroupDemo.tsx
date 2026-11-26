@@ -1,4 +1,6 @@
 import { useLayoutEffect, useRef, useState } from 'react'
+import GroupMaterialScan,{type GroupPick} from './GroupMaterialScan'
+import {key as stockKey} from './processLot/processStockTypes'
 import WorkRejections from './WorkRejections'
 import TouchField from './TouchField'
 import './processGroupScreen.css'
@@ -12,6 +14,7 @@ type Stage = { process: string; warehouse: string; processCode?: string; warehou
 type Result = { plan: string; stage: Stage; good: number; bad: number }
 type View = {
   setting: { stages: Stage[]; inputLot: string; inputQty: number }
+  scanned:GroupPick[]
   badTotals:Record<string,number>
   activeInput: { groupId: string; paused: boolean; quantity: number } | null
   material:Material|null; returns:ReturnRow[]; revision: number; ready: string[]; started: string[]; results: Result[]
@@ -31,6 +34,8 @@ export default function ProcessGroupDemo({ actor,workCode,onSessionExpired }: Pr
   const [draft,setDraft]=useState<ReturnRow[]>([])
   const [command,setCommand]=useState<'START'|'FINISH'|'DELETE'>('START')
   const [inputQty, setInputQty] = useState(0)
+  const [inputs,setInputs]=useState<GroupPick[]>([])
+  const [scan,setScan]=useState(false)
   const [inputPad, setInputPad] = useState(false)
   const [transition, setTransition] = useState<Transition>()
   const [reverse,setReverse]=useState(false)
@@ -44,7 +49,7 @@ export default function ProcessGroupDemo({ actor,workCode,onSessionExpired }: Pr
       if (response.status === 401) return onSessionExpired()
       if (!response.ok) throw Error()
       const current: View = await response.json()
-      if (!controller.signal.aborted) {setView(current);setInputQty(current.activeInput?.quantity ?? current.setting.inputQty);setDraft(current.returns??[]);setChecked(current.started)}
+      if (!controller.signal.aborted) {setView(current);setInputs(current.scanned);setInputQty(current.activeInput?.quantity ?? current.setting.inputQty);setDraft(current.returns??[]);setChecked(current.started)}
     }).catch(() => { if (!controller.signal.aborted) setNotice('그룹 작업을 불러오지 못했습니다.') })
     return () => { controller.abort(); active.current?.abort() }
   }, [url, onSessionExpired, refresh])
@@ -53,7 +58,7 @@ export default function ProcessGroupDemo({ actor,workCode,onSessionExpired }: Pr
   async function submit(action:'START'|'FINISH'|'DELETE'|'DELETE_RETURNS'|Transition, ids?:string[]) {
     if (!view || active.current) return false
     if(action==='START'||action==='FINISH'){
-      if(action==='FINISH' && inputQty<1){setError('투입수량을 입력하십시오.');return false}
+      if(action==='FINISH' && inputQty<1 && !inputs.length){setError('투입수량을 입력하십시오.');return false}
       const problem=returnProblem(draft,view.material,action==='FINISH')
       if(problem){setError(problem);return false}
     }
@@ -65,9 +70,10 @@ export default function ProcessGroupDemo({ actor,workCode,onSessionExpired }: Pr
     try {
       const changingState = action==='STOP' || action==='RESTART'
       const lines = changingState ? undefined : action==='FINISH' ? view.started.map(plan => ({ plan, good: amounts[plan]?.good, bad:String(view.badTotals[plan]??0) })) : checked.map(plan => ({ plan }))
-      const response = await fetch(url, { method:'POST',signal:controller.signal,headers:{'Content-Type':'application/json'},
+      const response = await fetch(url, { method:'POST',signal:controller.signal,headers:{'Content-Type':'application/json',...(workCode?{'X-Pop-Work-Code':workCode}:{})},
         body:JSON.stringify({ action,revision:view.revision,lines,
           groupId:changingState || action==='FINISH' ? view.activeInput?.groupId : undefined,
+          inputs:action==='START'||action==='FINISH'?inputs.map(({stock,quantity})=>({lot:stock.lot,warehouse:stock.warehouse,location:stock.location,material:stock.material,quantity})):undefined,
           inputQuantity:action==='START'||action==='FINISH' ? inputQty : undefined,
           returns:action==='START'||action==='FINISH'?draft:undefined,returnIds:ids }) })
       if(controller.signal.aborted)return false
@@ -77,6 +83,7 @@ export default function ProcessGroupDemo({ actor,workCode,onSessionExpired }: Pr
       const next:View=await response.json()
       if(controller.signal.aborted)return false
       setView(next)
+      if(action==='START'||action==='FINISH'||(action==='DELETE' && !(finishing?next.started:next.ready).length))setInputs(next.scanned)
       if(action!=='DELETE_RETURNS'){
         const sameGroup=action==='DELETE' && (finishing?next.started.length:next.ready.length)>0
         if(!sameGroup) {
@@ -131,18 +138,22 @@ export default function ProcessGroupDemo({ actor,workCode,onSessionExpired }: Pr
       <td>{finishing && <button type="button" disabled={busy} aria-label={plan+' 불량수량'} onClick={()=>setRejection(plan)}>{view.badTotals[plan]??0}</button>}</td>
       {Array.from({length:6},(_,col)=><td key={'tail'+col}/>)}</tr>)}</tbody></table></div>
     <div className="group5-progress"><span>선택건<br/>공정진행현황</span><table aria-label="선택건 공정진행현황"><thead><tr>{['발주','소재입고','폭 절단','평탄','평면','측면','길이절단','포장'].map(h=><th key={h}>{h}</th>)}</tr></thead><tbody><tr>{Array.from({length:8},(_,i)=><td key={i}/>)}</tr></tbody></table><span>품목유형 :　<b>-</b></span></div>
-    <div className="group5-material inputs"><header><strong>투입자재</strong><button disabled aria-label="투입자재 스캔" className="material-scan"/><button disabled aria-label="투입자재 추가">＋</button><button disabled aria-label="투입자재 삭제">－</button></header>
+    <div className="group5-material inputs"><header><strong>투입자재</strong><button disabled={busy || !view} onClick={()=>setScan(true)} aria-label="투입자재 스캔" className="material-scan"/><button disabled aria-label="투입자재 추가">＋</button><button disabled aria-label="투입자재 삭제">－</button></header>
       <table aria-label="투입자재"><colgroup>{[50,80,80,65,65,35,60,35].map((width,i)=><col key={i} style={{width}} />)}</colgroup>
         <thead><tr>{['선택','창고','로케이션','길이','재고'].map(h=><th key={h}>{h}</th>)}<th colSpan={3}>투입수량</th></tr></thead>
         <tbody>{!!plans.length && view?.setting.inputLot && <tr><td/><td/><td/><td/><td>{view.setting.inputQty}</td>
           <td><button disabled={busy} className="input-minus" aria-label="투입수량 감소" onClick={()=>setInputQty(n=>n<2?n:n-1)} /></td>
           <td><button disabled={busy} aria-label="투입수량 입력" onClick={()=>setInputPad(true)}>{inputQty}</button></td>
           <td><button disabled={busy} className="input-plus" aria-label="투입수량 증가" onClick={()=>setInputQty(n=>Math.min(view.setting.inputQty,n+1))} /></td>
-        </tr>}</tbody></table>
+        </tr>}{inputs.map(row=><tr key={stockKey(row.stock)} data-group-lot={row.stock.lot}>
+          <td>✓</td><td>{row.stock.warehouse}</td><td>{row.stock.location}</td><td>{row.stock.length}</td>
+          <td>{row.stock.available}</td><td colSpan={3}>{row.quantity}</td></tr>)}</tbody></table>
+      {scan && view && <GroupMaterialScan rows={inputs} code={workCode} onRows={setInputs}
+        onClose={()=>setScan(false)} onExpired={onSessionExpired}/>}
       {inputPad && view && <div className="group5-pad count"><InventoryPad label="투입수량" onClose={()=>setInputPad(false)}
         onApply={value=>{setInputQty(Math.min(value,view.setting.inputQty));setInputPad(false)}} /></div>}
     </div>
-    {view && <GroupReturnGrid rows={draft} material={view.material} enabled={!!plans.length} hasInput={!!view.setting.inputLot && view.setting.inputQty>0} busy={busy} change={setDraft} remove={remove}/>}
+    {view && <GroupReturnGrid rows={draft} material={view.material} enabled={!!plans.length} hasInput={(!!view.setting.inputLot && view.setting.inputQty>0) || !!inputs.length} busy={busy} change={setDraft} remove={remove}/>}
     </div>
     {view && <div className="group5-details"><p>투입 LOT {view.setting.inputLot} · 수량 {inputQty}</p>
       <ol>{stages.map(s=><li key={s.process}>{s.process} · {s.warehouse}</li>)}</ol>

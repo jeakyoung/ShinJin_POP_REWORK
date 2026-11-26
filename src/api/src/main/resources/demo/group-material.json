@@ -1,0 +1,34 @@
+{
+  "sites": [
+    {
+      "terminal": "DEMO-A2",
+      "factory": "샘플 1공장",
+      "plant": "P1",
+      "center": "005",
+      "warehouseStatus": "J",
+      "rows": [
+        {"warehouse": "WH-X", "location": "A", "lot": "G5-ONE-WH-X", "material": "G5-MAT", "name": "합성 원자재", "quality": "GRADE-DEMO", "thickness": 2, "width": 80, "length": 120, "available": 2, "workStatus": ""},
+        {"warehouse": "WH-X", "location": "B", "lot": "G5-MULTI-WH-X", "material": "G5-MAT", "name": "합성 원자재", "quality": "GRADE-DEMO", "thickness": 2, "width": 80, "length": 120, "available": 2, "workStatus": ""},
+        {"warehouse": "WH-X", "location": "C", "lot": "G5-MULTI-WH-X", "material": "G5-MAT", "name": "합성 원자재", "quality": "GRADE-DEMO", "thickness": 2, "width": 80, "length": 120, "available": 3, "workStatus": ""},
+        {"warehouse": "W01", "location": "A", "lot": "G5-ONE-W01", "material": "G5-MAT", "name": "합성 원자재", "quality": "GRADE-DEMO", "thickness": 2, "width": 80, "length": 120, "available": 2, "workStatus": ""},
+        {"warehouse": "W01", "location": "B", "lot": "G5-MULTI-W01", "material": "G5-MAT", "name": "합성 원자재", "quality": "GRADE-DEMO", "thickness": 2, "width": 80, "length": 120, "available": 2, "workStatus": ""},
+        {"warehouse": "W01", "location": "C", "lot": "G5-MULTI-W01", "material": "G5-MAT", "name": "합성 원자재", "quality": "GRADE-DEMO", "thickness": 2, "width": 80, "length": 120, "available": 3, "workStatus": ""}
+      ]
+    },
+    {
+      "terminal": "DEMO-A2",
+      "factory": "샘플 1공장",
+      "plant": "P1",
+      "center": "105",
+      "warehouseStatus": "J",
+      "rows": [
+        {"warehouse": "WH-R", "location": "A", "lot": "G5-ONE-WH-R", "material": "G5-MAT", "name": "합성 원자재", "quality": "GRADE-DEMO", "thickness": 2, "width": 80, "length": 120, "available": 2, "workStatus": ""},
+        {"warehouse": "WH-R", "location": "B", "lot": "G5-MULTI-WH-R", "material": "G5-MAT", "name": "합성 원자재", "quality": "GRADE-DEMO", "thickness": 2, "width": 80, "length": 120, "available": 2, "workStatus": ""},
+        {"warehouse": "WH-R", "location": "C", "lot": "G5-MULTI-WH-R", "material": "G5-MAT", "name": "합성 원자재", "quality": "GRADE-DEMO", "thickness": 2, "width": 80, "length": 120, "available": 3, "workStatus": ""},
+        {"warehouse": "W01", "location": "A", "lot": "G5-ONE-W01", "material": "G5-MAT", "name": "합성 원자재", "quality": "GRADE-DEMO", "thickness": 2, "width": 80, "length": 120, "available": 2, "workStatus": ""},
+        {"warehouse": "W01", "location": "B", "lot": "G5-MULTI-W01", "material": "G5-MAT", "name": "합성 원자재", "quality": "GRADE-DEMO", "thickness": 2, "width": 80, "length": 120, "available": 2, "workStatus": ""},
+        {"warehouse": "W01", "location": "C", "lot": "G5-MULTI-W01", "material": "G5-MAT", "name": "합성 원자재", "quality": "GRADE-DEMO", "thickness": 2, "width": 80, "length": 120, "available": 3, "workStatus": ""}
+      ]
+    }
+  ]
+}

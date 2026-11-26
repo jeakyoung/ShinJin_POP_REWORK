@@ -9,6 +9,8 @@ import DrawingNumber from './DrawingNumber'
 import ProductionPlaceDialog from './ProductionPlaceDialog'
 import type { PlaceWarehouse } from './ProductionPlaceDialog'
 import DrawingBulkDelete from './DrawingBulkDelete'
+import ProcessLotRows from './processLot/ProcessLotRows'
+import type { Stock, Pick as StockPick } from './processLot/processStockTypes'
 import ProcessPlans from './ProcessPlans'
 import type { PlanKey } from './planningApi'
 import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from 'react'
@@ -21,10 +23,10 @@ type DisplayFields = { orderNumber: string; orderSequence: number; customer: str
   dueDate: string; thickness: number; width: number; length: number; returnWarehouse: string; returnLocation: string; qualityCode?: string }
 type Option = { display?: DisplayFields; key: string; fgUse2: string; item: string; cutLot: string; orderQuantity: number;
   goodPlaces?:{warehouses:(PlaceWarehouse & {status:string;etc:string})[];initial:DrawingGoodPlace|null} }
-type StockView = Pick<Material, 'lot' | 'warehouse' | 'item'> & {
+type StockView = Pick<Material, 'lot' | 'warehouse' | 'item' | 'location'> & {
   thickness: number | null; width: number | null; length: number | null; available: number
 }
-const stockId = (row: Pick<Material, 'lot' | 'warehouse' | 'item'>) => JSON.stringify([row.lot,row.warehouse,row.item])
+const stockId = (row: Pick<Material, 'lot' | 'warehouse' | 'item' | 'location'>) => JSON.stringify([row.lot,row.warehouse,row.item,row.location || ''])
 type Scan = { accepted: boolean; scanToken: string; materials: Material[]; stockDetails: StockView[] }
 type WorkGroup = { id:string; members: {key:string; snapshot:Detail}[] }
 type Action = 'PACK1_START' | 'PACK1_FINISH' | 'DRAW_START' | 'DRAW_PAUSE' | 'DRAW_RESUME' | 'DRAW_FINISH' | 'PACK2_START' | 'PACK2_FINISH' | 'STANDARD_PACK_START' | 'STANDARD_PACK_PAUSE' | 'STANDARD_PACK_RESUME' | 'STANDARD_PACK_FINISH'
@@ -95,6 +97,8 @@ export default function DrawingWork({ terminalId, workerId, onSessionExpired }: 
   const [selected, setSelected] = useState<Option>()
   const [detail, setDetail] = useState<Detail>()
   const showFixtureTools = new URLSearchParams(window.location.search).get('drawingFixture') === '1'
+  const [materialScanOpen,setMaterialScanOpen] = useState(false)
+  const [runningDraft,setRunningDraft] = useState<{key:string;version:number;rows:Material[];fields:StockView[]}>()
   const inputPicker = useRef<HTMLDialogElement>(null)
   const scanner = useRef<HTMLDialogElement>(null)
   const skipDialog = useRef<HTMLDialogElement>(null)
@@ -180,6 +184,7 @@ export default function DrawingWork({ terminalId, workerId, onSessionExpired }: 
   async function load(option: Option) {
     await run(async (signal) => {
       selectedKey.current = option.key
+      setRunningDraft(undefined)
       setSelected(option)
       setDetail(undefined)
       setScan(undefined)
@@ -497,8 +502,9 @@ export default function DrawingWork({ terminalId, workerId, onSessionExpired }: 
   }, [selected, detail, onSessionExpired])
 
   const persisted = selected && detail && savedStock?.plan===selected.key && savedStock.version===detail.version ? savedStock : undefined
-  const shownInputs = scan ? materials : persisted?.inputs ?? []
-  const inputFields = scan ? scan.stockDetails : persisted?.details ?? []
+  const draft = selected && detail && runningDraft?.key === selected.key && runningDraft.version === detail.version ? runningDraft : undefined
+  const shownInputs = scan ? materials : draft?.rows ?? persisted?.inputs ?? []
+  const inputFields = scan ? scan.stockDetails : draft?.fields ?? persisted?.details ?? []
   const focusedMaterial = shownInputs.find(line=>stockId(line)===pickedLot) ?? shownInputs[0]
   const focusedStock = focusedMaterial && inputFields.find(line=>stockId(line)===stockId(focusedMaterial))
   const returnKey = detail?.productionGroupNo ?? selected?.key
@@ -559,6 +565,32 @@ export default function DrawingWork({ terminalId, workerId, onSessionExpired }: 
     setMaterials(next)
     const saved = selected && orderScans.current.get(selected.key)
     if (saved) saved.materials = next
+  }
+  const materialPath = api+'/material-scan'
+  const materialQuery = '?plan='+encodeURIComponent(selected?.key ?? '')
+  function openMaterialScan() {
+    if (!listed.length || !selected) { setNotice('작업 리스트를 스캔하여 주십시오.'); return }
+    void run(async signal => {
+      const details = await Promise.all(listed.map(row=>request<Detail>(url(row.key),signal)))
+      if (details.some(row=>['PACK2_READY','PACK2_ACTIVE','SHIP_READY'].includes(row.state))) {
+        setNotice('작업완료된 건이 있으므로 자재투입 불가능합니다.'); return
+      }
+      const context = await request<{issue:unknown[]}>(materialPath+materialQuery,signal)
+      if (!context.issue.length) { setNotice('투입창고가 설정되지 않았습니다. 환경설정을 확인하십시오.'); return }
+      setMaterialScanOpen(true)
+    })
+  }
+  function scannedRows(picks: StockPick[]) {
+    if (!selected || !detail) return
+    const rows = picks.map(({stock,quantity})=>({lot:stock.lot,warehouse:stock.warehouse,item:stock.material,location:stock.location || null,qty:quantity}))
+    const fields = picks.map(({stock},i)=>({...rows[i],thickness:stock.thickness,width:stock.width,length:stock.length,available:stock.available}))
+    if (scan) {
+      const next = {...scan,stockDetails:[...scan.stockDetails.filter(s=>!fields.some(f=>stockId(f)===stockId(s))),...fields]}
+      setScan(next)
+      const saved = orderScans.current.get(selected.key)
+      if (saved) saved.scan = next
+      applyInputs(rows)
+    } else setRunningDraft({key:selected.key,version:detail.version,rows,fields})
   }
   const locallyOwned = !detail?.ownerTerminalId || detail.ownerTerminalId === terminalId
   const disabled = busy || deleting || !locallyOwned || !!retry || !!groupRetry || !!returnRetry
@@ -654,10 +686,10 @@ export default function DrawingWork({ terminalId, workerId, onSessionExpired }: 
             <span>품목유형 :　<b>{selected?.display?.kind ?? '-'}</b></span></div>
         <div className="drawing-materials">
           <div><header><span>투입자재</span><span>두께　<b>{selected?.display?.thickness ?? '-'}</b></span><span>폭　<b>{selected?.display?.width ?? '-'}</b></span>
-            <div className="drawing-material-actions"><button aria-label="투입자재 스캔" className="drawing-lot-scan" disabled={disabled || !scan} onClick={() => {setCandidateLots(scan?.materials ?? []); inputPicker.current?.showModal()}} />
+            <div className="drawing-material-actions"><button aria-label="투입자재 스캔" className="drawing-lot-scan" disabled={disabled} onClick={openMaterialScan} />
               <button aria-label="투입자재 추가" disabled={disabled || !scan} onClick={() => {setCandidateLots(scan?.materials ?? []); inputPicker.current?.showModal()}}>＋</button>
               <button aria-label="투입자재 삭제" disabled={disabled || !scan || !pickedLot} onClick={() => {applyInputs(materials.filter(row => stockId(row) !== pickedLot));setPickedLot(undefined)}}>−</button></div></header><table aria-label="투입자재"><thead><tr>
-            <th>선택</th><th>창고</th><th>두께</th><th>폭</th><th>길이</th><th>재고</th><th>투입수량</th>
+            <th>선택</th><th>창고</th><th>두께</th><th>폭</th><th>길이</th><th>재고</th><th>투입수량</th><th>로케이션명</th><th>LOTNO</th>
           </tr></thead><tbody>{shownInputs.map((row,index) => {
             const id=stockId(row)
             const stock=inputFields.find(entry=>stockId(entry)===id)
@@ -666,8 +698,8 @@ export default function DrawingWork({ terminalId, workerId, onSessionExpired }: 
                 onClick={event=>event.stopPropagation()} onChange={event=>setPickedLot(event.target.checked?id:undefined)} /></td>
               <td title={row.lot}>{row.warehouse}</td><td>{stock?.thickness}</td><td>{stock?.width}</td>
               <td>{stock?.length}</td><td>{stock?.available}</td><td>{scan ?
-                <TouchField label={[row.lot,row.warehouse,row.item].join(' · ')} layout="decimal" type="number" min="0.001" step="0.001"
-                  disabled={disabled} value={row.qty?String(row.qty):''} onValueChange={value=>changeInput(index,value)} /> : row.qty}</td>
+                <TouchField label={[row.lot,row.warehouse,row.item,row.location].filter(Boolean).join(' · ')} layout="decimal" type="number" min="0.001" step="0.001"
+                  disabled={disabled} value={row.qty?String(row.qty):''} onValueChange={value=>changeInput(index,value)} /> : row.qty}</td><td>{row.location}</td><td>{row.lot}</td>
             </tr>
           })}</tbody></table></div>
           <div><header><span>반납자재</span><button type="button" className="drawing-return-label">라벨출력</button><div className="drawing-material-actions">
@@ -716,6 +748,15 @@ export default function DrawingWork({ terminalId, workerId, onSessionExpired }: 
       {planDialog && <ProcessPlans source="frmProcess7" initial={planDialog} apiBase="/api/drawing-008/planning" workCode="008"
         storagePrefix="pop-drawing-008-plan:" actor={actor} parentQualities={listed.flatMap(option=>option.display ? [option.display.material] : [])}
         onClose={()=>setPlanDialog(undefined)} onAttached={keys=>void attachPlans(keys)} onSessionExpired={onSessionExpired} />}
+      {materialScanOpen && selected && <ProcessLotRows open mode="scan" date="" sequence={0} renderRows={false}
+        source={{path:materialPath,suffix:materialQuery,headers:{}}}
+        lookupScan={(raw,signal)=>request<Stock[]>(materialPath+materialQuery+'&lot='+encodeURIComponent(raw),signal)}
+        rows={shownInputs.map(row=>{
+          const field=inputFields.find(f=>stockId(f)===stockId(row))
+          return {checked:true,quantity:row.qty,stock:{lot:row.lot,warehouse:row.warehouse,location:row.location ?? '',
+            material:row.item,name:row.item,quality:selected.display?.material ?? '',workStatus:'',
+            thickness:field?.thickness ?? 0,width:field?.width ?? 0,length:field?.length ?? 0,available:field?.available ?? 0}}
+        })} onRows={scannedRows} onSessionExpired={onSessionExpired} onClose={()=>setMaterialScanOpen(false)}/>}
       <dialog ref={inputPicker} aria-label="투입자재 선택" className="drawing-input-dialog">
         <input autoFocus aria-label="LOT 번호" onKeyDown={e => { if (e.key === 'Enter') setCandidateLots((scan?.materials ?? []).filter(row => row.lot === e.currentTarget.value.trim())) }} />
         {candidateLots.map(row => <button key={row.lot+row.warehouse+row.item} onClick={() => {

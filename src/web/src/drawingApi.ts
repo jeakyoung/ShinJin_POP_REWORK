@@ -1,6 +1,6 @@
 import { SessionExpired } from './workHistoryApi'
 
-export type DrawingMaterial = { lot: string; warehouse: string; item: string; qty: number }
+export type DrawingMaterial = { lot: string; warehouse: string; item: string; qty: number; location?:string|null }
 export type DrawingGoodPlace = { warehouse:string; warehouseName:string; location:string; locationName:string; workStatus:string; etc:string }
 export type DrawingState = 'CUT_READY' | 'PACK1_ACTIVE' | 'DRAW_READY' | 'DRAW_ACTIVE' | 'DRAW_PAUSED' | 'PACK2_READY' | 'PACK2_ACTIVE' | 'STANDARD_PACK_ACTIVE' | 'STANDARD_PACK_PAUSED' | 'SHIP_READY'
 export type DrawingDetail = {

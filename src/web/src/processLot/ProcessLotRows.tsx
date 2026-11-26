@@ -13,6 +13,7 @@ export function useProcessLotRows() {
 
 type Props = {
   open: boolean; mode?: 'scan' | 'manual'; slot?: number; date: string; sequence: number; rows: Pick[]; onRows: (rows: Pick[]) => void
+  lookupScan?: (raw:string, signal:AbortSignal)=>Promise<Stock[]>
   source?:PickerSource; renderRows?:boolean
   onManualApplied?: (rows:Pick[],focused:Pick|undefined)=>void
   onClose: () => void; onSessionExpired: () => void
@@ -29,7 +30,7 @@ function Modal({label, kind, children}: {label: string; kind: string; children: 
     onCancel={e => e.preventDefault()}>{children}</dialog>, document.body)
 }
 
-export default function ProcessLotRows({open,mode = 'scan',slot,date,sequence,rows,source,renderRows=true,onRows,onManualApplied,onClose,onSessionExpired}: Props) {
+export default function ProcessLotRows({open,mode = 'scan',slot,date,sequence,rows,source,lookupScan,renderRows=true,onRows,onManualApplied,onClose,onSessionExpired}: Props) {
   const found = useRef<Stock[]>([])
   const [choices,setChoices] = useState<Stock[]>([])
   const [notice,setNotice] = useState('')
@@ -90,7 +91,7 @@ export default function ProcessLotRows({open,mode = 'scan',slot,date,sequence,ro
       .map((v,i) => <td key={i}>{v}</td>)}</tr>)}
     {open && mode === 'scan' && !choices.length && <CommonScanDialog mode="material" position={{left:70,top:270}}
       onEnter={async (raw,signal) => {
-        const data = await getSessionData<Stock[]>('/api/pop/work-orders/'+encodeURIComponent(date)+'/'+sequence+'/material-scan'+(slot === undefined ? '' : '?slot='+slot),
+        const data = lookupScan ? await lookupScan(raw,signal) : await getSessionData<Stock[]>('/api/pop/work-orders/'+encodeURIComponent(date)+'/'+sequence+'/material-scan'+(slot === undefined ? '' : '?slot='+slot),
           signal,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({raw})})
         if (signal.aborted) return {next:'retry'}
         if (!data.length) { await warn('유효한 Lot No가 아닙니다. 다시 스캔하십시오.'); return {next:'retry'} }

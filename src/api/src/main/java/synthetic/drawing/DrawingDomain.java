@@ -15,7 +15,9 @@ public interface DrawingDomain {
 
     record PlanKey(String factory, String site, LocalDate date, int sequence) {}
     record Session(String factory, String site, String terminal, String operator) {}
-    record StockKey(String lot, Bin bin, String item) {}
+    record StockKey(String lot, Bin bin, String item, String location) {
+        public StockKey(String lot, Bin bin, String item) { this(lot, bin, item, null); }
+    }
     record Input(StockKey stock, BigDecimal quantity) {}
     record Seed(PlanKey key, OrderType type, String item, BigDecimal orderQuantity,
                 StockKey cutStock, StockKey remnantStock, Map<StockKey, BigDecimal> stock) {
