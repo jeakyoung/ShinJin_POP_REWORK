@@ -17,7 +17,8 @@ export default function TransferOutputList({ report, onClose }: { report: Output
   // rptOutputList lengths are hundredths of an inch. Reserve the non-repeating group footer on the last page.
   const available = 1169 - 25.62501 - 69.46878 - 170.561 - 0.9455045
   const perPage = Math.floor(available / 35)
-  const footer = 75.52875
+  // The native footer table starts at y=0 and prints at its 30.20835-unit height.
+  const footer = 30.20835
   const pages = report.groups.flatMap(group => {
     const chunks = []
     for (let i = 0; i < group.rows.length; i += perPage) chunks.push(group.rows.slice(i, i + perPage))
