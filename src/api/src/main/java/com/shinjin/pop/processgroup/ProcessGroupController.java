@@ -21,13 +21,15 @@ import java.util.*;
 @RequestMapping("/api/pop/process-group-demo")
 public final class ProcessGroupController {
     public record Line(String plan, BigDecimal good, BigDecimal bad) {}
-    public record Entry(String plan, Stage stage, BigDecimal good, BigDecimal bad) {}
+    public record Entry(String plan, Stage stage, BigDecimal good, BigDecimal bad,UUID groupId) {}
     public record ReturnRow(String id, String warehouse, String location, BigDecimal thickness, BigDecimal width, BigDecimal length, BigDecimal quantity, String item) {}
     public record CompletedReturns(List<String> plans, List<ReturnRow> rows) {}
     public record ActiveInput(UUID groupId, boolean paused, int quantity) {}
     public record CompletedInput(UUID groupId, List<String> plans, String lot, int quantity,List<GroupMaterialStock.Pick> scanned) {}
-    public record View(Station setting, int revision, List<String> ready, List<String> started, List<Entry> results, GroupReturnCatalog.Material material, List<ReturnRow> returns, List<CompletedReturns> completedReturns, ActiveInput activeInput, List<CompletedInput> completedInputs, Map<String,BigDecimal> badTotals,List<GroupMaterialStock.Pick> scanned) {}
-    public record Command(Integer revision, String action, List<Line> lines, List<ReturnRow> returns, List<String> returnIds, UUID groupId, BigDecimal inputQuantity,List<GroupMaterialStock.Addition> inputs) {}
+    public record View(Station setting, int revision, List<String> ready, List<String> started, List<Entry> results, GroupReturnCatalog.Material material, List<ReturnRow> returns, List<CompletedReturns> completedReturns, ActiveInput activeInput, List<CompletedInput> completedInputs, Map<String,BigDecimal> badTotals,List<GroupMaterialStock.Pick> scanned) {
+        public List<GroupPlanOrders.Row> getOrders(){return GroupPlanOrders.rows(this);}
+    }
+    public record Command(Integer revision, String action, List<Line> lines, List<ReturnRow> returns, List<String> returnIds, UUID groupId, BigDecimal inputQuantity,List<GroupMaterialStock.Addition> inputs,List<String> orderScans) {}
     private record Scope(String terminal, String worker, String profile,String plant,String center) {}
 
     private final WorkHistoryFixtures fixtures;
@@ -52,7 +54,7 @@ public final class ProcessGroupController {
         // Finish an already started batch against its original process sequence.
         if (prior != null && !prior.started().isEmpty()) return prior;
         var setting = EquipmentSettingsController.appliedStation(fixtures.station(scope.terminal()), request);
-        return prior == null ? new View(setting, 0, List.of("PLAN-A", "PLAN-B", "PLAN-C"), List.of(), List.of(), catalog.forTerminal(scope.terminal()), List.of(), List.of(), null, List.of(), Map.of(), List.of())
+        return prior == null ? new View(setting, 0, GroupPlanOrders.ORDERS.stream().map(GroupPlanOrders.Order::plan).toList(), List.of(), List.of(), catalog.forTerminal(scope.terminal()), List.of(), List.of(), null, List.of(), Map.of(), List.of())
                 : new View(setting, prior.revision(), prior.ready(), prior.started(), prior.results(), prior.material(), prior.returns(), prior.completedReturns(), prior.activeInput(), prior.completedInputs(), prior.badTotals(),prior.scanned());
     }
 
@@ -95,12 +97,30 @@ public final class ProcessGroupController {
           catch(IllegalStateException e){throw new DefectFailure(HttpStatus.CONFLICT,e.getMessage());}
     }
 
+    private GroupPlanOrders.Row scannedOrder(View parent,String raw){
+        if(raw==null || !raw.matches("[0-9]{9,14}"))throw error(HttpStatus.UNPROCESSABLE_ENTITY,"INVALID_WORK_ORDER");
+        var row=parent.getOrders().stream().filter(o->o.barcode().startsWith(raw.substring(0,8)) &&
+                Integer.parseInt(o.barcode().substring(8))==Integer.parseInt(raw.substring(8))).findFirst()
+                .orElseThrow(()->error(HttpStatus.UNPROCESSABLE_ENTITY,"INVALID_WORK_ORDER"));
+        if(row.remaining().compareTo(BigDecimal.ONE)<0)throw error(HttpStatus.CONFLICT,"WORK_ORDER_COMPLETE");
+        if(parent.started().contains(row.plan()))throw error(HttpStatus.CONFLICT,"WORK_ORDER_IN_LIST");
+        return row;
+    }
+
+    @GetMapping("/order-scan")
+    public synchronized org.springframework.http.ResponseEntity<?> orderScan(@RequestParam(required=false) String raw,HttpServletRequest request){
+        var scope=scope(request,null);
+        if(production.terminal(scope.terminal(),request).good().isEmpty())throw error(HttpStatus.CONFLICT,"GOOD_WAREHOUSE_REQUIRED");
+        if(raw==null)return org.springframework.http.ResponseEntity.noContent().build();
+        return org.springframework.http.ResponseEntity.ok().cacheControl(org.springframework.http.CacheControl.noStore()).body(scannedOrder(view(scope,request),raw));
+    }
+
     private List<String> issueWarehouses(View parent, Scope scope, HttpServletRequest request) {
-        if(parent.started().isEmpty() && parent.ready().isEmpty())
-            throw error(HttpStatus.CONFLICT,"WORK_LIST_REQUIRED");
-        var visible=parent.started().isEmpty()?parent.ready():parent.started();
-        if(parent.results().stream().anyMatch(result->visible.contains(result.plan())))
-            throw error(HttpStatus.CONFLICT,"FINISHED_WORK_ORDER");
+        if(parent.started().isEmpty() && parent.ready().isEmpty()){
+            String barcode=request.getParameter("order");
+            if(barcode==null)throw error(HttpStatus.CONFLICT,"WORK_LIST_REQUIRED");
+            scannedOrder(parent,barcode);
+        }
         var warehouses=production.terminal(scope.terminal(),request).issue();
         if(warehouses.isEmpty())throw error(HttpStatus.CONFLICT,"ISSUE_WAREHOUSE_REQUIRED");
         return warehouses;
@@ -209,6 +229,14 @@ public final class ProcessGroupController {
         var input = before.activeInput();
         var completedInputs = new ArrayList<>(before.completedInputs());
         if ("START".equals(command.action())) {
+            if(command.orderScans()!=null && !command.orderScans().isEmpty()){
+                if(production.terminal(scope.terminal(),request).good().isEmpty())throw error(HttpStatus.CONFLICT,"GOOD_WAREHOUSE_REQUIRED");
+                for(String barcode:command.orderScans()){
+                    String plan=scannedOrder(before,barcode).plan();
+                    if(ready.contains(plan) || !selected.contains(plan))throw error(HttpStatus.CONFLICT,"INVALID_ORDER_SCAN");
+                    ready.add(plan);
+                }
+            }
             if (!before.started().isEmpty() || !ready.containsAll(selected)) throw error(HttpStatus.CONFLICT, "NOT_READY");
             returns = validateReturns(before,command,false);
             int quantity = inputQuantity(command.inputQuantity(), setting.inputQty(), setting.inputQty(), 0);
@@ -222,18 +250,20 @@ public final class ProcessGroupController {
             if (input == null || input.paused()) throw error(HttpStatus.CONFLICT, "GROUP_NOT_RUNNING");
             if (production.terminal(scope.terminal(),request).good().isEmpty())
                 throw error(HttpStatus.CONFLICT,"GOOD_WAREHOUSE_REQUIRED");
+            if(command.lines().stream().anyMatch(line->line.good()==null || line.good().compareTo(BigDecimal.ONE)<0))
+                throw error(HttpStatus.UNPROCESSABLE_ENTITY,"PRODUCTION_QUANTITY_REQUIRED");
             boolean baseRowShown = setting.inputLot()!=null && !setting.inputLot().isEmpty();
             int quantity = inputQuantity(command.inputQuantity(), input.quantity(), setting.inputQty(), baseRowShown || inputs.isEmpty() ? 1 : 0);
             for (Line line : command.lines()) {
                 if (line.bad()==null || before.badTotals().getOrDefault(line.plan(),BigDecimal.ZERO).compareTo(line.bad())!=0) throw error(HttpStatus.CONFLICT,"STALE_DEFECT_TOTAL");
-                if (line.good() == null || line.good().compareTo(BigDecimal.ONE) < 0 || line.bad() == null || line.bad().signum() < 0)
+                if (line.bad().signum() < 0)
                     throw error(HttpStatus.UNPROCESSABLE_ENTITY, "INVALID_QUANTITY");
             }
             returns = validateReturns(before,command,true);
             if (!returns.isEmpty()) completed.add(new CompletedReturns(before.started(),returns));
             returns = List.of();
             for (Stage stage : setting.stages()) {
-                for (Line line : command.lines()) results.add(new Entry(line.plan(), stage, line.good(), line.bad()));
+                for (Line line : command.lines()) results.add(new Entry(line.plan(), stage, line.good(), line.bad(),input.groupId()));
             }
             completedInputs.add(new CompletedInput(input.groupId(), before.started(), setting.inputLot(), quantity,inputs));
             input = null;

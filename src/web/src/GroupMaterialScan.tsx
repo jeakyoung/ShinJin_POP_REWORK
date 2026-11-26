@@ -12,13 +12,14 @@ const messages:Record<string,string>={
   FINISHED_WORK_ORDER:'작업완료된 건이 있으므로 자재투입 불가능합니다.',
   ISSUE_WAREHOUSE_REQUIRED:'투입창고가 설정되지 않았습니다. 환경설정을 확인하십시오.',
 }
-type Props={rows:GroupPick[];code?:string;onRows:(rows:GroupPick[])=>void;onClose:()=>void;onExpired:()=>void}
-export default function GroupMaterialScan({rows,code,onRows,onClose,onExpired}:Props){
+type Props={order?:string;rows:GroupPick[];code?:string;onRows:(rows:GroupPick[])=>void;onClose:()=>void;onExpired:()=>void}
+export default function GroupMaterialScan({order,rows,code,onRows,onClose,onExpired}:Props){
   const [ready,setReady]=useState(false)
   const [choices,setChoices]=useState<Stock[]>([])
   const [message,setMessage]=useState('')
   const found=useRef<Stock[]>([])
   const live=useRef<AbortController|null>(null)
+  const suffix=order?'?order='+encodeURIComponent(order):''
   const headers:Record<string,string>=code?{'X-Pop-Work-Code':code}:{}
 
   async function read(response:Response){
@@ -29,13 +30,13 @@ export default function GroupMaterialScan({rows,code,onRows,onClose,onExpired}:P
   }
   useEffect(()=>{
     const ctrl=new AbortController();live.current=ctrl
-    void fetch(path,{signal:ctrl.signal,cache:'no-store'}).then(async r=>{
+    void fetch(path+suffix,{signal:ctrl.signal,cache:'no-store'}).then(async r=>{
       if(r.status===401){onExpired();return}
       const body=await r.json()
       if(!ctrl.signal.aborted){if(r.ok)setReady(true);else setMessage(messages[body.code]??'자재 조회 오류')}
     }).catch(()=>{if(!ctrl.signal.aborted)setMessage('자재 조회 오류')})
     return ()=>ctrl.abort()
-  },[onExpired])
+  },[onExpired,suffix])
   function merge(incoming:GroupPick[],single=false){
     const next=[...rows]
     for(const pick of incoming){
@@ -62,14 +63,14 @@ export default function GroupMaterialScan({rows,code,onRows,onClose,onExpired}:P
   return <>
     {ready && !choices.length && <CommonScanDialog mode="material" position={{left:70,top:270}}
       onEnter={async(raw,signal)=>{
-        const stocks:Stock[]=await read(await fetch(path,{method:'POST',signal,headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({raw})}))
+        const stocks:Stock[]=await read(await fetch(path+suffix,{method:'POST',signal,headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({raw})}))
         if(signal.aborted)return {next:'retry'}
         if(!stocks.length){setMessage('유효한 Lot No가 아닙니다. 다시 스캔하십시오.');return {next:'retry'}}
         if(stocks.length===1){if(!merge([{stock:stocks[0],quantity:1}],true))setMessage(over);return {next:'continue'}}
         found.current=stocks;return {next:'close',result:'ok'}
       }} onError={report} onClose={result=>{if(result==='ok')setChoices(found.current);else onClose()}}/>}
     {!!choices.length && <InventoryDialog label="투입자재 위치 선택" className="process-lot pl-select" onDismiss={onClose}>
-      <ProcessStockPicker date="" sequence={0} source={{path,suffix:'',headers}} scanned={choices} onApply={merge}
+      <ProcessStockPicker date="" sequence={0} source={{path,suffix,headers}} scanned={choices} onApply={merge}
         onClose={onClose} warn={async text=>setMessage(text)} onSessionExpired={onExpired}/>
     </InventoryDialog>}
     {message && <InventoryMessage text={message} onClose={dismiss}/>}

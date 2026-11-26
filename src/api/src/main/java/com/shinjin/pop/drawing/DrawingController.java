@@ -306,7 +306,7 @@ public class DrawingController {
         if(body.groupId()==null || body.action()==GroupAction.DRAW_START || body.action()==null)return error(422,"INVALID_GROUP_MEMBERS");
         var lines=body.members().stream().map(row->new GroupLine(parse(row.key()),row.expectedVersion(),List.of(),row.goodQty(),false,
                 good(actor,parse(row.key()),row.goodPlace(),request))).toList();
-        return groupResponse(domain.executeGroup(actor,body.groupId(),new GroupCommand(body.action(),body.requestId(),lines)));
+        return groupResponse(domain.executeGrid(actor,body.groupId(),new GroupCommand(body.action(),body.requestId(),lines)));
     }
 
     @GetMapping("/groups/{id}")

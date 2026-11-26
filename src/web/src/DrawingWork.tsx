@@ -211,7 +211,9 @@ export default function DrawingWork({ terminalId, workerId, onSessionExpired }: 
     return goodDrafts[option.key] ?? saved ?? option.goodPlaces?.initial
   }
   function goodCodes(option:Option) {
-    const place=goodPlace(option)
+    return placeCodes(goodPlace(option))
+  }
+  function placeCodes(place:DrawingGoodPlace | null | undefined) {
     return place && {warehouse:place.warehouse,location:place.location} || undefined
   }
   async function openGood(option:Option) {
@@ -448,7 +450,7 @@ export default function DrawingWork({ terminalId, workerId, onSessionExpired }: 
     })
   }
 
-  function commandGrid(action:'DRAW_START'|'DRAW_PAUSE'|'DRAW_RESUME'|'DRAW_FINISH') {
+  function commandGrid(action:'DRAW_START'|'DRAW_PAUSE'|'DRAW_RESUME') {
     if(action==='DRAW_START') {
       const members=checkedRows.map(row=>{
         const prepared=orderScans.current.get(row.key)
@@ -460,15 +462,49 @@ export default function DrawingWork({ terminalId, workerId, onSessionExpired }: 
       return
     }
     if(!selectedGroup)return
-    if(action==='DRAW_FINISH' && (checkedRows.length!==selectedGroup.members.length ||
-        selectedGroup.members.some(row=>!checkedRows.some(checked=>checked.key===row.key)))) {
-      setNotice('같은 작업그룹끼리 작업완료 가능합니다.');return
-    }
-    const members=selectedGroup.members.map(row=>({key:row.key,expectedVersion:row.snapshot.version,
-      ...(action==='DRAW_FINISH'?{goodQty:Number(amounts.current.get(row.key) ?? ''),
-        goodPlace:goodCodes(checkedRows.find(checked=>checked.key===row.key)!)}:{})}))
-    if(action==='DRAW_FINISH' && members.some(row=>!row.goodQty || row.goodQty<1)) {setNotice('생산수량을 입력하십시오.');return}
+    const members=selectedGroup.members.filter(row=>row.snapshot.activeGroupId===selectedGroup.id).map(row=>({key:row.key,expectedVersion:row.snapshot.version}))
     void sendGrid({action,body:JSON.stringify({groupId:selectedGroup.id,requestId:crypto.randomUUID(),action,members})})
+  }
+
+  async function finishChecked() {
+    if (!checkedRows.length) {setNotice('작업완료 할 항목을 선택해주세요.');return}
+    let pending: PendingDrawing | undefined
+    let target: Option | undefined
+    await run(async signal=>{
+      const rows=await Promise.all(checkedRows.map(async option=>({
+        option, snapshot: option.key===selected?.key && detail ? detail
+          : selectedGroup?.members.find(member=>member.key===option.key)?.snapshot ?? await request<Detail>(url(option.key),signal),
+        goodQty:Number(option.key===selected?.key ? qty : amounts.current.get(option.key))
+      })))
+      const first=rows[0], unit=first.snapshot.productionGroupNo
+      if (rows.some(row=>row.snapshot.productionGroupNo!==unit)) {setNotice('같은 작업그룹끼리 작업완료 가능합니다.');return}
+      if (!unit || rows.some(row=>row.snapshot.state!=='DRAW_ACTIVE')) {setNotice('작업 시작 후 종료 해주세요.');return}
+      if (rows.some(row=>!Number.isFinite(row.goodQty)||row.goodQty<1)) {setNotice('생산수량을 입력하십시오.');return}
+      if (rows.some(row=>row.snapshot.ownerTerminalId!==terminalId || pendingDrawing(scope(row.option.key))) ||
+          pendingDrawing(returnScope(unit)) || pendingDrawing(gridScope)) {setNotice('진행 중인 요청을 확인하십시오.');return}
+      const lines: ReturnLine[]=returnsByPlan[unit]?.map(returnValue) ??
+        (await request<{returns:ReturnLine[]}>(url(first.option.key)+'/audit',signal)).returns
+      if (lines.some(row=>row.warehouse!=='013' && !row.location)) {setNotice('반납 입력된 자재의 대한 창고, 로케이션을 설정해주십시오.');return}
+      if (lines.some(row=>row.warehouse!=='013' && row.quantity<1)) {setNotice('반납수량을 입력하십시오.');return}
+      if (lines.some(row=>!row.material || [row.thickness,row.width,row.length].some(v=>v<=0) || row.quantity<0)) {
+        setNotice('반납자재의 규격과 수량을 확인하십시오.');return
+      }
+      const action='DRAW_FINISH', requestId=crypto.randomUUID()
+      const members=rows.map(({option,snapshot,goodQty})=>({key:option.key,expectedVersion:snapshot.version,goodQty,
+        goodPlace:placeCodes(goodDrafts[option.key] ?? snapshot.goodPlace ?? option.goodPlaces?.initial)}))
+      if(first.snapshot.activeGroupId) {
+        pending={action,body:JSON.stringify({action,requestId,groupId:first.snapshot.activeGroupId,members})}
+      } else {
+        target=first.option
+        selectedKey.current=target.key;setSelected(target);setDetail(first.snapshot);setQty(String(first.goodQty))
+        pending={action,body:JSON.stringify({action,requestId,expectedVersion:first.snapshot.version,
+          goodQty:first.goodQty,goodPlace:members[0].goodPlace,returns:lines})}
+      }
+    })
+    if(pending) {
+      if(target) await send(target,pending,false)
+      else await sendGrid(pending)
+    }
   }
 
   function changeInput(index: number, value: string) {
@@ -519,7 +555,6 @@ export default function DrawingWork({ terminalId, workerId, onSessionExpired }: 
   const editableReturns = !!selected?.display && !!detail &&
     (detail.state === 'DRAW_ACTIVE' || detail.state === 'DRAW_PAUSED' || !!scan)
   const editedReturn = returnLines.find(row=>row.id===returnEditor)
-  const validReturns = returnLines.every(row => row.material && [row.thickness, row.width, row.length, row.quantity].every(value => value > 0))
   async function persistReturns(unit:string,pending:PendingDrawing,replay=false) {
     await run(async signal=>{
       const result = await submitDrawing<Detail>(returnScope(unit),api+'/returns',signal,pending,replay,setReturnRetry)
@@ -652,26 +687,7 @@ export default function DrawingWork({ terminalId, workerId, onSessionExpired }: 
             }}/>
           <div className="drawing-end"><DrawingDecisionButton label={'END\n작업완료'} question="작업완료 하시겠습니까?"
             disabled={disabled || detail?.state !== 'DRAW_ACTIVE' || (grouped && !selectedGroup)}
-            onConfirm={()=>{
-              if (!checkedRows.length) {setNotice('작업완료 할 항목을 선택해주세요.');return}
-              if (!grouped && (!validQty || Number(qty)<1)) {
-                setNotice('생산수량을 입력하십시오.');return
-              }
-              if (returnLines.some(row=>row.warehouse!=='013' && !row.location)) {
-                setNotice('반납 입력된 자재의 대한 창고, 로케이션을 설정해주십시오.');return
-              }
-              if (returnLines.some(row=>row.warehouse!=='013' && row.quantity<1)) {
-                setNotice('반납수량을 입력하십시오.');return
-              }
-              if(grouped) {
-                if (!validReturns) {setNotice('반납자재의 규격과 수량을 확인하십시오.');return}
-                commandGrid('DRAW_FINISH');return
-              }
-              if(!validReturns) {setNotice('반납자재의 규격과 수량을 확인하십시오.');return}
-              command({ action:'DRAW_FINISH',goodQty:Number(qty),returns:returnLines.map(row=>({
-                warehouse:row.warehouse,location:row.location,material:row.material,thickness:row.thickness,
-                width:row.width,length:row.length,quantity:row.quantity}))})
-            }}/></div>
+            onConfirm={()=>void finishChecked()}/></div>
           <button type="button" className="drawing-plan" disabled={busy || deleting} onClick={()=>setPlanDialog('choose')}>PLAN<br />생산계획</button>
           <button type="button" className="drawing-status" disabled={busy || deleting} onClick={()=>setPlanDialog('status')}>PLAN<br />계획현황</button>
           <DrawingBulkDelete keys={listed.map(row => row.key)} actor={actor} disabled={busy || !locallyOwned || !!retry}

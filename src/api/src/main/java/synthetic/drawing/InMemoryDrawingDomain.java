@@ -500,6 +500,14 @@ public final class InMemoryDrawingDomain implements DrawingDomain {
     }
 
     public synchronized Reply<GroupView> executeGroup(Session session, String id, GroupCommand command) {
+        return executeGroup(session,id,command,false);
+    }
+
+    public synchronized Reply<GroupView> executeGrid(Session session,String id,GroupCommand command) {
+        return executeGroup(session,id,command,true);
+    }
+
+    private Reply<GroupView> executeGroup(Session session,String id,GroupCommand command,boolean checkedGrid) {
         if (!validSession(session)) return error(401, "INVALID_SESSION");
         var group = groups.get(id);
         if (group == null) return error(404, "GROUP_NOT_FOUND");
@@ -511,8 +519,11 @@ public final class InMemoryDrawingDomain implements DrawingDomain {
                 return error(422, "INVALID_GROUP_MEMBERS");
             }
         }
-        if (lines.size() != group.members().size()) return error(422, "INVALID_GROUP_MEMBERS");
-        command = new GroupCommand(command.action(), command.requestId(), group.members().stream().map(key -> {
+        boolean partialFinish = checkedGrid && command.action()==GroupAction.DRAW_FINISH;
+        boolean remainingPause = checkedGrid && (command.action()==GroupAction.DRAW_PAUSE || command.action()==GroupAction.DRAW_RESUME);
+        if (lines.isEmpty() || (!partialFinish && !remainingPause && lines.size()!=group.members().size()))
+            return error(422,"INVALID_GROUP_MEMBERS");
+        command = new GroupCommand(command.action(), command.requestId(), group.members().stream().filter(lines::containsKey).map(key -> {
             var line = lines.get(key);
             return new GroupLine(key, line.expectedVersion(), normalized(line.inputs()), normalized(line.goodQty()), line.confirmSkip(),line.goodPlace());
         }).toList());
@@ -521,6 +532,8 @@ public final class InMemoryDrawingDomain implements DrawingDomain {
         if (receipt != null) {
             return receipt.command().equals(command) ? ok(receipt.result()) : error(409, "REQUEST_ID_REUSED");
         }
+        if (remainingPause && group.members().stream().anyMatch(key -> lines.containsKey(key)!=id.equals(plans.get(key).activeGroup)))
+            return error(422,"INVALID_GROUP_MEMBERS");
         for (var key : group.members()) {
             var owner = plans.get(key).owner;
             if (owner != null && !owner.equals(session.terminal())) return error(409, "TERMINAL_MISMATCH");
@@ -532,7 +545,7 @@ public final class InMemoryDrawingDomain implements DrawingDomain {
 
         var updatedPlans = new LinkedHashMap<>(plans);
         var updatedStock = new HashMap<>(sharedStock);
-        int lineNumber = 0;
+
         for (var line : command.members()) {
             var updated = new Plan(plans.get(line.key()));
             if (line.goodPlace()!=null) {
@@ -578,7 +591,7 @@ public final class InMemoryDrawingDomain implements DrawingDomain {
                 var rejection = finishDrawing(updated, line.goodQty());
                 if (rejection != null) return error(rejection.status(), rejection.error());
                 updated.activeGroup = null;
-                updated.groupResult = new GroupResult("DAILY-GROUP-" + id, "MOVE-GROUP-" + id, ++lineNumber);
+                updated.groupResult = new GroupResult("DAILY-GROUP-" + id, "MOVE-GROUP-" + id, group.members().indexOf(line.key()) + 1);
                 record(updated, session, Action.DRAW_FINISH, updated.groupResult.drawingDailyId(),
                         updated.groupResult.movementId(), updated.groupResult.movementLine());
             }
@@ -750,7 +763,8 @@ public final class InMemoryDrawingDomain implements DrawingDomain {
         if (lines.stream().anyMatch(row -> !validReturn(row,false))) return error(422,"INVALID_MATERIAL_RETURN");
         // The stored return sheet belongs to the production group, including a single-order group.
         for (var member : plans.values()) {
-            if (inScope(actor,member.seed.key()) && plan.productionGroup.equals(member.productionGroup)) {
+            if (inScope(actor,member.seed.key()) && plan.productionGroup.equals(member.productionGroup)
+                    && (member.state==DRAW_ACTIVE || member.state==DRAW_PAUSED)) {
                 member.returns = edit.lines();
                 member.version++;
             }
