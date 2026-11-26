@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parents[2]
 DATA = ROOT / "src/api/src/main/resources/demo"
 
 
-def fixture(directory):
+def fixture(directory,return_add=False):
     sites = json.loads((DATA / "basket-stock-picker.json").read_text(encoding="utf-8"))
     columns = json.loads((DATA / "basket-plan-columns.json").read_text(encoding="utf-8"))
     menu=json.loads((ROOT/"tools/demo-dataset/process-003-write.json").read_text(encoding="utf-8"))
@@ -27,7 +27,7 @@ def fixture(directory):
         menu["menuProcesses"][terminal]["slots"]["2"]="002"
     (directory/"menu.json").write_text(json.dumps(menu),encoding="utf-8")
     for plan in columns:
-        plan["columns"]["quality"] = "015"
+        plan["columns"]["quality"] = "014" if return_add and plan["terminal"]=="DEMO-A" else "015"
     for site in sites:
         prototype = site["stocks"][0]
         for location, number in [("BIN-02", "QA00000001"), ("BIN-03", "QA00000001"), ("BIN-04", "QA00000002")]:
@@ -42,6 +42,18 @@ def fixture(directory):
             grades="014,015,019",status="W", thickness=7,width=7,length=7,lots=[site["stocks"][-1]["spec"]["lot"]]))
     for name, data in [("stock-picker",sites),("plan-columns",columns)]:
         (directory / (name+".json")).write_text(json.dumps(data),encoding="utf-8")
+    returns=json.loads((DATA/"basket-return-lookup.json").read_text(encoding="utf-8"))
+    if return_add:
+        for site in sites:
+            for stock in site["stocks"]:
+                pos=stock["spec"]["lot"]["position"]
+                if pos in ("BIN-03","BIN-04"):
+                    stock["spec"].update(thickness=3 if pos=="BIN-03" else 7,width=3 if pos=="BIN-03" else 7)
+        (directory/"stock-picker.json").write_text(json.dumps(sites),encoding="utf-8")
+        fallback=deepcopy(returns[0]);fallback.update(thickness=2,width=80)
+        fallback["positions"].append({"code":"BIN-RETURN-02","name":"반납-02"})
+        returns.append(fallback)
+    (directory/"return-lookup.json").write_text(json.dumps(returns),encoding="utf-8")
 
 
 def verify(browser, base, terminal, date, digits, size, capture):
@@ -179,11 +191,12 @@ def main():
     parser.add_argument("jar",type=Path)
     parser.add_argument("--capture",type=Path)
     parser.add_argument("--reentry",action="store_true",help="Exercise parent deletion and returning from the production menu")
+    parser.add_argument("--return-add",action="store_true",help="Exercise the native return-row and preset length sequence")
     args=parser.parse_args()
     if args.capture:args.capture.mkdir(exist_ok=True,parents=True)
     with tempfile.TemporaryDirectory() as tmp:
         directory=Path(tmp)
-        fixture(directory)
+        fixture(directory,args.return_add)
         with socket.socket() as sock:
             sock.bind(("127.0.0.1",0));port=sock.getsockname()[1]
         base="http://127.0.0.1:"+str(port)
@@ -194,6 +207,7 @@ def main():
                 "--spring.web.resources.static-locations="+(ROOT/"src/web/dist").as_uri()+"/",
                 "--shinjin.demo.dataset="+str(directory/"menu.json"),
                 "--shinjin.demo.basket-stock-picker="+(directory/"stock-picker.json").as_uri(),
+                "--shinjin.demo.basket-return-lookup="+(directory/"return-lookup.json").as_uri(),
                 "--shinjin.demo.basket-plan-columns="+(directory/"plan-columns.json").as_uri()],
                 cwd=directory,stdout=log,stderr=log)
             try:
@@ -205,7 +219,8 @@ def main():
                 with sync_playwright() as pw:
                     browser=pw.chromium.launch(channel="chrome")
                     from reentry import verify_reentry
-                    run=verify_reentry if args.reentry else verify
+                    from return_add import verify_return_add
+                    run=verify_return_add if args.return_add else verify_reentry if args.reentry else verify
                     run(browser,base,"DEMO-A","2030-01-01","1",(1280,800),args.capture)
                     run(browser,base,"DEMO-A2","2030-01-02","2",(1024,768),args.capture)
                     browser.close()

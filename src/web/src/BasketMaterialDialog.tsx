@@ -69,7 +69,7 @@ export default function BasketMaterialDialog({ process,groupId, canWrite, locked
       {(error || message) && <p role="alert">{error || message}</p>}
       <table><thead><tr>{['창고명','로케이션명','재질명','두께','폭','길이','담은수량'].map(label => <th key={label}>{label}</th>)}</tr></thead>
         <tbody>{rows.map((row, index) => {
-          const lot = detail?.materials.find(entry => sameLot(entry.lot,row.lot))?.display
+          const lot = (tab==='returns'?detail?.group.returns[index]?.material:null)??detail?.materials.find(entry => sameLot(entry.lot,row.lot))?.display
             ??detail?.displayLots.find(entry => sameLot(entry.lot, row.lot))
           const length = 'length' in row ? Number(row.length) : lot?.length
           return <tr key={index} className={selected === index ? 'basket-selected' : undefined} onClick={() => setSelected(index)}>

@@ -17,7 +17,7 @@ final class BasketStockCatalog {
     record Location(String warehouse,String raw,Place location) {}
     record PlanStatus(PlanKey key,String status) {}
     record Match(String division,String warehouse,String grades,String status,BigDecimal thickness,BigDecimal width,BigDecimal length,List<Lot> lots) {}
-    record Stock(DisplayLot spec,String itemName,String workStatus,BigDecimal stock) {}
+    record Stock(DisplayLot spec,String itemName,String workStatus,BigDecimal stock,String itemKind3) {}
     record Site(String terminal,String plant,List<Place> issue,List<Place> auxiliary,List<Location> locations,List<PlanStatus> plans,List<Stock> stocks,List<Match> answers) {}
     record Candidate(String warehouse,String location,String lot,String material,String name,String quality,BigDecimal thickness,
                      BigDecimal width,BigDecimal length,BigDecimal available,String workStatus,String warehouseName,String locationName) {}

@@ -37,13 +37,12 @@ def verify_reentry(browser, base, terminal, date, digits, size, capture):
         button(choices,"WAREHOUSE-DEMO "+place+" 추가").tap()
     button(choices,"적용").tap()
     expect(cells).to_have_count(4)
-    for length in [120,140]:
+    pad=page.locator("dialog:has(.cn-apply)")
+    for length in [200,250]:
         button(board,"반납자재 추가").tap()
-        add=dialog("반납자재 선택")
-        add.get_by_role("combobox").select_option("0")
-        add.get_by_role("textbox",name="반납수량",exact=True).fill("1")
-        add.get_by_role("textbox",name="반납길이",exact=True).fill(str(length))
-        button(add,"적용").tap()
+        button(pad,str(length)).tap();button(pad,"적용").tap()
+        expect(pad).to_have_count(0)
+        expect(button(board,"반납자재 추가")).to_be_enabled()
     button(board,"장바구니 담기").tap();notice()
     initial=group()
     pairs=list(zip(initial["issueSequences"],initial["issues"]))
@@ -51,7 +50,7 @@ def verify_reentry(browser, base, terminal, date, digits, size, capture):
     assert [r["lot"]["position"] for _,r in pairs]==["BIN-DEMO","BIN-02","BIN-03","BIN-04"]
     board.get_by_role("checkbox",name="반납자재 1 선택",exact=True).check()
     button(board,"반납자재 삭제").tap();button(dialog("확인"),"예").tap();notice()
-    assert group()["returnSequences"]==[2] and group()["returns"][0]["length"]==140
+    assert group()["returnSequences"]==[2] and group()["returns"][0]["length"]==250
 
     basket=button(board,initial["id"])
     popup=dialog("장바구니 자재")

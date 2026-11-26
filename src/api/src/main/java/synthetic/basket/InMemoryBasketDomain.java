@@ -67,7 +67,7 @@ public final class InMemoryBasketDomain implements BasketDomain {
     }
 
     @Override
-    public synchronized Reply<Result> execute(Actor actor, Command raw, Set<Lot> queried) {
+    public synchronized Reply<Result> execute(Actor actor, Command raw, Set<Lot> queried,Set<DisplayLot> resolved) {
         if (!valid(actor)) return fail(401, "LOGIN_REQUIRED");
         Ledger ledger = ledgers.get(actor.scope());
         if (!allowed(ledger, actor) || !ledger.seed.terminals().get(actor.terminal())) {
@@ -87,7 +87,8 @@ public final class InMemoryBasketDomain implements BasketDomain {
         if (!ledger.work.keySet().containsAll(command.visible())) return fail(404, "WORK_NOT_FOUND");
 
         return switch (command.action()) {
-            case SAVE_BASKET -> save(ledger, actor, command);
+            case SAVE_BASKET -> save(ledger, actor, command,resolved);
+            case SAVE_RETURN_GRID -> saveReturnGrid(ledger,actor,command,resolved);
             case START_BASKET -> start(ledger, actor, command);
             case DELETE_UNFINISHED, DELETE_ROW -> delete(ledger, actor, command);
             case PAUSE_BASKET, RESUME_BASKET, FINISH_BASKET -> transition(ledger,actor,command);
@@ -147,7 +148,7 @@ public final class InMemoryBasketDomain implements BasketDomain {
         return commit(ledger, actor, command, keys, null);
     }
 
-    private Reply<Result> save(Ledger ledger, Actor actor, Command command) {
+    private Reply<Result> save(Ledger ledger, Actor actor, Command command,Set<DisplayLot> resolved) {
         Set<String> replacing = new HashSet<>();
         for (PlanKey key : command.selected()) {
             Work row = ledger.work.get(key);
@@ -161,7 +162,7 @@ public final class InMemoryBasketDomain implements BasketDomain {
         for (String id : replacing) {
             if (!command.selected().containsAll(members(ledger, id))) return fail(409, "GROUP_REPLACE_REQUIRES_ALL");
         }
-        if (command.returns().stream().anyMatch(row -> !ledger.seed.returnCandidates().contains(row.lot()))) {
+        if (command.returns().stream().anyMatch(row -> row.material()==null?!ledger.seed.returnCandidates().contains(row.lot()):!witnessed(row,resolved))) {
             return fail(422, "RETURN_LOCATION_NOT_ALLOWED");
         }
         var reserved = reservations(ledger, replacing);
@@ -197,7 +198,7 @@ public final class InMemoryBasketDomain implements BasketDomain {
         var startedAt = clock.instant();
         var returns = new ArrayList<ProductionReturn>();
         for (ReturnLine row : group.returns()) {
-            returns.add(new ProductionReturn(group.returnSequences().get(returns.size()), row, materialSpecs.get(row.lot()),
+            returns.add(new ProductionReturn(group.returnSequences().get(returns.size()), row, row.material()!=null?row.material():materialSpecs.get(row.lot()),
                     group.savedDate(), actor.worker(), startedAt, null, null));
         }
         var issues = new ArrayList<ProductionIssue>();
@@ -253,7 +254,7 @@ public final class InMemoryBasketDomain implements BasketDomain {
                     || spec.thickness() == null || spec.thickness().signum() == 0 || line.length().signum() == 0) {
                 return fail(422, "RETURN_DIMENSIONS_REQUIRED");
             }
-            if (previous.sequence() == edit.sequence()) line = new ReturnLine(line.lot(), edit.quantity(), line.length());
+            if (previous.sequence() == edit.sequence()) line = line.withQuantity(edit.quantity());
             rows.add(new ProductionReturn(previous.sequence(), line, spec, previous.outputDate(), previous.createdBy(),
                     previous.createdAt(), actor.worker(), now));
         }
@@ -298,6 +299,45 @@ public final class InMemoryBasketDomain implements BasketDomain {
         }
         ledger.groups.put(group.id(),new Group(group.id(),group.terminal(),issues,returns,group.startedAt(),group.savedDate(),
                 prodReturns,prodIssues,issueSeq,returnSeq));
+        return commit(ledger,actor,command,List.of(),group.id());
+    }
+
+    private static boolean witnessed(ReturnLine line,Set<DisplayLot> resolved){
+        var d=line.material();
+        return d!=null && line.lot().equals(d.lot()) && d.length()!=null && d.length().compareTo(line.length())==0
+                && resolved.stream().anyMatch(s->sameReturnMaterial(d,s));
+    }
+    private static boolean sameReturnMaterial(DisplayLot a,DisplayLot b){
+        return a!=null && b!=null && a.lot().equals(b.lot()) && Objects.equals(a.qualityName(),b.qualityName()) && Objects.equals(a.qualityCode(),b.qualityCode())
+                && Objects.equals(a.locationName(),b.locationName()) && Objects.equals(a.warehouseName(),b.warehouseName())
+                && a.thickness()!=null && a.width()!=null && a.length()!=null && b.length()!=null
+                && a.thickness().compareTo(b.thickness())==0 && a.width().compareTo(b.width())==0 && a.length().compareTo(b.length())==0;
+    }
+    private Reply<Result> saveReturnGrid(Ledger ledger,Actor actor,Command command,Set<DisplayLot> resolved){
+        var focus=ledger.work.get(command.visible().get(0));var group=ledger.groups.get(command.groupId());
+        if(group==null || !group.id().equals(focus.groupId()) || !group.terminal().equals(actor.terminal())
+                || (focus.phase()!=Phase.BASKETED && focus.phase()!=Phase.STARTED))return fail(409,"BASKET_REQUIRED");
+        var now=clock.instant();var rows=new ArrayList<ProductionReturn>();var used=new HashSet<Integer>();int highest=0;
+        for(var line:command.returns()){
+            int seq=line.sequence()==null?0:line.sequence();
+            var previous=group.productionReturns().stream().filter(p->p.sequence()==(line.sequence()==null?0:line.sequence())).findFirst().orElse(null);
+            int staged=group.startedAt()==null?group.returnSequences().indexOf(seq):-1;
+            ReturnLine saved=previous!=null?previous.line():staged>=0?group.returns().get(staged):null;
+            boolean unchanged=saved!=null && saved.lot().equals(line.lot()) && saved.length().compareTo(line.length())==0
+                    && (saved.material()==null && line.material()==null || sameReturnMaterial(line.material(),saved.material()));
+            if(seq>0 && saved==null || !unchanged && !witnessed(line,resolved))return fail(422,"RETURN_ROW_NOT_RESOLVED");
+            if(seq==0)seq=highest+1;
+            if(!used.add(seq))return fail(409,"RETURN_SEQUENCE_CONFLICT");
+            highest=Math.max(highest,seq);
+            var spec=line.material()!=null?line.material():materialSpecs.get(line.lot());
+            if(spec==null || spec.thickness()==null || spec.width()==null || spec.thickness().signum()==0 || spec.width().signum()==0)
+                return fail(422,"RETURN_DIMENSIONS_REQUIRED");
+            rows.add(new ProductionReturn(seq,line,spec,previous==null?LocalDate.now(clock):previous.outputDate(),
+                    previous==null?actor.worker():previous.createdBy(),previous==null?now:previous.createdAt(),
+                    previous==null?null:actor.worker(),previous==null?null:now));
+        }
+        ledger.groups.put(group.id(),new Group(group.id(),group.terminal(),group.issues(),group.returns(),group.startedAt(),group.savedDate(),
+                rows,group.productionIssues(),group.issueSequences(),group.returnSequences()));
         return commit(ledger,actor,command,List.of(),group.id());
     }
 
@@ -376,13 +416,15 @@ public final class InMemoryBasketDomain implements BasketDomain {
                     && quantity.compareTo(BigDecimal.valueOf(99999999)) <= 0 && quantity.toPlainString().length() <= 8;
         }
         if (command.returnEdit() != null) return false;
+        if(command.action()==Action.SAVE_RETURN_GRID)return !blank(command.groupId()) && command.visible().size()==1 && command.selected().isEmpty()
+                && command.issues().isEmpty() && !command.returns().isEmpty() && command.returns().stream().allMatch(InMemoryBasketDomain::validReturn);
         if (command.action()==Action.ADD_MANUAL_ISSUE)
             return command.manualSequence()!=null && command.manualSequence()>=0 && !blank(command.groupId()) && command.selected().isEmpty() && command.visible().size()==1 && command.returns().isEmpty()
                     && command.issues().size()==1 && valid(command.issues().get(0).lot()) && amount(command.issues().get(0).quantity());
         if (command.action() == Action.SAVE_BASKET) {
             return !command.selected().isEmpty() && !command.issues().isEmpty()
                     && command.issues().stream().allMatch(row -> valid(row.lot()) && amount(row.quantity()))
-                    && command.returns().stream().allMatch(row -> valid(row.lot()) && amount(row.quantity()) && amount(row.length()));
+                    && command.returns().stream().allMatch(row -> validReturn(row) && (row.material()!=null || amount(row.quantity())));
         }
         if (command.action() == Action.CLEAR_BASKET_ISSUES || command.action() == Action.CLEAR_BASKET_RETURNS) {
             return !blank(command.groupId()) && command.visible().size() == 1 && command.selected().isEmpty()
@@ -396,13 +438,21 @@ public final class InMemoryBasketDomain implements BasketDomain {
         return keys.stream().allMatch(key -> key.date() != null && key.sequence() > 0)
                 && new HashSet<>(keys).size() == keys.size();
     }
+    private static boolean validReturn(ReturnLine row){
+        return row!=null && row.lot()!=null && (row.material()!=null?!blank(row.lot().warehouse()):valid(row.lot()))
+                && (row.sequence()==null || row.sequence()>=0) && amount(row.length())
+                && row.quantity()!=null && (row.material()==null?(row.quantity().signum()==0 || amount(row.quantity()))
+                :row.quantity().signum()>=0 && row.quantity().stripTrailingZeros().scale()<=6
+                && row.quantity().stripTrailingZeros().toPlainString().length()<=8);
+    }
 
     private static Command normalize(Command command,boolean gridOrder) {
         Map<Lot, BigDecimal> totals = new java.util.LinkedHashMap<>();
         command.issues().forEach(line -> totals.merge(line.lot(), line.quantity().setScale(3), BigDecimal::add));
         var entries=totals.entrySet().stream();
-        var returnRows=command.returns().stream().map(row -> new ReturnLine(row.lot(),row.quantity().setScale(3),row.length().setScale(3)));
-        if(!gridOrder){
+        var returnRows=command.returns().stream().map(row -> new ReturnLine(row.lot(),row.material()==null?row.quantity().setScale(3):row.quantity().stripTrailingZeros(),
+                row.length().setScale(3),row.material(),row.sequence()));
+        if(!gridOrder && command.action()!=Action.SAVE_RETURN_GRID){
             entries=entries.sorted(Map.Entry.comparingByKey(LOT_ORDER));
             returnRows=returnRows.sorted(Comparator.comparing(ReturnLine::lot, LOT_ORDER).thenComparing(ReturnLine::length)
                     .thenComparing(ReturnLine::quantity));

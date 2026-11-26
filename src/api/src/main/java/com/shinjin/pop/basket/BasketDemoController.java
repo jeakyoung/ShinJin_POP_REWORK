@@ -78,6 +78,7 @@ public final class BasketDemoController {
 
     private record Selection(Actor actor,String slot,PlanKey plan) {}
     private static final class PickerSession {
+        final Map<Selection,Set<DisplayLot>> resolvedReturns=new java.util.HashMap<>();
         final Map<Selection,Set<Lot>> seen = new java.util.HashMap<>();
     }
     private static PickerSession pickerSession(HttpServletRequest request) {
@@ -96,6 +97,23 @@ public final class BasketDemoController {
             var seen=data.seen.computeIfAbsent(selection,ignored->new java.util.HashSet<>());
             for(var row:rows)seen.add(new Lot(row.material(),row.lot(),row.warehouse(),row.location()));
         }
+    }
+    void rememberReturn(HttpServletRequest request,Actor actor,PlanKey plan,DisplayLot result){
+        var data=pickerSession(request);
+        synchronized(data){data.resolvedReturns.computeIfAbsent(new Selection(actor,request.getHeader("X-Pop-Process-Slot"),plan),
+                unused->new java.util.HashSet<>()).add(result);}
+    }
+    boolean recognizesReturn(HttpServletRequest request,View view,Work focus,DisplayLot candidate){
+        var data=pickerSession(request);List<DisplayLot> seen=new java.util.ArrayList<>();
+        synchronized(data){
+            seen.addAll(data.resolvedReturns.getOrDefault(new Selection(view.actor(),request.getHeader("X-Pop-Process-Slot"),focus.plan().key()),Set.of()));
+        }
+        view.groups().stream().filter(g->g.id().equals(focus.groupId())).forEach(g->{
+            g.returns().forEach(r->seen.add(r.material()));g.productionReturns().forEach(r->seen.add(r.material()));
+        });
+        return seen.stream().filter(java.util.Objects::nonNull).anyMatch(s->s.lot().equals(candidate.lot()) && java.util.Objects.equals(s.qualityCode(),candidate.qualityCode())
+                && java.util.Objects.equals(s.qualityName(),candidate.qualityName()) && s.thickness().compareTo(candidate.thickness())==0
+                && s.width().compareTo(candidate.width())==0);
     }
 
     @GetMapping("/scan")
@@ -163,6 +181,15 @@ public final class BasketDemoController {
             Set<Lot> seen;
             synchronized(data){seen=Set.copyOf(data.seen.getOrDefault(selection,Set.of()));}
             return response(domain.execute(actor,command,seen));
+        }
+        if(command!=null && (command.action()==Action.SAVE_RETURN_GRID || command.returns().stream().anyMatch(line->line.material()!=null))){
+            if(actor.workCode()==null)return failure(403,"WORK_CODE_REQUIRED");
+            var data=pickerSession(request);Set<DisplayLot> resolved=new java.util.HashSet<>();
+            synchronized(data){
+                for(var plan:command.visible())resolved.addAll(data.resolvedReturns.getOrDefault(
+                        new Selection(actor,request.getHeader("X-Pop-Process-Slot"),plan),Set.of()));
+            }
+            return response(domain.execute(actor,command,Set.of(),resolved));
         }
         return response(domain.execute(actor,command));
     }

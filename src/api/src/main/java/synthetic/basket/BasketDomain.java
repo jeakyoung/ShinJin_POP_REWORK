@@ -9,7 +9,7 @@ import java.util.Set;
 
 public interface BasketDomain {
     enum Mode { BASKET, ALL_LIST, CHECKED_LIST }
-    enum Action { SAVE_BASKET, START_BASKET, PAUSE_BASKET, RESUME_BASKET, FINISH_BASKET, DELETE_ROW, DELETE_UNFINISHED, CLEAR_BASKET_ISSUES, CLEAR_BASKET_RETURNS, SET_RETURN_QUANTITY, ADD_MANUAL_ISSUE, REMOVE_ISSUE_ROWS, REMOVE_RETURN_ROWS }
+    enum Action { SAVE_BASKET, START_BASKET, PAUSE_BASKET, RESUME_BASKET, FINISH_BASKET, DELETE_ROW, DELETE_UNFINISHED, CLEAR_BASKET_ISSUES, CLEAR_BASKET_RETURNS, SET_RETURN_QUANTITY, ADD_MANUAL_ISSUE, REMOVE_ISSUE_ROWS, REMOVE_RETURN_ROWS, SAVE_RETURN_GRID }
     enum Phase { READY, BASKETED, STARTED, PAUSED, COMPLETED }
 
     record Scope(String factory, String site, String center) {}
@@ -24,13 +24,20 @@ public interface BasketDomain {
     }
     record Lot(String item, String lot, String warehouse, String position) {}
     record Issue(Lot lot, BigDecimal quantity) {}
-    record ReturnLine(Lot lot, BigDecimal quantity, BigDecimal length) {}
+    record ReturnLine(Lot lot, BigDecimal quantity, BigDecimal length, DisplayLot material, Integer sequence) {
+        public ReturnLine(Lot lot,BigDecimal quantity,BigDecimal length){this(lot,quantity,length,null,null);}
+        public ReturnLine withQuantity(BigDecimal value){return new ReturnLine(lot,value,length,material,sequence);}
+    }
     record Work(Plan plan, Phase phase, String groupId, BigDecimal produced) {
         public Work(Plan plan,Phase phase,String groupId){this(plan,phase,groupId,null);}
     }
     record ProductionAmount(PlanKey key,BigDecimal quantity) {}
     record DisplayLot(Lot lot, String warehouseName, String locationName, String qualityName,
-                      BigDecimal thickness, BigDecimal width, BigDecimal length) {}
+                      BigDecimal thickness, BigDecimal width, BigDecimal length,String qualityCode) {
+        public DisplayLot(Lot lot,String warehouseName,String locationName,String qualityName,BigDecimal thickness,BigDecimal width,BigDecimal length){
+            this(lot,warehouseName,locationName,qualityName,thickness,width,length,null);
+        }
+    }
     record ReturnEdit(int sequence, BigDecimal quantity) {}
     record ProductionReturn(int sequence, ReturnLine line, DisplayLot material, LocalDate outputDate,
                             String createdBy, Instant createdAt, String updatedBy, Instant updatedAt) {}
@@ -121,5 +128,6 @@ public interface BasketDomain {
 
     Reply<View> view(Actor actor);
     default Reply<Result> execute(Actor actor, Command command) { return execute(actor,command,Set.of()); }
-    Reply<Result> execute(Actor actor, Command command, Set<Lot> queried);
+    default Reply<Result> execute(Actor actor,Command command,Set<Lot> queried){return execute(actor,command,queried,Set.of());}
+    Reply<Result> execute(Actor actor,Command command,Set<Lot> queried,Set<DisplayLot> resolved);
 }

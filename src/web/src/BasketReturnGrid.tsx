@@ -2,13 +2,14 @@ import { useRef, useState } from 'react'
 import type { ProductionReturn } from './basketApi'
 import './BasketReturnGrid.css'
 
-export default function BasketReturnGrid({ rows, disabled, revision, onSave, selected, onSelect }: {
+export default function BasketReturnGrid({ rows, disabled, revision, onSave, selected, onSelect,onLength }: {
   rows: ProductionReturn[]
   disabled: boolean
   revision: number
   onSave: (sequence: number, quantity: string, revision: number) => void
   selected: number[]
   onSelect: (rows:number[]) => void
+  onLength?: (index:number)=>void
 }) {
   const pad = useRef<HTMLDialogElement>(null)
   const [edit, setEdit] = useState<{ sequence: number; original: string; revision: number }>()
@@ -31,7 +32,7 @@ export default function BasketReturnGrid({ rows, disabled, revision, onSave, sel
         <td><input type="checkbox" aria-label={'반납자재 ' + sequence + ' 선택'} checked={selected.includes(index)}
           onChange={event => onSelect(event.target.checked ? [...selected,index] : selected.filter(id => id !== index))} /></td>
         <td>{material?.warehouseName}</td><td>{material?.locationName}</td><td>{material?.qualityName}</td>
-        <td>{material?.thickness}</td><td>{material?.width}</td><td>{line.length}</td>
+        <td>{material?.thickness}</td><td>{material?.width}</td><td>{onLength?<button type="button" disabled={disabled} aria-label={'반납길이 '+(index+1)+'행'} onClick={()=>onLength(index)}>{line.length}</button>:line.length}</td>
         <td><button type="button" aria-label={'반납수량 ' + sequence + '행'} disabled={disabled} onClick={() => {
           setDraft('0')
           setEdit({ sequence, original: String(line.quantity), revision })

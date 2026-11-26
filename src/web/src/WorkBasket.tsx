@@ -9,14 +9,14 @@ import BasketReturnGrid from './BasketReturnGrid'
 import './floor-work.css'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { BasketApiError, basketScanner, loadBasket, loadBasketGroup, scanBasketOrder, sendBasketCommand, stockPickerSource } from './basketApi'
+import { BasketApiError, basketScanner, loadBasket, loadBasketGroup, scanBasketOrder, sendBasketCommand, stockPickerSource, lookupBasketReturns } from './basketApi'
 import ProcessLotRows from './processLot/ProcessLotRows'
 import type {Pick} from './processLot/processStockTypes'
 import CommonNumericPad from './commonInput/CommonNumericPad'
 import { Dialog } from './workprint/WorkPrintParts'
 import { box } from './workprint/workPrintLayout'
 import './workprint/work-print.css'
-import type { Action, Actor, BasketView, Command, Issue, PlanKey, ReturnLine } from './basketApi'
+import type { Action, Actor, BasketView, Command, Issue, PlanKey, ReturnLine, ReturnInput } from './basketApi'
 
 const planId = (key: PlanKey) => key.date + '/' + key.sequence
 const lotLabel = (lot: BasketView['materials'][number]['lot']) => [lot.item, lot.lot, lot.warehouse, lot.position].join(' / ')
@@ -55,6 +55,12 @@ export default function WorkBasket({ actor,processSlot,workCode,onSessionExpired
   const [modal,setModal]=useState<'scan'|'issue'|'return'|'plan'|'manual'>()
   const [manual,setManual]=useState<{owner:string;rows:Pick[]}>()
   const [heldReturns,setHeldReturns]=useState<{rows:BasketView['groups'][number]['returns'];sequences:number[]}>()
+  const [returnDrafts,setReturnDrafts]=useState<ReturnLine[]>()
+  const returnContext=useRef(0)
+  const [returnPad,setReturnPad]=useState<{index:number;input:ReturnInput;rows:ReturnLine[];revision:number}>()
+  const [returnFocus,setReturnFocus]=useState(0)
+  const [returnAmount,setReturnAmount]=useState<{index:number;rows:ReturnLine[];revision:number}>()
+  const boardRef=useRef<HTMLElement>(null)
   const [detailsBound,setDetailsBound]=useState(!processSlot)
   const [materialFocus,setMaterialFocus]=useState(0)
   const [dimensions,setDimensions]=useState<Record<string,string>>({})
@@ -101,7 +107,7 @@ export default function WorkBasket({ actor,processSlot,workCode,onSessionExpired
   }
 
   async function submit(action?: Action, group?: { id: string; key?: PlanKey; revision: number },
-      returnEdit?: Command['returnEdit'], rowKey?:PlanKey, focusedIssue?:Pick, removal?:Command['removal']) {
+      returnEdit?: Command['returnEdit'], rowKey?:PlanKey, focusedIssue?:Pick, removal?:Command['removal'],returnGrid?:ReturnLine[]) {
     if (!view || !sameActor || !view.canWrite || inFlight.current) return
     const rows = view.work.map(row => row.plan.key).filter(key => visible.includes(planId(key)))
     const saving = action === 'SAVE_BASKET'
@@ -112,7 +118,7 @@ export default function WorkBasket({ actor,processSlot,workCode,onSessionExpired
       amounts: action==='FINISH_BASKET'?rows.map(key=>({key,quantity:amounts[planId(key)]??'0'})):undefined,
       issues: saving ? issues : focusedIssue ? [issueFromPick(focusedIssue)] : [],
       manualSequence:focusedIssue?focusedIssue.materialSequence??0:undefined,
-      returns: saving ? returns : [],
+      returns: returnGrid??(saving ? returns : []),
     })
     if (!command) return
     const mount = lifetime.current
@@ -131,8 +137,9 @@ export default function WorkBasket({ actor,processSlot,workCode,onSessionExpired
       clearPending(command)
       const removing=command.action==='REMOVE_ISSUE_ROWS'||command.action==='REMOVE_RETURN_ROWS'
       const clearing=command.action==='CLEAR_BASKET_ISSUES'||command.action==='CLEAR_BASKET_RETURNS'
-      if(!removing && !(clearing && result.groupId) && command.action!=='ADD_MANUAL_ISSUE' && command.action!=='SET_RETURN_QUANTITY'){
+      if(!removing && !(clearing && result.groupId) && command.action!=='ADD_MANUAL_ISSUE' && command.action!=='SET_RETURN_QUANTITY' && command.action!=='SAVE_RETURN_GRID'){
         setManual(undefined);setPickedIssues([]);setMaterialFocus(0);setPickedReturns([]);setHeldReturns(undefined)
+        setReturnDrafts(undefined)
       }
       if (command.action === 'SAVE_BASKET') {
         setIssues([])
@@ -171,6 +178,7 @@ export default function WorkBasket({ actor,processSlot,workCode,onSessionExpired
       } else if(removing && command.removal){
         if(command.action==='REMOVE_ISSUE_ROWS')removeIssueSelection(command.removal.checked)
         else {
+          if(returnDrafts)setReturnDrafts(returnDrafts.filter((_,i)=>!command.removal!.checked.includes(i)))
           if(!returnsLive){
             const deleted=command.removal.checked
             setHeldReturns({rows:displayReturns.filter((_,i)=>!deleted.includes(i)).map(r=>({...r,quantity:Number(r.quantity),length:Number(r.length)})),
@@ -179,10 +187,17 @@ export default function WorkBasket({ actor,processSlot,workCode,onSessionExpired
           setPickedReturns([])
         }
         setNotice('삭제 되었습니다.')
-      } else if (command.action === 'SET_RETURN_QUANTITY' || command.action==='ADD_MANUAL_ISSUE') setNotice('')
+      } else if (command.action === 'SET_RETURN_QUANTITY' || command.action==='ADD_MANUAL_ISSUE' || command.action==='SAVE_RETURN_GRID') setNotice('')
       else setNotice('처리 완료 · 버전 ' + result.revision)
       const next = await loadBasket(process)
-      if (mount.active) setView(next)
+      if (mount.active){
+        setView(next)
+        if(command.action==='SAVE_RETURN_GRID'){
+          const updated=next.groups.find(g=>g.id===command.groupId)
+          setPickedReturns([]);setHeldReturns(undefined);setReturnFocus(0)
+          setReturnDrafts(updated?.startedAt?undefined:updated?.productionReturns.map(r=>({...r.line,material:r.material,sequence:r.sequence,length:String(r.line.length),quantity:String(r.line.quantity)})))
+        }
+      }
     } catch (error) {
       if (!mount.active) return
       setMaterialTarget(undefined)
@@ -258,8 +273,8 @@ export default function WorkBasket({ actor,processSlot,workCode,onSessionExpired
       thickness:d?.thickness??0,width:d?.width??0,length:d?.length??0,available:entry?.available??0},quantity:Number(quantity),checked:pickedIssues.includes(index),
       materialSequence:group?.startedAt?group.productionIssues?.[index]?.sequence:group?.issueSequences[index]}
   })
-  const displayIssues=currentPicks.map(issueFromPick),displayReturns=!detailsBound?[]:heldReturns?.rows??group?.returns??returns
-  const returnSequences=heldReturns?.sequences??group?.returnSequences??displayReturns.map(()=>0)
+  const displayIssues=currentPicks.map(issueFromPick),displayReturns=!detailsBound?[]:returnDrafts??heldReturns?.rows??group?.returns??returns
+  const returnSequences=returnDrafts?.map(r=>r.sequence??0)??heldReturns?.sequences??group?.returnSequences??displayReturns.map(()=>0)
   function setMaterialRows(rows:Pick[]){
     setManual({owner:materialOwner,rows})
     setPickedIssues(rows.flatMap((r,i)=>r.checked?[i]:[]))
@@ -280,8 +295,9 @@ export default function WorkBasket({ actor,processSlot,workCode,onSessionExpired
     return dimensions[type+field]??String(maxDimension(field))
   }
   function focusPlan(id:string){
+    returnContext.current++
     setDetailsBound(true);setDimensions({});setManual(undefined);setIssues([]);setPickedIssues([]);setMaterialFocus(0)
-    setReturns([]);setPickedReturns([]);setHeldReturns(undefined)
+    setReturns([]);setPickedReturns([]);setHeldReturns(undefined);setReturnDrafts(undefined);setReturnFocus(0)
     setFocused(id)
     if(process.slot){
       const mount=lifetime.current
@@ -295,6 +311,86 @@ export default function WorkBasket({ actor,processSlot,workCode,onSessionExpired
     }
   }
   const returnsLive=!!group?.startedAt && (row?.phase==='STARTED' || row?.phase==='PAUSED')
+  const liveReturnGrid=returnsLive && !returnDrafts
+  function nativeReturns():ReturnLine[]{
+    if(liveReturnGrid && detailsBound)return group!.productionReturns.map(r=>({...r.line,material:r.line.material,sequence:r.sequence,
+      quantity:String(r.line.quantity),length:String(r.line.length)}))
+    return displayReturns.map((r,i)=>({...r,sequence:returnSequences[i]??0,quantity:String(r.quantity),length:String(r.length)}))
+  }
+  function storeReturnRows(rows:ReturnLine[]){
+    setReturnDrafts(rows)
+    if(!group)setReturns(rows)
+  }
+  function returnInput():ReturnInput|undefined{
+    if(!list.length || !row){setNotice('수주 리스트를 스캔하여 주십시오.');return}
+    if(dimension('return','thickness')==='' && dimension('return','width')===''){setNotice('작업 리스트를 선택하여 주십시오.');return}
+    if(!currentPicks.length){setNotice('투입자재가 없습니다.\n자재 투입 후 진행하십시오.');return}
+    if(list.some(r=>checked.includes(planId(r.plan.key))&&r.phase==='COMPLETED')){setNotice('작업완료된 건이 존재합니다.\n관리자에게 문의하십시오.');return}
+    return {firstPlan:list[0].plan.key,firstIssue:displayIssues[0].lot,focusedIssue:displayIssues[materialFocus]?.lot??displayIssues[0].lot}
+  }
+  async function addNativeReturn(){
+    const input=returnInput()
+    if(!input || !row || busy)return
+    const mount=lifetime.current
+    const context=returnContext.current
+    setBusy(true)
+    try{
+      const found=await lookupBasketReturns(row.plan.key,input,process)
+      if(!mount.active || context!==returnContext.current)return
+      const previous=nativeReturns()
+      const rows=[...previous,...found.map(material=>({lot:material.lot,material,sequence:0,quantity:'1',length:'0'}))]
+      storeReturnRows(rows);setPickedReturns([...pickedReturns,...found.map((_,i)=>previous.length+i)])
+      setReturnFocus(rows.length-1)
+      setReturnPad({index:rows.length-1,input,rows,revision:view!.revision})
+    }catch(error){
+      if(!mount.active)return
+      if(error instanceof BasketApiError && error.status===401)onSessionExpired()
+      else setNotice(error instanceof BasketApiError && error.status===409?'반납창고가 설정되지 않았습니다.\n환경설정을 확인하십시오.':'반납자재를 조회할 수 없습니다.')
+    }finally{if(mount.active)setBusy(false)}
+  }
+  function editReturnLength(index:number){
+    const input=returnInput(),rows=nativeReturns()
+    if(input && rows[index] && rows[index].lot.warehouse!=='013')setReturnPad({index,input,rows,revision:view!.revision})
+  }
+  async function persistReturnRows(rows:ReturnLine[],revision:number){
+    storeReturnRows([...rows])
+    if(group && row && rows.every(r=>Number(r.length)>0 && r.material?.thickness!==0 && r.material?.width!==0))
+      await submit('SAVE_RETURN_GRID',{id:group.id,key:row.plan.key,revision},undefined,undefined,undefined,undefined,rows)
+  }
+  function finishReturnAmount(value?:string){
+    const pad=returnAmount
+    setReturnAmount(undefined)
+    if(!pad)return
+    const rows=pad.rows.map((r,i)=>i===pad.index?{...r,quantity:value??r.quantity}:r)
+    void persistReturnRows(rows,pad.revision)
+  }
+  async function finishReturnLength(value?:string){
+    const pad=returnPad
+    setReturnPad(undefined)
+    if(!pad || !row)return
+    const line=pad.rows[pad.index]
+    if(!line)return
+    const length=Number(value??line.length)
+    const rows=[...pad.rows]
+    rows[pad.index]={...line,length:String(length)}
+    storeReturnRows(rows)
+    requestAnimationFrame(()=>boardRef.current?.querySelector<HTMLButtonElement>('[aria-label="반납길이 '+(pad.index+1)+'행"]')?.focus({preventScroll:true}))
+    if(!length || line.material?.thickness===0 || line.material?.width===0)return
+    const mount=lifetime.current
+    const context=returnContext.current
+    setBusy(true)
+    try{
+      const result=await lookupBasketReturns(row.plan.key,{...pad.input,position:line.lot.position,length,row:line.material},process)
+      if(!mount.active || context!==returnContext.current)return
+      const material=result.at(-1)
+      if(material)rows[pad.index]={...rows[pad.index],lot:material.lot,material}
+      await persistReturnRows(rows,pad.revision)
+    }catch(error){
+      if(!mount.active)return
+      if(error instanceof BasketApiError && error.status===401)onSessionExpired()
+      else setNotice('반납품목을 조회할 수 없습니다.')
+    }finally{if(mount.active)setBusy(false)}
+  }
   async function openScanner() {
     clearTimeout(initialScan.current)
     const attempt=++scanAttempt.current
@@ -353,6 +449,7 @@ export default function WorkBasket({ actor,processSlot,workCode,onSessionExpired
     setFocused(planId(found.plan.key));setScan('');setModal(undefined);setNotice('')
   }
   function popup(type:'issue'|'return'){
+    if(type==='return' && process.slot){void addNativeReturn();return}
     if(!list.length){setNotice('수주 리스트를 스캔하여 주십시오.');return}
     if(type==='issue' && process.slot && row){
       if(anyComplete){setNotice('작업 완료된 건이 있으므로 자재 투입 불가능합니다.');return}
@@ -378,22 +475,22 @@ export default function WorkBasket({ actor,processSlot,workCode,onSessionExpired
   }
   function removeDraft(type:'issue'|'return'){
     const issueList=type==='issue', selected=issueList?pickedIssues:pickedReturns
-    const rows=issueList?currentPicks.map(p=>p.materialSequence??0):returnsLive&&detailsBound?group!.productionReturns.map(r=>r.sequence)
+    const rows=issueList?currentPicks.map(p=>p.materialSequence??0):liveReturnGrid&&detailsBound?group!.productionReturns.map(r=>r.sequence)
       :returnSequences.slice(0,displayReturns.length)
     if(!rows.length){setNotice(issueList?'투입자재를 확인하십시오.':'반납 자재 정보를 확인하십시오.');return}
     if(issueList && group && selected.length===rows.length){setNotice('1개 이상의 투입자재는 필수 입니다.');return}
     if(anyComplete){setNotice(issueList?'작업 완료된 건이 있으므로 자재 삭제 불가능합니다.':'작업완료가 되었습니다. 삭제할 수 없습니다.');return}
-    const returnLines=returnsLive?group!.productionReturns.map(r=>r.line):displayReturns
+    const returnLines=liveReturnGrid?group!.productionReturns.map(r=>r.line):displayReturns
     if(!issueList && selected.some(i=>returnLines[i]?.lot.warehouse==='013')){setNotice('산철, 분철은 삭제할 수 없습니다.');return}
     if(!selected.length){setNotice(issueList?'삭제할 투입자재를 선택하십시오.':'삭제할 반납자재를 선택하십시오.');return}
     setConfirmation({text:issueList?'선택한 투입 자재를 삭제하시겠습니까?':'선택한 반납자재를 삭제하시겠습니까?',yes:()=>{
       if(group){void submit(issueList?'REMOVE_ISSUE_ROWS':'REMOVE_RETURN_ROWS',{id:group.id,revision:view!.revision},undefined,undefined,undefined,{rows,checked:selected});return}
       if(issueList)removeIssueSelection(selected)
-      else {setReturns(returns.filter((_,i)=>!selected.includes(i)));setPickedReturns([])}
+      else {storeReturnRows(nativeReturns().filter((_,i)=>!selected.includes(i)));setPickedReturns([])}
       setNotice('삭제 되었습니다.')
     }})
   }
-  return <section className="prod-board basket-board" aria-label="작업 장바구니">
+  return <section ref={boardRef} className="prod-board basket-board" aria-label="작업 장바구니">
     <header className="prod-toolbar"><Scanner onClick={()=>void openScanner()}/><div className="prod-info"><span>시작시간 :</span><b>{group?.startedAt?new Date(group.startedAt).toLocaleTimeString('ko-KR',{hour12:false}):'-'}</b></div>
       <Tool code="BASKET ADD" label="장바구니 담기" disabled={locked || view.mode!=='BASKET' || row?.phase!=='READY'} onClick={saveBasket}/>
       <Tool code="START" label="작업 시작" disabled={locked||view.mode!=='BASKET'||!list.length||!list.every(work=>work.groupId)||list.every(work=>work.phase==='STARTED'||work.phase==='PAUSED'||work.phase==='COMPLETED')} onClick={()=>void submit('START_BASKET')}/>
@@ -416,16 +513,26 @@ export default function WorkBasket({ actor,processSlot,workCode,onSessionExpired
     <div className="prod-panes">{(['issue','return'] as const).map(type=>{const isIssue=type==='issue',title=isIssue?'투입자재':'반납자재'
       return <section key={type} className="prod-pane"><header><h3>{title}</h3><span>두께</span><button className="basket-metric" aria-label={title+' 두께'} onClick={()=>setDimensionEdit(type+'thickness')}>{dimension(type,'thickness')}</button><span>폭</span><button className="basket-metric" aria-label={title+' 폭'} onClick={()=>setDimensionEdit(type+'width')}>{dimension(type,'width')}</button>
         <button className="prod-sign" aria-label={title+' 추가'} type="button" disabled={locked||!row||row.phase==='PAUSED'||anyComplete} onClick={()=>popup(type)} /><button type="button" className="prod-sign" aria-label={title+' 삭제'} disabled={locked||!row||row.phase==='PAUSED'||anyComplete} onClick={()=>removeDraft(type)} /></header>
-        {!isIssue && returnsLive && group?<BasketReturnGrid rows={detailsBound?group.productionReturns:[]} selected={pickedReturns} onSelect={setPickedReturns} revision={view.revision} disabled={locked||!view.returnCandidates.length||anyComplete}
+        {!isIssue && liveReturnGrid && group?<BasketReturnGrid rows={detailsBound?group.productionReturns:[]} selected={pickedReturns} onSelect={setPickedReturns} onLength={process.slot?editReturnLength:undefined} revision={view.revision} disabled={locked||!view.returnCandidates.length||anyComplete}
           onSave={(sequence,q,revision)=>void submit('SET_RETURN_QUANTITY',{id:group.id,revision},{sequence,quantity:q})}/>:
         <div className="prod-scroll"><table aria-label={title+' 목록'}><thead><Head headers={isIssue?['선택','창고','두께','폭','길이','재고','투입수량','로케이션','Lot no']:['선택','창고','로케이션','재질','두께','폭','길이','반납수량']}/></thead>
           <tbody>{(isIssue?displayIssues:displayReturns).map((line,i)=>{
             const stock=isIssue?currentPicks[i].stock:undefined
-            const spec=view.materials.find(m=>lotLabel(m.lot)===lotLabel(line.lot))?.display
-            return <tr key={i} aria-current={isIssue&&i===materialFocus} onClick={()=>{if(stock)setMaterialFocus(i)}}><td><input type="checkbox" aria-label={title+' '+(i+1)+' 선택'} checked={(isIssue?pickedIssues:pickedReturns).includes(i)}
+            const spec=('material' in line?line.material:undefined)??view.materials.find(m=>lotLabel(m.lot)===lotLabel(line.lot))?.display
+            return <tr key={i} aria-current={isIssue?i===materialFocus:i===returnFocus} onClick={()=>{if(stock)setMaterialFocus(i);else setReturnFocus(i)}}><td><input type="checkbox" aria-label={title+' '+(i+1)+' 선택'} checked={(isIssue?pickedIssues:pickedReturns).includes(i)}
             onChange={e=>{if(isIssue)setMaterialRows(currentPicks.map((p,n)=>n===i?{...p,checked:e.target.checked}:p))
               else setPickedReturns(e.target.checked?[...pickedReturns,i]:pickedReturns.filter(v=>v!==i))}}/></td>
-            <td>{stock?.warehouseName??line.lot.warehouse}</td>{stock?<><td>{spec?.thickness}</td><td>{spec?.width}</td><td>{spec?.length}</td><td>{stock.available}</td><td>{line.quantity}</td><td>{stock.locationName??line.lot.position}</td><td>{line.lot.lot}</td></>:<><td>{line.lot.position}</td><td/><td/><td/><td>{'length' in line?String(line.length):''}</td><td>{line.quantity}</td></>}</tr>})}</tbody></table></div>}</section>})}</div>
+            <td>{stock?.warehouseName??spec?.warehouseName??line.lot.warehouse}</td>
+            {stock?<><td>{spec?.thickness}</td><td>{spec?.width}</td><td>{spec?.length}</td><td>{stock.available}</td>
+              <td>{line.quantity}</td><td>{stock.locationName??line.lot.position}</td><td>{line.lot.lot}</td></>:
+              <><td>{spec?.locationName??line.lot.position}</td><td>{spec?.qualityName}</td><td>{spec?.thickness}</td><td>{spec?.width}</td>
+                <td>{'length' in line && (process.slot?<button type="button" aria-label={'반납길이 '+(i+1)+'행'}
+                  disabled={locked||anyComplete} onClick={()=>editReturnLength(i)}>{line.length}</button>:line.length)}</td>
+                <td>{process.slot?<button type="button" aria-label={'반납수량 '+(i+1)+'행'} disabled={locked||anyComplete}
+                  onClick={()=>setReturnAmount({index:i,rows:nativeReturns(),revision:view.revision})}>{line.quantity}</button>:line.quantity}</td></>}
+            </tr>})}</tbody></table></div>}</section>})}</div>
+    {returnAmount && <CommonNumericPad mode="decimal" onApply={s=>finishReturnAmount(s)} onCancel={()=>finishReturnAmount()}/>}
+    {returnPad && <CommonNumericPad mode="preset" onApply={s=>void finishReturnLength(s)} onCancel={()=>void finishReturnLength()}/>}
     {modal==='manual' && row && <ProcessLotRows open mode="manual" renderRows={false} date={row.plan.key.date} sequence={row.plan.key.sequence}
       source={{...stockPickerSource(row.plan.key,checked,process),initialSize:{thickness:dimension('issue','thickness'),width:dimension('issue','width')}}} rows={currentPicks} onRows={setMaterialRows} onManualApplied={applyManual}
       onClose={()=>setModal(undefined)} onSessionExpired={onSessionExpired}/>}
