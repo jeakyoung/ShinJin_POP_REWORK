@@ -6,6 +6,7 @@ export type Contract = {
 }
 
 const messages: Record<string, string> = {
+  STATEMENT_DATA_UNAVAILABLE: '거래명세서 조회 자료를 확인할 수 없습니다.',
   EMPTY_SELECTION: '출력할 행을 선택하세요.',
   UNKNOWN_FORM: '지원하지 않는 출력 양식입니다.',
   INVALID_INPUT: '필수 출력 정보가 누락됐거나 올바르지 않습니다.',

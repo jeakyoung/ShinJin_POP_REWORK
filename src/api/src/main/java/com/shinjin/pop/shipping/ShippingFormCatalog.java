@@ -26,20 +26,26 @@ final class ShippingFormCatalog {
             return new ShippingDomain.Handoff(id,ref,new ShippingDomain.Scope(factory,site),terminal,lot,item,quantity,deferred);
         }
     }
-    record Fixtures(Map<String,Info> plans, List<FixtureRow> handoffs, Map<String,List<String>> carryQueryFixtures) {}
+    record Fixtures(Map<String,Info> plans, List<FixtureRow> handoffs, Map<String,List<String>> carryQueryFixtures,
+                    Map<String,com.shinjin.pop.output.ShippingStatement.Document> statements) {}
 
     final Map<String,Info> plans;
     final Map<String,List<String>> carryFixtures;
     final List<FixtureRow> optionalHandoffs;
+    final Map<String,com.shinjin.pop.output.ShippingStatement.Document> statements;
 
     ShippingFormCatalog(Resource extra) {
         var base=read(new ClassPathResource("demo/shipping-form.json"));
         carryFixtures = Map.copyOf(base.carryQueryFixtures());
         var map=new java.util.LinkedHashMap<>(base.plans());
-        if (extra == null) optionalHandoffs=List.of();
+        if (extra == null) {
+            optionalHandoffs=List.of();
+            statements=null;
+        }
         else {
             var example=read(extra);
             map.putAll(example.plans());
+            statements=example.statements()==null ? null : Map.copyOf(example.statements());
             optionalHandoffs=List.copyOf(example.handoffs());
         }
         plans=Map.copyOf(map);

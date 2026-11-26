@@ -46,6 +46,7 @@ public final class SyntheticOutput {
             "worker-qr", "작업자 QR", "packing-label", "포장 라벨", "outbound-list", "출고 목록", "shipment", "출하 문서");
     private final JsonNode data;
     private final String fontSetting;
+    private final ShippingStatement.Cell[] statementCells;
 
     record Example(String id, int step, String label) {}
     record Group(List<String> key, List<String> rows, BigDecimal total) {}
@@ -73,6 +74,9 @@ public final class SyntheticOutput {
             @Value("${shinjin.demo.output-font:}") String fontSetting) throws IOException {
         try (var input = new ClassPathResource("synthetic-output-vectors.json").getInputStream()) {
             data = mapper.readTree(input);
+        }
+        try (var stream = new ClassPathResource("demo/shipping-statement-layout.json").getInputStream()) {
+            statementCells = mapper.readValue(stream, ShippingStatement.Cell[].class);
         }
         this.fontSetting = fontSetting;
     }
@@ -155,7 +159,18 @@ public final class SyntheticOutput {
                 List.copyOf(pages), total, List.of(), true));
     }
 
+    public Output renderStatement(String number, ShippingStatement.Document statement, List<ShipmentDocument> rows) {
+        if (statement == null || !statement.matches(rows)) return failure("STATEMENT_DATA_UNAVAILABLE");
+        var model = new Document("거래명세서",number,List.of(210,297),"shipment",List.of(),
+                rows.stream().map(ShipmentDocument::quantity).reduce(BigDecimal.ZERO,BigDecimal::add),List.of(),false);
+        return render(model, statement, rows.stream().map(ShipmentDocument::lot).toList());
+    }
+
     private Output render(Document model) {
+        return render(model, null, null);
+    }
+
+    private Output render(Document model, ShippingStatement.Document statement, List<String> statementRows) {
         if (fontSetting.isBlank()) return failure("FONT_NOT_CONFIGURED");
         var localFont = localFont(fontSetting);
         if (localFont == null) return failure("FONT_UNAVAILABLE");
@@ -167,12 +182,12 @@ public final class SyntheticOutput {
             } catch (IOException | IllegalArgumentException error) {
                 return failure("FONT_UNAVAILABLE");
             }
-            var pages = layout(model, font);
+            var pages = statement == null ? layout(model,font) : ShippingStatement.pages(statement,statementCells,font);
             pdf.getDocumentInformation().setTitle(model.title());
             pdf.getDocumentInformation().setAuthor("Synthetic output");
             for (var view : pages) write(pdf, font, view);
             pdf.save(bytes);
-            var rows = model.pages().stream().flatMap(page -> page.sections().stream())
+            var rows = statementRows != null ? statementRows : model.pages().stream().flatMap(page -> page.sections().stream())
                     .flatMap(section -> section.rows().stream()).map(Row::id).toList();
             return new Output(new Contract("PDF_READY", 1, model.reference(), model.paper(), model.role(),
                     data.path("devices").path(model.role()).asString(""), pages.size(), rows, model.groups(),

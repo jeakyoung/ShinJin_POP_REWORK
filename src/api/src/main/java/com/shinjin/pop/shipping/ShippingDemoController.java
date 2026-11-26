@@ -391,12 +391,18 @@ public final class ShippingDemoController {
     }
 
     private SyntheticOutput.Output renderRow(ShippingDomain.Snapshot row) {
-        var lots = shipping.documentRows(row.shipment().number()).stream().map(member -> {
+        var members = shipping.documentRows(row.shipment().number());
+        var lots = members.stream().map(member -> {
             var handoff = member.handoff();
             return new SyntheticOutput.ShipmentDocument(row.shipment().number(), handoff.packingRef(),
                     handoff.lot(),handoff.item(),handoff.quantity(),handoff.deferred(),member.shipment().confirmedAt());
         }).toList();
-        return output.renderShipment(lots);
+        if (forms.statements == null) return output.renderShipment(lots);
+        var statement = forms.statements.get(row.shipment().number());
+        if (statement != null && !statement.selects(members.stream().map(member -> member.handoff().id()).toList())) {
+            statement = null;
+        }
+        return output.renderStatement(row.shipment().number(), statement, lots);
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
