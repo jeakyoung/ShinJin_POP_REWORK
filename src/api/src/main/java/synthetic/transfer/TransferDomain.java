@@ -17,7 +17,9 @@ public interface TransferDomain {
     }
 
     record StockKey(String warehouse, String item) {}
-    record Line(int number, String item, BigDecimal quantity) {
+    record Line(int number, String item, BigDecimal quantity, String source, String destination) {
+        public Line(int number, String item, BigDecimal quantity) { this(number, item, quantity, null, null); }
+
         public Line {
             if (quantity != null) {
                 try {
@@ -34,7 +36,15 @@ public interface TransferDomain {
                     .sorted(Comparator.comparingInt(Line::number)).toList();
         }
     }
-    record Command(String request, String commandId, Action action, Draft draft) {}
+    record Command(String request, String commandId, Action action, Draft draft,
+                   DocumentId sourceDocument, Boolean autoReceive) {
+        public Command {
+            autoReceive = Boolean.TRUE.equals(autoReceive);
+        }
+        public Command(String request, String commandId, Action action, Draft draft) {
+            this(request, commandId, action, draft, null, false);
+        }
+    }
     record DocumentId(String request, Kind kind, long revision) {}
     record DocumentLine(Line line, DocumentId sourceDocument, Integer sourceLine) {}
     record Document(DocumentId id, List<DocumentLine> lines) {

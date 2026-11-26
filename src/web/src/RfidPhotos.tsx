@@ -17,13 +17,14 @@ function preview(sample: string) {
   return base + '/samples/' + encodeURIComponent(sample)
 }
 
-export default function RfidPhotos({ actor, movementCount, onSessionExpired }: {
+export default function RfidPhotos({ actor, movementCount, onSessionExpired, eventId }: {
   actor: string
+  eventId?: string
   movementCount: number
   onSessionExpired: () => void
 }) {
   const [events, setEvents] = useState<PhotoEvent[]>()
-  const [selected, setSelected] = useState('')
+  const [selected, setSelected] = useState(eventId ?? '')
   const [refresh, setRefresh] = useState(0)
   const [notice, setNotice] = useState('')
   const event = events?.find(row => row.eventId === selected)
@@ -50,13 +51,13 @@ export default function RfidPhotos({ actor, movementCount, onSessionExpired }: {
 
   return <section aria-labelledby="rfid-photo-title">
     <h3 id="rfid-photo-title">RFID 사진</h3>
-    <label>사진 이벤트<select value={selected} onChange={e => setSelected(e.target.value)}>
+    {!eventId && <><label>사진 이벤트<select value={selected} onChange={e => setSelected(e.target.value)}>
       <option value="">선택</option>
       {events?.map(row => <option key={row.eventId} value={row.eventId}>
         {row.kind} · {row.pallet} · {row.tag} · {row.eventId}
       </option>)}
     </select></label>
-    <button type="button" onClick={() => setRefresh(value => value + 1)}>사진 이력 다시 조회</button>
+    <button type="button" onClick={() => setRefresh(value => value + 1)}>사진 이력 다시 조회</button></>}
     {events?.length === 0 && <p>조회할 사진 이벤트가 없습니다.</p>}
     {notice && <p role="status">{notice}</p>}
     {event && <EventPhotos key={JSON.stringify([actor, event.eventId])} event={event}
@@ -64,6 +65,19 @@ export default function RfidPhotos({ actor, movementCount, onSessionExpired }: {
       onUpdated={updated => setEvents(rows => rows?.map(row =>
         row.eventId === updated.eventId && row.revision <= updated.revision ? updated : row))} />}
   </section>
+}
+
+function AttachedPhoto({ sample }: { sample: string }) {
+  const dialog = useRef<HTMLDialogElement>(null)
+  return <>
+    <button type="button" aria-label={sample + ' 사진 확대'} onClick={() => dialog.current?.showModal()}>
+      <img src={preview(sample)} alt={'첨부 사진 ' + sample} width={160} height={96} />
+    </button>
+    <dialog ref={dialog} className="floor-photo-view" aria-label={sample + ' 확대 사진'}>
+      <img src={preview(sample)} alt={'확대 사진 ' + sample} />
+      <button type="button" onClick={() => dialog.current?.close()}>닫기</button>
+    </dialog>
+  </>
 }
 
 function readPending(key: string) {
@@ -125,10 +139,11 @@ function EventPhotos({ event, storageKey, onUpdated, onSessionExpired }: {
     }
   }
 
+  const diagnostics = new URLSearchParams(window.location.search).get('demoDiagnostics') === 'rfidPhotos'
   return <>
     <p>{event.readOnly ? '읽기 전용 사진' : '첨부 사진'} ({event.samples.length})</p>
-    {event.samples.map(id => <img key={id} src={preview(id)} alt={'첨부 샘플 ' + id} width={160} height={96} />)}
-    {!event.readOnly && <>
+    {event.samples.map(id => <AttachedPhoto key={id} sample={id} />)}
+    {diagnostics && !event.readOnly && <>
       <label>합성 샘플<select value={sample} disabled={busy || !!pending} onChange={e => {
         setSample(e.target.value)
         setConfirmed(false)
@@ -137,6 +152,16 @@ function EventPhotos({ event, storageKey, onUpdated, onSessionExpired }: {
         <option value="">선택</option>
         {samples.map(id => <option key={id} value={id} disabled={event.samples.includes(id)}>{id}</option>)}
       </select></label>
+      <div className="floor-photo-choices" role="group" aria-label="사진으로 선택">
+        {samples.map(id => <button type="button" key={id} aria-pressed={sample === id}
+          disabled={busy || !!pending || event.samples.includes(id)} onClick={() => {
+            setSample(id)
+            setConfirmed(false)
+            setNotice('')
+          }}>
+          <img src={preview(id)} alt="" width={96} height={64} />{id}
+        </button>)}
+      </div>
       {sample && <img src={preview(sample)} alt="선택한 합성 샘플" width={160} height={96} />}
       <label><input type="checkbox" checked={confirmed} disabled={!sample || busy || !!pending}
         onChange={e => setConfirmed(e.target.checked)} />이 이벤트에 첨부 확인</label>
@@ -144,7 +169,7 @@ function EventPhotos({ event, storageKey, onUpdated, onSessionExpired }: {
         합성 사진 첨부
       </button>
     </>}
-    {pending && <button type="button" disabled={busy} onClick={() => void attach(pending)}>
+    {diagnostics && pending && <button type="button" disabled={busy} onClick={() => void attach(pending)}>
       동일 사진 첨부 재시도
     </button>}
     {notice && <p role="status">{notice}</p>}

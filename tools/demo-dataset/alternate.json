@@ -1,0 +1,146 @@
+{
+  "sampleDate": "2030-02-01",
+  "terminals": [
+    {
+      "id": "DEMO-A",
+      "name": "POP A",
+      "factory": "샘플 1공장",
+      "workCenter": "절단 작업장",
+      "workers": [
+        {
+          "id": "DEMO-W01",
+          "name": "샘플 작업자 A",
+          "department": "생산 1팀"
+        },
+        {
+          "id": "DEMO-W02",
+          "name": "샘플 작업자 B",
+          "department": "생산 1팀"
+        }
+      ]
+    },
+    {
+      "id": "DEMO-B",
+      "name": "POP B",
+      "factory": "샘플 2공장",
+      "workCenter": "포장 작업장",
+      "workers": [
+        {
+          "id": "DEMO-W03",
+          "name": "샘플 작업자 C",
+          "department": "생산 2팀"
+        }
+      ]
+    },
+    {
+      "id": "DEMO-A2",
+      "name": "POP A2",
+      "factory": "샘플 1공장",
+      "workCenter": "포장 작업장",
+      "workers": [
+        {
+          "id": "DEMO-W04",
+          "name": "샘플 작업자 D",
+          "department": "생산 1팀"
+        }
+      ]
+    },
+    {
+      "id": "GROUP-A",
+      "name": "그룹 A",
+      "factory": "검증 공장",
+      "workCenter": "그룹 작업장",
+      "workers": [
+        {
+          "id": "QA-1",
+          "name": "작업자 가",
+          "department": "검증팀"
+        },
+        {
+          "id": "QA-2",
+          "name": "작업자 나",
+          "department": "검증팀"
+        }
+      ]
+    },
+    {
+      "id": "GROUP-B",
+      "name": "그룹 B",
+      "factory": "검증 공장",
+      "workCenter": "그룹 작업장",
+      "workers": [
+        {
+          "id": "QA-1",
+          "name": "작업자 가",
+          "department": "검증팀"
+        },
+        {
+          "id": "QA-2",
+          "name": "작업자 나",
+          "department": "검증팀"
+        }
+      ]
+    }
+  ],
+  "work": [
+    {
+      "terminalId": "GROUP-A",
+      "workerId": "QA-1",
+      "date": "2030-02-01",
+      "entry": {
+        "id": "DEMO-H01",
+        "orderNumber": "DEMO-ORDER-01",
+        "itemName": "검증용 소재",
+        "processName": "절단",
+        "plannedQuantity": 12,
+        "actualQuantity": 11.5,
+        "movement": "입고",
+        "warehouse": "샘플 창고 A",
+        "startedAt": "09:10",
+        "finishedAt": "09:48"
+      }
+    }
+  ],
+  "stations": {
+    "GROUP-A": {
+      "profile": "group-A",
+      "center": "005",
+      "slots": [
+        2
+      ],
+      "stages": [
+        {
+          "process": "공정 A",
+          "warehouse": "창고 A"
+        }
+      ],
+      "inputLot": "LOT-A",
+      "inputQty": 4
+    },
+    "GROUP-B": {
+      "profile": "group-B",
+      "center": "105",
+      "slots": [
+        2
+      ],
+      "stages": [
+        {
+          "process": "공정 B",
+          "warehouse": "창고 B"
+        }
+      ],
+      "inputLot": "LOT-B",
+      "inputQty": 4
+    },
+    "DEMO-A": {
+      "profile": "single",
+      "center": "003",
+      "slots": [
+        2
+      ],
+      "stages": [],
+      "inputLot": "",
+      "inputQty": 0
+    }
+  }
+}

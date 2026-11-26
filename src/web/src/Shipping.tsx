@@ -1,17 +1,20 @@
+import './logisticsTouch.css'
+import ShippingForm from './ShippingForm'
 import { useLayoutEffect, useRef, useState } from 'react'
-import { loadShipping, loadShippingDocument, loadShippingPdf, sendShipping, ShippingError } from './shippingApi'
-import type { Action, Command, ShippingRow } from './shippingApi'
+import { bundlePdf, loadBundle, printBundle, loadShipping, loadShippingDocument, loadShippingPdf, sendShipping, ShippingError } from './shippingApi'
+import type { Action, Command, BundlePrint, DocumentBundle } from './shippingApi'
 import { DocumentPages } from './output/OutputPreview'
 import { outputMessage, savePdf } from './output/outputDocument'
 import type { Contract } from './output/outputDocument'
 
 const labels: Record<Action, string> = {
-  CONFIRM: '출하 확정', CANCEL: '출하 취소', REPRINT: '재출력 기록',
-}
-const statuses: Record<ShippingRow['status'], string> = {
-  READY: '출하 대기', SHIPPED: '출하 확정', CANCELLED: '출하 취소',
+  CONFIRM: '출하 확정', CANCEL: '출하 취소', REPRINT: '인쇄',
 }
 const messages: Record<string, string> = {
+  PREVIEW_DEVICE_CHANGED: '프린터 설정이 변경되었습니다. 미리보기를 다시 열어 주세요.',
+  PRINTER_UNSET: '거래명세서 프린터가 설정되지 않았습니다.',
+  DELIVERY_UNKNOWN: '거래처 발송 설정을 확인할 수 없습니다.',
+  PRINT_ERROR: '거래명세서 출력 요청에 실패했습니다.',
   STALE_VERSION: '다른 작업이 반영되었습니다. 최신 상태를 확인해 주세요.',
   TERMINAL_MISMATCH: '지정된 출하 단말에서 실행해 주세요.',
   SITE_MISMATCH: '다른 사업장의 인계입니다.',
@@ -42,6 +45,11 @@ export default function Shipping({ actor, onSessionExpired }: Props) {
   const [busy, setBusy] = useState(false)
   const [notice, setNotice] = useState('')
   const [document, setDocument] = useState<{ number: string; result: Contract }>()
+  const [bundle, setBundle] = useState<{ numbers: string[]; result: DocumentBundle }>()
+  const bundleKey = storageKey + ':documents'
+  const [pendingBundle, setPendingBundle] = useState<BundlePrint | null>(() => {
+    try { return JSON.parse(sessionStorage.getItem(bundleKey) ?? 'null') } catch { return null }
+  })
   const [documentNotice, setDocumentNotice] = useState('')
   const [documentBusy, setDocumentBusy] = useState(false)
   const documentRequest = useRef<AbortController | null>(null)
@@ -109,11 +117,32 @@ export default function Shipping({ actor, onSessionExpired }: Props) {
     }
   }
 
-  function openDocument(number: string) {
+  function openDocument(numbers: string[]) {
+    if (numbers.length > 1) return runDocument(async signal => {
+      const result = await loadBundle(numbers,signal)
+      if (!signal.aborted) { setDocument(undefined); setBundle({numbers,result}) }
+    })
+    const number = numbers[0]
     return runDocument(async (signal) => {
       setDocument(undefined)
       const result = await loadShippingDocument(number, signal)
       if (!signal.aborted) setDocument({ number, result })
+    })
+  }
+
+  function sendBundle(command: BundlePrint) {
+    void runDocument(async signal => {
+      sessionStorage.setItem(bundleKey,JSON.stringify(command)); setPendingBundle(command)
+      try {
+        await printBundle(command,signal)
+        if (signal.aborted) return
+        sessionStorage.removeItem(bundleKey); setPendingBundle(null); setBundle(undefined); setNotice('인쇄 요청이 전달되었습니다.')
+      } catch (e) {
+        if (e instanceof ShippingError && e.status < 500 && e.status !== 401) {
+          sessionStorage.removeItem(bundleKey); setPendingBundle(null)
+        }
+        throw e
+      }
     })
   }
 
@@ -139,15 +168,6 @@ export default function Shipping({ actor, onSessionExpired }: Props) {
     }
   }
 
-  function refresh() {
-    void run(async (signal) => {
-      const next = await loadShipping(signal)
-      if (signal.aborted) return
-      setData(next)
-      setNotice('')
-    })
-  }
-
   function execute(command: Command) {
     if (!sameActor) return
     void run(async (signal) => {
@@ -157,14 +177,17 @@ export default function Shipping({ actor, onSessionExpired }: Props) {
         setNotice('재시도 사본을 저장할 수 없습니다.')
         return
       }
-      let reprintNumber: string | undefined
       try {
         const updated = await sendShipping(command, signal)
         if (signal.aborted) return
         clearPending(command.requestId)
-        if (command.action === 'REPRINT') reprintNumber = updated.shipment?.number
+        if (command.action === 'REPRINT') setDocument(undefined)
         if (command.action === 'CANCEL' && updated.shipment?.number === document?.number) setDocument(undefined)
-        setNotice(`${labels[command.action]} 완료`)
+        const print = updated.print
+        const outcome = print?.status === 'SUBMITTED' ? `합성 장치 ${print.device}에 ${print.pages}페이지 전달`
+          : print?.status === 'NO_PAPER' ? '종이 출력 대상 없음'
+          : print ? messages[print.status] ?? outputMessage(print.status) : ''
+        setNotice([labels[command.action], outcome].filter(Boolean).join(' · '))
       } catch (error) {
         if (signal.aborted) return
         if (error instanceof ShippingError && error.status === 401) throw error
@@ -174,59 +197,44 @@ export default function Shipping({ actor, onSessionExpired }: Props) {
       const next = await loadShipping(signal)
       if (signal.aborted) return
       setData(next)
-      if (reprintNumber) await openDocument(reprintNumber)
     })
   }
 
-  function start(row: ShippingRow, action: Action) {
-    if (action === 'CANCEL' && !window.confirm(`${row.shipment?.number ?? ''} 출하를 취소하시겠습니까?`)) return
-    void execute({ action, handoffId: row.handoff.id, expectedVersion: row.version, requestId: crypto.randomUUID() })
-  }
-
   return (
-    <section aria-labelledby="shipping-title">
-      <h2 id="shipping-title">출하</h2>
-      <button type="button" disabled={busy} onClick={() => void refresh()}>포장 인계 새로고침</button>
-      {notice && <p role="status">{notice}</p>}
-      {pending && sameActor && <button type="button" disabled={busy} onClick={() => void execute(pending)}>동일 요청 재시도</button>}
-      {data && <p>단말 {data.terminal} · 작업자 {data.worker}</p>}
-      {data?.rows.length === 0 && <p>출하 가능한 포장 인계가 없습니다.</p>}
-      {data && data.rows.length > 0 && (
-        <div className="table-scroll">
-          <table>
-            <thead><tr>
-              <th scope="col">원포장 계획</th><th scope="col">LOT · 품목</th><th scope="col">수량</th>
-              <th scope="col">상태</th><th scope="col">출하 전표</th><th scope="col">재출력 횟수</th>
-              <th scope="col">작업</th>
-            </tr></thead>
-            <tbody>{data.rows.map(row => {
-              const disabled = busy || documentBusy || !!pending || !sameActor || data.terminal !== row.handoff.shippingTerminal
-              return <tr key={row.handoff.id}>
-                <th scope="row">{row.handoff.packingRef}</th>
-                <td>{row.handoff.lot} · {row.handoff.item}</td><td>{row.handoff.quantity}</td>
-                <td>{statuses[row.status]}{row.handoff.deferred && ' · 이월'}</td>
-                <td>{row.shipment?.number ?? '—'}</td><td>{row.reprintCount}</td>
-                <td>
-                  {row.status === 'READY' && <button type="button" disabled={disabled}
-                    onClick={() => start(row, 'CONFIRM')}>{labels.CONFIRM}</button>}
-                  {row.status === 'SHIPPED' && <>
-                    <button type="button" disabled={disabled || !row.shipment}
-                      onClick={() => { if (row.shipment) void openDocument(row.shipment.number) }}>PDF 미리보기</button>{' '}
-                    <button type="button" disabled={disabled} onClick={() => start(row, 'CANCEL')}>{labels.CANCEL}</button>{' '}
-                    <button type="button" disabled={disabled} onClick={() => start(row, 'REPRINT')}>{labels.REPRINT}</button>
-                  </>}
-                </td>
-              </tr>
-            })}</tbody>
-          </table>
-        </div>
-      )}
+    <section className="shipping-workspace" aria-label="출하">
+      <ShippingForm actor={actor} onSessionExpired={onSessionExpired} onPreview={openDocument}
+        disabled={busy || !!pending || documentBusy || !!pendingBundle} />
+      {notice && <p role="status" className="ship-feedback" onClick={() => setNotice('')}>{notice}</p>}
+      {pending && sameActor && <button className="ship-retry" type="button" disabled={busy} onClick={() => execute(pending)}>동일 요청 재시도</button>}
+      {pendingBundle && <button className="ship-retry" disabled={documentBusy} onClick={() => sendBundle(pendingBundle)}>동일 인쇄 요청 재시도</button>}
+      {bundle && <section className="synthetic-output" aria-label="출하 PDF 미리보기">
+        <h3>출하 PDF · {bundle.numbers.join(', ')}</h3><p>거래명세서 프린터 {bundle.result.device}</p>
+        <button disabled={documentBusy} onClick={() => setBundle(undefined)}>닫기</button>
+        <button disabled={documentBusy} onClick={() => void runDocument(async signal => {
+          const pdf = await bundlePdf(bundle.numbers,signal)
+          if (!signal.aborted) savePdf(pdf,'shipping-statements.pdf')
+        })}>출하 PDF 다운로드</button>
+        <button disabled={documentBusy || !!pendingBundle} onClick={() => sendBundle({numbers:bundle.numbers,
+          expected:bundle.result.expected, previewPrinter:bundle.result.device, requestId:crypto.randomUUID()})}>인쇄</button>
+        <DocumentPages pages={bundle.result.preview} />
+      </section>}
       {document && (
         <section className="synthetic-output" aria-label="출하 PDF 미리보기">
           <h3>출하 PDF {document.number}</h3>
+          {document.result.device && <p>거래명세서 프린터 {document.result.device}</p>}
+          <button type="button" disabled={busy} onClick={() => setDocument(undefined)}>닫기</button>
           {document.result.status === 'PDF_READY' ? (
             <>
               <button type="button" disabled={documentBusy || busy} onClick={() => downloadDocument(document.number)}>출하 PDF 다운로드</button>
+              <button type="button" disabled={busy || documentBusy || !!pending || !sameActor}
+                onClick={() => {
+                  void loadShipping().then(next => {
+                    if (next.terminal !== actor.terminal || next.worker !== actor.worker) return
+                    const row = next.rows.find(entry => entry.shipment?.number === document.number)
+                    if (row) execute({ action: 'REPRINT', handoffId: row.handoff.id, expectedVersion: row.version,
+                      previewPrinter: document.result.device ?? undefined, requestId: crypto.randomUUID() })
+                  }).catch(report)
+                }}>인쇄</button>
               <DocumentPages pages={document.result.preview} />
             </>
           ) : <p role="status">{outputMessage(document.result.status)}</p>}

@@ -1,0 +1,45 @@
+{
+  "plants": [
+    {
+      "code": "TEST-A",
+      "name": "합성사업장"
+    },
+    {
+      "code": "TEST-B",
+      "name": "검증사업장"
+    },
+    {
+      "code": "TEST-C",
+      "name": "빈 사업장"
+    }
+  ],
+  "employees": [
+    {
+      "plant": "TEST-A",
+      "no": 1,
+      "department": "T1",
+      "departmentName": "검증부",
+      "id": "QA0001",
+      "name": "시험가",
+      "checked": false
+    },
+    {
+      "plant": "TEST-A",
+      "no": 2,
+      "department": "T2",
+      "departmentName": "시험부",
+      "id": "QA0002",
+      "name": "시험나",
+      "checked": false
+    },
+    {
+      "plant": "TEST-B",
+      "no": 1,
+      "department": "T3",
+      "departmentName": "검사부",
+      "id": "QA0101",
+      "name": "시험다",
+      "checked": false
+    }
+  ]
+}

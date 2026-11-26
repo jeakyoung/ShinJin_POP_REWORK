@@ -1,0 +1,127 @@
+{
+  "stocks": [
+    {
+      "site": {
+        "factory": "F1",
+        "plant": "000001"
+      },
+      "key": {
+        "item": "SUP-01",
+        "lot": "LOT-M1",
+        "warehouse": "WH-M1",
+        "location": "BIN-01"
+      },
+      "name": "샘플 장갑",
+      "materialFlag": "SAFETY",
+      "kind1": "HAND",
+      "kind2": "GENERAL",
+      "available": 6
+    },
+    {
+      "site": {
+        "factory": "F1",
+        "plant": "000001"
+      },
+      "key": {
+        "item": "SUP-01",
+        "lot": "LOT-M1",
+        "warehouse": "WH-M1",
+        "location": "BIN-02"
+      },
+      "name": "샘플 장갑",
+      "materialFlag": "SAFETY",
+      "kind1": "HAND",
+      "kind2": "GENERAL",
+      "available": 3
+    },
+    {
+      "site": {
+        "factory": "F1",
+        "plant": "000001"
+      },
+      "key": {
+        "item": "SUP-02",
+        "lot": "LOT-M2",
+        "warehouse": "WH-M1",
+        "location": "BIN-03"
+      },
+      "name": "샘플 청소포",
+      "materialFlag": "SHOP",
+      "kind1": "CLEAN",
+      "kind2": "GENERAL",
+      "available": 4
+    },
+    {
+      "site": {
+        "factory": "F2",
+        "plant": "000002"
+      },
+      "key": {
+        "item": "SUP-01",
+        "lot": "LOT-M1",
+        "warehouse": "WH-M1",
+        "location": "BIN-01"
+      },
+      "name": "샘플 장갑",
+      "materialFlag": "SAFETY",
+      "kind1": "HAND",
+      "kind2": "GENERAL",
+      "available": 2
+    },
+    {
+      "site": {
+        "factory": "F2",
+        "plant": "000002"
+      },
+      "key": {
+        "item": "SUP-03",
+        "lot": "LOT-M3",
+        "warehouse": "WH-M2",
+        "location": "BIN-01"
+      },
+      "name": "샘플 보호대",
+      "materialFlag": "SAFETY",
+      "kind1": "HAND",
+      "kind2": "GENERAL",
+      "available": 1
+    }
+  ],
+  "items": {
+    "SUP-01": {
+      "name": "샘플 장갑",
+      "specification": "L",
+      "quality": "면",
+      "partNumber": "TEST-P01"
+    },
+    "SUP-02": {
+      "name": "샘플 청소포",
+      "specification": "30×30",
+      "quality": "부직포",
+      "partNumber": "TEST-P02"
+    },
+    "SUP-03": {
+      "name": "샘플 보호대",
+      "specification": "M",
+      "quality": "고무",
+      "partNumber": "TEST-P03"
+    }
+  },
+  "masters": {
+    "materialFlags": {
+      "SAFETY": "안전용품",
+      "SHOP": "작업용품"
+    },
+    "kind1": {
+      "HAND": "보호구",
+      "CLEAN": "청소용품"
+    },
+    "kind2": {
+      "HAND": {
+        "GENERAL": "일반"
+      },
+      "CLEAN": {
+        "GENERAL": "일반"
+      }
+    }
+  }
+}

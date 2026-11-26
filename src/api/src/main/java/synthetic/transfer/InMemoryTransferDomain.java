@@ -47,6 +47,8 @@ public final class InMemoryTransferDomain implements TransferDomain {
             return error(INVALID_COMMAND);
         }
 
+        if ((command.autoReceive() && command.action() != SHIP)
+                || (createsRequest(command.action()) && command.sourceDocument() != null)) return error(INVALID_COMMAND);
         Key key = new Key(command.request(), command.commandId());
         Operation existing = erp.journal().get(key);
         if (existing != null) {
@@ -67,6 +69,16 @@ public final class InMemoryTransferDomain implements TransferDomain {
             return error(REQUEST_NOT_FOUND);
         } else if (current.status() != requiredState(command.action())) {
             return error(INVALID_STATE);
+        }
+
+        if (command.sourceDocument() != null) {
+            Kind sourceKind = switch (command.action()) {
+                case SHIP, CANCEL_REQUEST -> Kind.REQUEST;
+                case RECEIVE, UNDO_SHIP -> Kind.SHIP;
+                case UNDO_RECEIVE -> Kind.RECEIVE;
+                default -> throw new IllegalStateException("Expected an existing document");
+            };
+            if (!command.sourceDocument().equals(current.documents().get(sourceKind))) return error(INVALID_STATE);
         }
 
         Operation operation = command.action() == QUICK_TRANSFER
@@ -100,7 +112,12 @@ public final class InMemoryTransferDomain implements TransferDomain {
         long sequence = erp.sequence();
         if (creates) {
             DocumentId id = new DocumentId(command.request(), kind, ++sequence);
-            expected.put(id, document(id, lines, action == RECEIVE ? shipment : null));
+            DocumentId source = switch (action) {
+                case RECEIVE -> shipment;
+                case SHIP -> documents.get(Kind.REQUEST);
+                default -> null;
+            };
+            expected.put(id, document(id, lines, source));
             documents.put(kind, id);
         } else {
             expected.remove(documents.remove(kind));
@@ -108,14 +125,22 @@ public final class InMemoryTransferDomain implements TransferDomain {
 
         Map<StockKey, BigDecimal> delta = new HashMap<>();
         switch (action) {
-            case SHIP -> addDelta(delta, draft.source(), lines, -1);
-            case RECEIVE -> addDelta(delta, draft.destination(), lines, 1);
-            case UNDO_RECEIVE -> addDelta(delta, draft.destination(), lines, -1);
-            case UNDO_SHIP -> addDelta(delta, draft.source(), lines, 1);
+            case SHIP -> addDelta(delta, draft.source(), lines, -1, false);
+            case RECEIVE -> addDelta(delta, draft.destination(), lines, 1, true);
+            case UNDO_RECEIVE -> addDelta(delta, draft.destination(), lines, -1, true);
+            case UNDO_SHIP -> addDelta(delta, draft.source(), lines, 1, false);
             case REQUEST, CANCEL_REQUEST -> { }
             case QUICK_TRANSFER -> throw new IllegalArgumentException("Use batch preparation");
         }
-        Transfer result = new Transfer(command.request(), nextState(action), draft, documents);
+        Status status = nextState(action);
+        if (command.autoReceive()) {
+            DocumentId receipt = new DocumentId(command.request(), Kind.RECEIVE, ++sequence);
+            expected.put(receipt, document(receipt, lines, documents.get(Kind.SHIP)));
+            documents.put(Kind.RECEIVE, receipt);
+            addDelta(delta, draft.destination(), lines, 1, true);
+            status = Status.RECEIVED;
+        }
+        Transfer result = new Transfer(command.request(), status, draft, documents);
         return new Operation(command, result, Map.copyOf(delta), Map.copyOf(expected), sequence);
     }
 
@@ -127,19 +152,19 @@ public final class InMemoryTransferDomain implements TransferDomain {
         DocumentId receipt = new DocumentId(command.request(), Kind.RECEIVE, ++sequence);
         Map<DocumentId, Document> expected = Map.of(
                 request, document(request, draft.lines(), null),
-                ship, document(ship, draft.lines(), null),
+                ship, document(ship, draft.lines(), request),
                 receipt, document(receipt, draft.lines(), ship));
         Transfer result = new Transfer(command.request(), Status.RECEIVED, draft,
                 Map.of(Kind.REQUEST, request, Kind.SHIP, ship, Kind.RECEIVE, receipt));
         Map<StockKey, BigDecimal> delta = new HashMap<>();
-        addDelta(delta, draft.source(), draft.lines(), -1);
-        addDelta(delta, draft.destination(), draft.lines(), 1);
+        addDelta(delta, draft.source(), draft.lines(), -1, false);
+        addDelta(delta, draft.destination(), draft.lines(), 1, true);
         return new Operation(command, result, Map.copyOf(delta), expected, sequence);
     }
 
-    private static Document document(DocumentId id, List<Line> lines, DocumentId shipment) {
+    private static Document document(DocumentId id, List<Line> lines, DocumentId source) {
         return new Document(id, lines.stream().map(line ->
-                new DocumentLine(line, shipment, shipment == null ? null : line.number())).toList());
+                new DocumentLine(line, source, source == null ? null : line.number())).toList());
     }
 
     private Map<DocumentId, Document> documentsFor(String request) {
@@ -213,10 +238,11 @@ public final class InMemoryTransferDomain implements TransferDomain {
         return result;
     }
 
-    private static void addDelta(Map<StockKey, BigDecimal> delta, String warehouse, List<Line> lines, int sign) {
+    private static void addDelta(Map<StockKey, BigDecimal> delta, String warehouse, List<Line> lines, int sign, boolean inbound) {
         for (Line line : lines) {
             BigDecimal qty = sign < 0 ? line.quantity().negate() : line.quantity();
-            delta.merge(new StockKey(warehouse, line.item()), qty, BigDecimal::add);
+            String location = inbound ? line.destination() : line.source();
+            delta.merge(new StockKey(location == null ? warehouse : location, line.item()), qty, BigDecimal::add);
         }
     }
 
@@ -256,6 +282,8 @@ public final class InMemoryTransferDomain implements TransferDomain {
                 || draft.source().equals(draft.destination()) || draft.lines().isEmpty()) return false;
         var numbers = new HashSet<Integer>();
         for (Line line : draft.lines()) {
+            if ((line.source() != null || line.destination() != null)
+                    && (blank(line.source()) || blank(line.destination()) || line.source().equals(line.destination()))) return false;
             if (line.number() <= 0 || !numbers.add(line.number()) || blank(line.item())
                     || !validStock(line.quantity()) || line.quantity().signum() == 0) return false;
         }

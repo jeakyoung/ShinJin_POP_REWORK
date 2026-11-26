@@ -1,0 +1,172 @@
+.pop-shell > .wp-host { margin:0; padding:0; border:0; width:100%; height:100%; border-radius:0; background:#1b243b; }
+.wp-host, .wp-dialog { font-family:"Noto Sans KR",Tahoma,"Malgun Gothic",sans-serif; }
+.wp-stage, .wp-pop { position:relative; box-sizing:border-box; color:white; background:#1b243b; }
+.wp-host .wp-stage { width:100%; height:100%; max-width:none; overflow:hidden; }
+.wp-host :is(button,input), .wp-dialog :is(button,input) { margin:0; padding:0; box-sizing:border-box; min-height:0; border-radius:0; color:inherit; font:inherit; }
+.wp-host button, .wp-dialog button { cursor:pointer; }
+.wp-label { display:grid; place-items:center; background:#08076e; font-size:13.8pt; }
+.wp-label.labelControl1 { background:transparent; font-size:34px; }
+.wp-label.labelControl6 { background:#be1037; }
+.wp-control { border:1px solid #1a2134; background:#5d6b7b; font-weight:700!important; font-size:20.25pt!important; white-space:pre-line; }
+.wp-control.searchBtn { background:linear-gradient(#223f97 10%,#233d89 10%); }
+.wp-control.printBtn, .wp-pop[data-form=ComWorkPrintSelect] button { background:linear-gradient(#09575d 10%,#06494d 10%); }
+.wp-control.pnDelete { background:transparent; border:0; }
+.wp-control.pnDelete img { display:block; width:100%; height:100%; }
+.wp-control:is(.workCenter,.completeEdit,.printEdit,.sDateEdit,.eDateEdit) { background:#ffe4b5; color:#292929; font:20px Tahoma,"Malgun Gothic",sans-serif!important; }
+.wp-control i { position:absolute; right:0; top:0; height:100%; width:36px; display:grid; place-items:center; font-size:29px; border-left:1px solid #cab693; color:#686d73; font-style:normal; }
+.wp-control:is(.sDateEdit,.eDateEdit) i { font-size:13px; width:15px; border:0; }
+.wp-control:is(.workCenter,.completeEdit,.printEdit) { padding-right:34px; }
+.wp-stage input.wp-operator { font-size:31px; padding:0 18px; background:white; color:#161616; }
+.wp-stage input.wp-check, .wp-band input[type=checkbox] { appearance:none; background:#202941; border:5px solid white; border-radius:3px; cursor:pointer; }
+.wp-stage input.wp-check:checked, .wp-band input[type=checkbox]:checked { background:#314980; }
+.wp-host input[type=checkbox]:checked:after { content:"✓"; color:white; display:grid; place-items:center; }
+.wp-customers, .wp-orders { position:absolute; top:160px; bottom:0; max-height:640px; overflow:auto; background:#1a2239; scrollbar-gutter:stable; }
+.wp-customers { left:0; width:230px; border-right:1px solid white; }
+.wp-customers b, .wp-customers button { display:grid; place-items:center; width:100%; height:40px; border:0; border-bottom:1px solid #151c30; background:#202940; color:#ddd; }
+.wp-customers b { height:50px; font-size:20px; font-weight:500; background:#2b4182; position:sticky; top:0; }
+.wp-customers button[aria-pressed=true] { background:#00781c; color:white; }
+.wp-orders { left:230px; right:0; }
+.wp-band { display:grid; grid-template-columns:60px 50px 160px 100px 150px 80px 80px 120px 70px 65px 65px 75px 100px 100px 40px; width:max-content; background:#202940; }
+.wp-band > div { display:flex; flex-direction:column; align-items:stretch; justify-content:center; height:100px; font-size:16px; text-align:center; overflow:hidden; border:solid #182137; border-width:0 1px 1px 0; box-sizing:border-box; }
+.wp-band > div > :is(span,button) { display:grid; place-items:center; flex:1; width:100%; overflow:hidden; }
+.wp-band > div > :is(span,button) + :is(span,button) { border-top:1px solid #172039; }
+.wp-band input[type=checkbox] { width:30px; height:30px; margin:auto; border:3px solid #9ba5bc; }
+.wp-band [data-field=ORDER_NO], .wp-band [data-field=OPMAN_CODE], .wp-band [data-field=ERP_PRINT_CNT] { color:orange; }
+.wp-band [data-field=PRINT_CNT] > span:first-child { color:deepskyblue; }
+.wp-band :is([data-field=THICKNESS],[data-field=SPEC_X],[data-field=SPEC_Y],[data-field=ORDER_QTY]) { font-size:24px; font-weight:bold; }
+.wp-band [data-field=ORDER_QTY] { color:lime; }
+.wp-band :is([data-field=ITEM_KIND_NAME3],[data-field=MAT_QUALITY_NAME]) { font-size:15.75pt; }
+.wp-band [data-field=SHIPPING_QTY] { font-size:18pt; }
+.wp-band [data-field=BASE_NAME] { font-size:10pt; }
+.wp-band [data-account=상품] {color:yellow}.wp-band [data-account=교환]{color:red}
+.wp-band[data-focus=true], .wp-band[data-focus=true] :is(div,span) {background:#696969;color:white;}
+.wp-band-header { position:sticky; top:0; z-index:1; background:#2b4182; }
+.wp-band-header > div { height:120px; }
+.wp-band-header button { background:transparent; border:0; font-size:19px; white-space:pre-line; }
+.wp-stage .wp-dismiss { position:absolute; inset:0; width:100%; height:100%; z-index:2; background:transparent; border:0; }
+.wp-lookup {position:absolute;z-index:3; box-shadow:0 3px 10px #13172280;}
+.wp-choice-list { display:grid; grid-template-columns:1fr 2fr;width:450px;height:327px;align-content:start;overflow:auto;background:white;color:#111; }
+.wp-choice-list b,.wp-choice-list button {height:50px;text-align:center;align-content:center;border:1px solid #b5bdca;}
+.wp-choice-list b {background:#87dcea;font-size:23px}
+.wp-choice-list button {display:grid;grid-template-columns:1fr 2fr;grid-column:span 2;align-items:center;background:white;color:#111;font-size:24px;}
+.wp-calendar {width:463px;height:611px;box-sizing:border-box;padding:5px 10px;background:#506f9d;color:white;font-family:"Noto Sans KR Thin","Malgun Gothic",sans-serif;}
+.wp-calendar header {display:flex;align-items:center;height:68px;gap:3px;}
+.wp-calendar button {background:transparent;color:inherit;border:0;font-size:33px;font-weight:300;}
+.wp-calendar header button:first-child {text-align:left;flex:1;padding-left:15px;}
+.wp-calendar header button:not(:first-child) {width:48px;}
+.wp-calendar .wp-days {display:grid;grid-template-columns:repeat(7,1fr);grid-template-rows:44px repeat(6,72px);text-align:center;align-items:stretch;}
+.wp-days span {align-content:center;font-size:20px;}
+.wp-calendar button[data-adjacent=true]{color:#aabad3;}
+.wp-calendar button[aria-pressed=true]{background:white;color:#506f9d;border:4px double #506f9d;}
+.wp-calendar .wp-months {display:grid;grid-template-columns:repeat(4,1fr);height:476px;}
+.wp-calendar .wp-today {width:100%;height:55px;}
+.wp-choice-list {position:relative;box-sizing:border-box;background:#fff;padding:0 16px 25px;height:352px;width:452px;grid-template-columns:1fr 2fr;}
+.wp-choice-list b {background:#00796c;color:white;font-size:20px;font-weight:400;}
+.wp-choice-list button {font-size:19px;color:black;}
+.wp-choice-list button[aria-pressed=true]{background:#dfeef5;}
+.wp-choice-list footer {position:absolute;bottom:0;left:0;right:0;height:24px;background:#eee;text-align:left;}
+.wp-choice-list footer button {display:block;height:20px;width:20px;min-height:0;font-size:16px;line-height:18px;}
+dialog.wp-dialog {border:0;padding:0;max-width:100vw;max-height:100vh;overflow:hidden;margin:auto;background:#1c2439;}
+.wp-dialog::backdrop {background:#11182745}
+.wp-pop {white-space:pre-line;overflow:hidden;}
+.wp-pop button {white-space:pre-line;}
+.wp-pop[data-form=ComWorkPrintSelect] button {font-size:26px;color:white;border:1px solid #222c40;font-weight:700;}
+.wp-pop[data-form=ComWorkPrintSelect] button.wp-form-close {background:#3e4863;}
+.wp-pop:is([data-form=frmMaterialOption],[data-form=frmProductOption]) {background:#f2f2f2;color:black;}
+.wp-opt-title {height:100px;background:#102e70 url('/menu-icons/Mng2_On_Icon.png') 30px 9px / 100px 80px no-repeat;color:white;padding:20px 0 0 133px;box-sizing:border-box;font-size:38px;font-weight:700;}
+.wp-opt-title button {position:absolute;left:702px;top:17px;width:68px;height:68px;background:transparent url('./close.png') center / 100% 100%;border:0;color:transparent;}
+.wp-opt-grid {position:absolute; left:30px;top:143px;width:740px;height:597px;overflow:auto;background:white;color:#202020;scrollbar-gutter:stable;}
+.wp-opt-grid table {width:100%;border-collapse:collapse;text-align:center;font-size:22px;}
+.wp-opt-grid :is(th,td) {border:1px solid #cfd4dd;text-align:center;height:50px;padding:0;}
+.wp-opt-grid th {background:#79e5f5;color:#242424;}.wp-opt-grid th button {background:transparent;color:inherit;border:0;width:100%;height:100%;}
+.wp-opt-grid input {width:40px;height:40px;}
+.wp-opt-save,.wp-opt-cancel {position:absolute;top:783px;width:360px;height:70px;background:#102e70;color:white!important;border:0;font-size:24px!important;}
+.wp-opt-save {left:30px;}.wp-opt-cancel {left:410px;background:#8b8b8b;}
+.wp-pop[data-form=ComOrderNoScan] {background:#4564bb;}
+.wp-pop[data-form=ComOrderNoScan] input {background:#4464c1;color:#d8d8d8;border:0;text-align:left;font-size:66px;}
+.wp-pop[data-form=ComOrderNoScan] input::placeholder {color:#d8d8d8;}
+.wp-pop[data-form=ComOrderNoScan] button {background:#a3c5ff;color:#111;font-size:23px;border:0;}
+dialog.wp-scan-dialog {margin:0;left:min(70px,4.375vw);top:min(490px,calc(100vh - 300px));}
+.wp-preview-tools {height:64px;display:flex;align-items:center;gap:12px;padding:0 16px;background:#30394d;}
+.wp-open-pdf {display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 16px;color:white;background:#344159;border:1px solid #69748b;text-decoration:none;font-weight:700;}
+.wp-preview-tools button,.wp-message button {padding:8px 18px;background:#e7ecf5;color:#162543;border:1px solid #97a8bd;min-height:44px;}
+.wp-page {height:736px;overflow:auto;text-align:center;background:#74767a;}
+.wp-page img {display:inline-block;max-width:100%;height:auto;background:white;}
+.wp-message {height:100%;display:flex;gap:14px;align-content:center;justify-content:center;flex-wrap:wrap;background:#334b83;}
+.wp-message p {width:100%;text-align:center;color:white;font-size:26px;}
+.wp-message button {width:36%;font-size:22px;}
+
+.wp-host .wp-control:is(.workCenter,.completeEdit,.printEdit) i:before {content:"";border:2px solid currentColor;width:18px;height:18px;border-radius:100%;position:absolute;left:5px;top:10px;}
+.wp-host .wp-control:is(.workCenter,.completeEdit,.printEdit) i:after {content:"";width:13px;height:3px;background:currentColor;transform:rotate(45deg);position:absolute;left:21px;top:31px;}
+.wp-pop[data-form=frmMaterialOption] .wp-opt-title {background-image:url('./material-title.png');}
+.wp-opt-grid {border:1px solid #ccc;box-sizing:border-box;}
+.wp-opt-grid table {width:calc(100% - 30px);table-layout:fixed;}
+.wp-opt-grid th {height:60px;font-size:19px;font-weight:500;}
+.wp-opt-grid td {height:70px;font-size:16px;}
+.wp-opt-grid :is(th,td):last-child {width:40%;}
+.wp-opt-grid tbody tr:first-child {background:#dfedf4;}
+.wp-opt-grid input[type=checkbox] {appearance:none;border:4px solid blue;position:relative;width:48px;height:48px;background:white;}
+.wp-opt-grid input[type=checkbox]:checked:after {content:"✓";display:block;color:blue;font-size:35px;font-weight:bold;line-height:40px;}
+.wp-pop .wp-message {display:block;position:relative;background:white;}
+.wp-message p {position:absolute;top:0;left:0;width:683px;height:259px;box-sizing:border-box;display:grid;place-items:center;border:2px inset #ddd;margin:0;color:black;font-size:29px;font-weight:700;white-space:pre-line;}
+.wp-message button {position:absolute;top:276px;left:121px;width:212px;height:80px;background:#224895;color:white;font-size:24px;font-weight:700;}
+.wp-message button+button {left:357px;background:#8e8e8e;}
+.wp-message button:only-of-type {left:235px;}
+.pop-shell .wp-host .wp-customers button {min-height:0;}
+
+.wp-host { container-type:inline-size; }
+.wp-host .wp-stage { display:flex; flex-direction:column; }
+.wp-stage .wp-toolbar { display:flex; flex:none; gap:8px; padding:10px 8px; margin:0; background:#1d253d; }
+.wp-filter-grid { display:grid; flex:1; min-width:0; align-content:center; gap:12px 6px;
+  grid-template-columns:minmax(205px,1.6fr) minmax(135px,1fr) minmax(185px,1.45fr) minmax(110px,1fr) minmax(140px,1.15fr);
+  grid-template-areas:"dates dates complete material drawing" "center closed printed account operator"; }
+.wp-filter-grid > * { min-width:0; min-height:50px; }
+.wp-filter { display:flex; align-items:stretch; gap:2px; margin:0; }
+.wp-filter > .wp-label { flex:1; min-width:0; white-space:nowrap; }
+.wp-filter > .wp-control { position:relative; flex:1.45; min-width:0; }
+.wp-dates { grid-area:dates; }.wp-center { grid-area:center; }.wp-closed { grid-area:closed; }.wp-complete { grid-area:complete; }
+.wp-printed { grid-area:printed; }.wp-drawing { grid-area:drawing; }.wp-operator { grid-area:operator; width:100%; }
+.wp-filter-grid .materialBtn { grid-area:material; }.wp-filter-grid .productBtn { grid-area:account; }
+.wp-dates > .labelControl1 { flex:0 0 20px; font-size:24px; }
+.wp-stage .wp-filter > .wp-check { align-self:center; width:44px; height:44px; margin:0 4px; }
+.wp-stage .wp-control:is(.workCenter,.completeEdit,.printEdit,.sDateEdit,.eDateEdit) { font-size:clamp(16px,1.2vw,20px)!important; }
+.wp-stage .wp-operator { font-size:clamp(18px,1.75vw,28px); padding:0 8px; }
+.wp-commands { display:grid; flex:0 0 326px; grid-template-columns:110px 110px 90px; gap:8px; min-height:140px; }
+.wp-delete { display:grid; grid-template-rows:minmax(40px,1fr) minmax(56px,1.68fr); gap:4px; }
+.wp-delete img { object-fit:contain; }
+.wp-results { flex:1; min-height:0; display:grid; grid-template-columns:clamp(160px,15vw,230px) minmax(0,1fr); }
+.wp-results :is(.wp-orders,.wp-customers) { position:relative; inset:auto; width:auto; max-height:none; min-width:0; }
+.wp-stage .wp-lookup { position:fixed; overflow:auto; }
+.wp-band-header button { font-size:13.8pt; }
+@container (max-width:1285px) {
+  .wp-filter-grid { grid-template-columns:minmax(190px,1.4fr) minmax(150px,1.1fr) minmax(170px,1.1fr) minmax(130px,1fr);
+    grid-template-areas:"dates dates material drawing" "center complete printed closed" "operator operator account account"; gap:5px; }
+  .wp-commands { flex-basis:270px; grid-template-columns:90px 90px 78px; gap:6px; }
+  .wp-stage .wp-commands .wp-control { font-size:18pt!important; }
+}
+@container (max-width:1080px) {
+  .wp-filter-grid { grid-template-columns:minmax(190px,1.15fr) minmax(175px,1.1fr) minmax(160px,1fr);
+    grid-template-areas:"dates dates material" "center complete drawing" "printed closed account" "operator operator operator"; }
+  .wp-commands { align-self:stretch; }
+  .wp-filter-grid > * { min-height:44px; }
+  .wp-filter .wp-label { font-size:12pt; }
+}
+@container (max-width:840px) {
+  .wp-stage .wp-toolbar { display:grid; }
+  .wp-commands { grid-template-columns:1fr 1fr 1fr; min-height:60px; }
+  .wp-delete { grid-template-columns:1fr 1fr; grid-template-rows:60px; }
+}
+.wp-dialog .wp-pop { width:100%; height:100%; }
+.wp-pop[data-form=ComWorkPrintSelect] { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); grid-template-rows:1fr 110px; gap:20px; padding:20px; }
+.wp-pop[data-form=ComWorkPrintSelect] .wp-form-close { grid-column:1/-1; }
+.wp-pop:is([data-form=frmMaterialOption],[data-form=frmProductOption]) { display:grid; grid-template-columns:1fr 1fr; grid-template-rows:100px minmax(0,1fr) 70px; gap:18px 20px; padding-bottom:15px; }
+.wp-pop .wp-opt-title { grid-column:1/-1; }
+.wp-pop .wp-opt-grid { position:relative; inset:auto; grid-column:1/-1; width:auto; height:auto; margin:0 30px; }
+.wp-pop :is(.wp-opt-save,.wp-opt-cancel) { position:static; width:auto; height:70px; }
+.wp-pop .wp-opt-save { margin-left:30px; }.wp-pop .wp-opt-cancel { margin-right:30px; }
+.wp-pop[data-form="작업지시서 미리보기"] { display:flex; flex-direction:column; }
+.wp-pop .wp-preview-tools { flex:none; }
+.wp-pop .wp-page { flex:1; min-height:0; }
+@media(max-width:1150px) {
+  .wp-pop[data-form=ComWorkPrintSelect] { grid-template-columns:repeat(3,minmax(0,1fr)); grid-template-rows:1fr 1fr 66px; gap:10px; padding:14px; }
+}

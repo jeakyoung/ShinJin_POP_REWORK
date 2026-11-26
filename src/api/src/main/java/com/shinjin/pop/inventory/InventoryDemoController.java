@@ -24,6 +24,12 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.HashSet;
+import java.time.LocalDate;
+import java.io.IOException;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.Resource;
+import tools.jackson.databind.json.JsonMapper;
 
 @Profile("demo")
 @RestController
@@ -41,24 +47,49 @@ public final class InventoryDemoController {
     private static final Lot X2 = new Lot("ITEM-X", "LOT-X2");
     private static final Lot Y = new Lot("ITEM-Y", "LOT-Y");
 
-    private final InventoryDomain inventory = new InMemoryInventoryDomain(Clock.systemUTC(), Map.of(
+    private final InventoryDomain inventory;
+    private Map<Site, Seed> seeds() {
+        return Map.of(
             NORTH, new Seed(Map.of(
-                    "DEMO-A", new TerminalAccess(Set.of(A1, A2, B1, B2), true),
-                    "DEMO-A2", new TerminalAccess(Set.of(A1, A2), false)),
-                    Map.of(new StockKey(X, A1), new BigDecimal("5.000"),
+                    "DEMO-A", access(Set.of(A1, A2, B1, B2), true),
+                    "DEMO-A2", access(Set.of(A1, A2), false)),
+                    withStock(NORTH, Map.of(new StockKey(X, A1), new BigDecimal("5.000"),
                            new StockKey(X, A2), new BigDecimal("2.000"),
                            new StockKey(X, B1), new BigDecimal("1.000"),
                            new StockKey(X2, A1), new BigDecimal("3.000"),
-                           new StockKey(Y, B2), new BigDecimal("4.000"))),
-            SOUTH, new Seed(Map.of("DEMO-B", new TerminalAccess(Set.of(C1, D1), true)),
-                    Map.of(new StockKey(X, C1), new BigDecimal("2.000")))));
+                           new StockKey(Y, B2), new BigDecimal("4.000")))),
+            SOUTH, new Seed(Map.of("DEMO-B", access(Set.of(C1, D1), true)),
+                    withStock(SOUTH, Map.of(new StockKey(X, C1), new BigDecimal("2.000")))));
+    }
+
+    private Map<StockKey, BigDecimal> withStock(Site site, Map<StockKey, BigDecimal> initial) {
+        var stock = new java.util.HashMap<>(initial);
+        for (var row : catalog.stockRows()) {
+            if (site.site().equals(row.site())) stock.put(new StockKey(row.lot(), row.location()), row.quantity());
+        }
+        return stock;
+    }
 
     public record Failure(String code) {}
+    private final InventoryCatalog catalog;
+
+    public InventoryDemoController(@Value("${shinjin.demo.inventory-catalog:classpath:demo/inventory-catalog.json}") Resource resource)
+            throws IOException {
+        try (var in = resource.getInputStream()) { catalog = JsonMapper.builder().build().readValue(in, InventoryCatalog.class); }
+        inventory = new InMemoryInventoryDomain(Clock.systemDefaultZone(), seeds());
+    }
+
+    private static TerminalAccess access(Set<Location> locations, boolean writable) {
+        var withDefault = new HashSet<>(locations);
+        locations.forEach(row -> withDefault.add(new Location(row.warehouse(), "000000")));
+        return new TerminalAccess(withDefault, writable);
+    }
     public record BalanceView(Lot lot, Location location, String quantity) {}
     public record MovementView(String id, Lot lot, Location source, Location destination, String quantity,
                                Status status, Actor movedBy, Instant movedAt, Actor cancelledBy, Instant cancelledAt) {}
     public record InventoryView(Actor actor, long version, boolean canMove, List<Location> locations,
-                                List<BalanceView> balances, List<MovementView> movements) {}
+                                List<BalanceView> balances, List<MovementView> movements, List<DocumentHeader> documents,
+                                InventoryCatalog catalog, LocalDate today) {}
     public record CommandResult(long version, MovementView movement) {}
 
     @GetMapping
@@ -69,7 +100,15 @@ public final class InventoryDemoController {
         return response(200, new InventoryView(view.actor(), view.version(), view.canMove(), view.locations(),
                 view.balances().stream().map(row -> new BalanceView(row.lot(), row.location(),
                         row.quantity().toPlainString())).toList(),
-                view.movements().stream().map(InventoryDemoController::movement).toList()));
+                view.movements().stream().map(InventoryDemoController::movement).toList(), view.documents(),
+                catalog.forView(view), LocalDate.now()));
+    }
+
+    @PostMapping(path = "/documents", consumes = "application/json")
+    public ResponseEntity<?> document(HttpServletRequest request, @RequestBody DocumentCommand command) {
+        var reply = inventory.document(actor(request), command);
+        if (reply.status() != 200) return response(reply.status(), new Failure(reply.error()));
+        return response(200, reply.value());
     }
 
     @PostMapping(path = "/commands", consumes = "application/json")

@@ -1,0 +1,94 @@
+{
+  "description": "합성 전용. 이름·단말 배정·창고·ETC·전표 내용은 테스트 데이터다. 132, 000001과 두 사업장 분기값은 폼의 조회 계약을 재현한다.",
+  "terminalPlants": {
+    "DEMO-A": "000001"
+  },
+  "TCO101": [
+    {
+      "CODE_ID1": "132",
+      "CODE_ID2": "000001",
+      "CODE_NAME_FULL": "시험 출고사업장",
+      "ETC": "ERP-TEST-A"
+    },
+    {
+      "CODE_ID1": "132",
+      "CODE_ID2": "000002",
+      "CODE_NAME_FULL": "시험 입고사업장",
+      "ETC": "ERP-TEST-B"
+    },
+    {
+      "CODE_ID1": "132",
+      "CODE_ID2": "TEST-EMPTY",
+      "CODE_NAME_FULL": "시험 빈 사업장",
+      "ETC": "ERP-TEST-EMPTY"
+    }
+  ],
+  "TCO102": [
+    {
+      "FACTORY_CODE": "000001",
+      "PLANT_CODE": "000001",
+      "WAREHOUSE_CODE": "BIN-SOURCE",
+      "WAREHOUSE_NAME": "시험 출고창고",
+      "ETC": "SL-TEST-A",
+      "DELETE_FLAG": "0"
+    },
+    {
+      "FACTORY_CODE": "000001",
+      "PLANT_CODE": "000002",
+      "WAREHOUSE_CODE": "BIN-DEST",
+      "WAREHOUSE_NAME": "시험 입고창고",
+      "ETC": "SL-TEST-B",
+      "DELETE_FLAG": null
+    },
+    {
+      "FACTORY_CODE": "000001",
+      "PLANT_CODE": "000001",
+      "WAREHOUSE_CODE": "TEST-DELETED",
+      "WAREHOUSE_NAME": "삭제 예시",
+      "ETC": "SL-TEST-DEL",
+      "DELETE_FLAG": "1"
+    },
+    {
+      "FACTORY_CODE": "000001",
+      "PLANT_CODE": "000001",
+      "WAREHOUSE_CODE": "TEST-NO-ERP",
+      "WAREHOUSE_NAME": "연결 없음",
+      "ETC": "",
+      "DELETE_FLAG": "0"
+    }
+  ],
+  "reportLines": [
+    {
+      "NO_GIREQ": "QA-OUT-A",
+      "NO_LINE": 7,
+      "STND_ITEM": "시험 20×30",
+      "DC_RMK": "첫 행"
+    },
+    {
+      "NO_GIREQ": "QA-OUT-A",
+      "NO_LINE": 19,
+      "STND_ITEM": "시험 40×50",
+      "DC_RMK": "둘째 행"
+    }
+  ],
+  "reportHeaders": [
+    {
+      "NO_GIREQ": "QA-OUT-A",
+      "DC50_PO": "샘플 요청 비고"
+    }
+  ],
+  "documentNumbers": [
+    {
+      "request": "QA-OUT-A",
+      "kind": "SHIP",
+      "revision": 3,
+      "NO_IO": "TEST-OUT-003"
+    },
+    {
+      "request": "QA-OUT-A",
+      "kind": "RECEIVE",
+      "revision": 4,
+      "NO_IO": "TEST-IN-004"
+    }
+  ]
+}

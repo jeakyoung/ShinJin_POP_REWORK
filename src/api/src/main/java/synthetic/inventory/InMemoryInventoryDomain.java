@@ -3,6 +3,11 @@ package synthetic.inventory;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -18,6 +23,7 @@ public final class InMemoryInventoryDomain implements InventoryDomain {
             Comparator.comparing(Location::warehouse).thenComparing(Location::position);
 
     private record Receipt(Actor actor, Command command, Result result) {}
+    private record DocumentReceipt(Actor actor, DocumentCommand command, DocumentResult result) {}
     private record Route(Lot lot, Location source, Location destination, BigDecimal quantity) {}
 
     private static final class Ledger {
@@ -25,6 +31,8 @@ public final class InMemoryInventoryDomain implements InventoryDomain {
         final Map<StockKey, BigDecimal> stock = new HashMap<>();
         final Map<String, Movement> movements = new LinkedHashMap<>();
         final Map<String, Receipt> receipts = new HashMap<>();
+        final Map<String, DocumentHeader> documents = new LinkedHashMap<>();
+        final Map<String, DocumentReceipt> documentReceipts = new HashMap<>();
         long version;
 
         Ledger(Seed seed) {
@@ -46,11 +54,18 @@ public final class InMemoryInventoryDomain implements InventoryDomain {
         BigDecimal balance(StockKey key) {
             return stock.getOrDefault(key, ZERO);
         }
+
+        Ledger(Ledger source) {
+            terminals = source.terminals;
+            stock.putAll(source.stock);
+            movements.putAll(source.movements);
+        }
     }
 
     private final Clock clock;
     private final Map<Site, Ledger> ledgers = new HashMap<>();
     private long nextNumber = 1;
+    private final Map<String, Integer> dayNumbers = new HashMap<>();
 
     public InMemoryInventoryDomain(Clock clock, Map<Site, Seed> seeds) {
         this.clock = Objects.requireNonNull(clock);
@@ -72,7 +87,10 @@ public final class InMemoryInventoryDomain implements InventoryDomain {
                 .toList();
         var movements = ledger.movements.values().stream()
                 .filter(row -> within(access, row.source(), row.destination())).toList();
-        return ok(new View(actor, ledger.version, access.canMove(), locations, balances, movements));
+        var readable = movements.stream().map(Movement::id).collect(Collectors.toSet());
+        var documents = ledger.documents.values().stream()
+                .filter(doc -> readable.containsAll(doc.movementIds())).toList();
+        return ok(new View(actor, ledger.version, access.canMove(), locations, balances, movements, documents));
     }
 
     @Override
@@ -91,6 +109,23 @@ public final class InMemoryInventoryDomain implements InventoryDomain {
         }
         if (command.expectedVersion() != ledger.version) return error(409, "STALE_VERSION");
 
+        var changed = apply(ledger, access, actor, command, nextNumber);
+        if (changed.status() != 200) return error(changed.status(), changed.error());
+        var movement = changed.value();
+        if (command.action() == Action.MOVE) {
+            nextNumber++;
+            ledger.documents.put(movement.id(), new DocumentHeader(movement.id(), movement.id(), LocalDate.now(clock),
+                    movement.destination().warehouse(), actor, List.of(movement.id())));
+        } else {
+            var parent = ledger.documents.values().stream().filter(doc -> doc.movementIds().contains(movement.id())).findFirst();
+            parent.ifPresent(doc -> removeLines(ledger, doc, List.of(movement.id())));
+        }
+        Result result = new Result(++ledger.version, movement);
+        ledger.receipts.put(command.requestId(), new Receipt(actor, command, result));
+        return ok(result);
+    }
+
+    private Reply<Movement> apply(Ledger ledger, TerminalAccess access, Actor actor, Command command, long movementNumber) {
         Movement movement = null;
         Route route;
         if (command.action() == Action.MOVE) {
@@ -115,7 +150,7 @@ public final class InMemoryInventoryDomain implements InventoryDomain {
         Instant now = clock.instant();
         Movement after;
         if (movement == null) {
-            after = new Movement("INV-DEMO-" + nextNumber++, route.lot(), route.source(), route.destination(),
+            after = new Movement("INV-DEMO-" + movementNumber, route.lot(), route.source(), route.destination(),
                     route.quantity(), Status.MOVED, actor, now, null, null);
         } else {
             after = new Movement(movement.id(), movement.lot(), movement.source(), movement.destination(),
@@ -124,9 +159,82 @@ public final class InMemoryInventoryDomain implements InventoryDomain {
         ledger.stock.put(from, remainder);
         ledger.stock.put(to, received);
         ledger.movements.put(after.id(), after);
-        Result result = new Result(++ledger.version, after);
-        ledger.receipts.put(command.requestId(), new Receipt(actor, command, result));
+        return ok(after);
+    }
+
+    @Override
+    public synchronized Reply<DocumentResult> document(Actor actor, DocumentCommand command) {
+        if (!valid(actor)) return error(401, "LOGIN_REQUIRED");
+        Ledger ledger = ledgers.get(actor.site());
+        TerminalAccess access = access(ledger, actor);
+        if (access == null || !access.canMove()) return error(403, "TERMINAL_OUT_OF_SCOPE");
+        if (command == null || command.action() == null || blank(command.requestId()) || command.requestId().length() > 128
+                || command.expectedVersion() == null || command.expectedVersion() < 0) return error(422, "INVALID_COMMAND");
+        var prior = ledger.documentReceipts.get(command.requestId());
+        if (prior != null) {
+            if (!prior.actor().equals(actor)) return error(403, "COMMAND_ACTOR_MISMATCH");
+            return prior.command().equals(command) ? ok(prior.result()) : error(409, "REQUEST_ID_REUSED");
+        }
+        if (command.expectedVersion() != ledger.version) return error(409, "STALE_VERSION");
+        var draft = new Ledger(ledger);
+        String number = command.documentNo();
+        if (command.action() == DocumentAction.SAVE) {
+            if (number != null || !actor.site().site().equals(command.destinationSite()) || blank(command.warehouse())
+                    || command.lines() == null || command.lines().isEmpty() || command.selectedIds() != null)
+                return error(422, "INVALID_COMMAND");
+            List<String> ids = new ArrayList<>();
+            long nextMovement = nextNumber;
+            for (var line : command.lines()) {
+                if (line == null || !valid(line.lot()) || !valid(line.source()) || !valid(line.rowDestination())
+                        || !validQuantity(line.quantity()) || line.quantity().signum() < 0
+                        || line.quantity().stripTrailingZeros().scale() > 0) return error(422, "INVALID_COMMAND");
+                if (!access.locations().contains(line.rowDestination())) return error(403, "LOCATION_OUT_OF_SCOPE");
+                if (!draft.stock.containsKey(new StockKey(line.lot(), line.source()))) return error(422, "INVALID_COMMAND");
+                // frmLogistics5 binds the header warehouse and the location from the individual row.
+                var destination = new Location(command.warehouse(), line.rowDestination().position());
+                var move = new Command(Action.MOVE, command.requestId(), ledger.version, null, line.lot(),
+                        line.source(), destination, line.quantity().setScale(3));
+                var reply = apply(draft, access, actor, move, nextMovement++);
+                if (reply.status() != 200) return error(reply.status(), reply.error());
+                ids.add(reply.value().id());
+            }
+            var date = LocalDate.now(clock);
+            String day = date.format(DateTimeFormatter.BASIC_ISO_DATE);
+            String counterKey = actor.site().factory() + "/" + day;
+            int serial = dayNumbers.getOrDefault(counterKey + "/output", 0) + 1;
+            int requestSerial = dayNumbers.getOrDefault(counterKey + "/request", 0) + 1;
+            if (serial > 9999 || requestSerial > 9999) return error(409, "DOCUMENT_NUMBER_EXHAUSTED");
+            number = day + String.format(java.util.Locale.ROOT, "%04d", serial);
+            String requestNumber = day + String.format(java.util.Locale.ROOT, "%04d", requestSerial);
+            nextNumber = nextMovement;
+            dayNumbers.put(counterKey + "/output", serial);
+            dayNumbers.put(counterKey + "/request", requestSerial);
+            ledger.documents.put(number, new DocumentHeader(number, requestNumber, date, command.warehouse(), actor, List.copyOf(ids)));
+        } else {
+            if (blank(number) || command.lines() != null || command.selectedIds() == null || command.selectedIds().isEmpty()
+                    || new HashSet<>(command.selectedIds()).size() != command.selectedIds().size()) return error(422, "INVALID_COMMAND");
+            var doc = ledger.documents.get(number);
+            if (doc == null || !doc.movementIds().containsAll(command.selectedIds())) return error(404, "MOVEMENT_NOT_FOUND");
+            for (String id : command.selectedIds()) {
+                var cancel = new Command(Action.CANCEL, command.requestId(), ledger.version, id, null, null, null, null);
+                var reply = apply(draft, access, actor, cancel, 0);
+                if (reply.status() != 200) return error(reply.status(), reply.error());
+            }
+            removeLines(ledger, doc, command.selectedIds());
+            if (!ledger.documents.containsKey(number)) number = null;
+        }
+        ledger.stock.putAll(draft.stock);
+        ledger.movements.putAll(draft.movements);
+        var result = new DocumentResult(++ledger.version, number);
+        ledger.documentReceipts.put(command.requestId(), new DocumentReceipt(actor, command, result));
         return ok(result);
+    }
+
+    private static void removeLines(Ledger ledger, DocumentHeader doc, List<String> selected) {
+        var remaining = doc.movementIds().stream().filter(id -> !selected.contains(id)).toList();
+        if (remaining.isEmpty()) ledger.documents.remove(doc.number());
+        else ledger.documents.put(doc.number(), new DocumentHeader(doc.number(), doc.requestNo(), doc.date(),
+                doc.warehouse(), doc.actor(), remaining));
     }
 
     private static TerminalAccess access(Ledger ledger, Actor actor) {

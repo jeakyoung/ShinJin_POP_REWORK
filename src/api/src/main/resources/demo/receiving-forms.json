@@ -1,0 +1,387 @@
+{
+  "today": "2026-11-25",
+  "purchases": [
+    {
+      "plant": "2000",
+      "date": "2026-11-25",
+      "reject": false,
+      "before": [
+        {
+          "index": 1,
+          "date": "2026-11-25",
+          "number": "TEST-PO-20261125-1",
+          "item": "TEST-ITEM-1",
+          "quantity": 2,
+          "timestamp": "2026-11-25 09:00:00",
+          "warehouse": "테스트 창고 2000",
+          "reflected": "N"
+        },
+        {
+          "index": 2,
+          "date": "2026-11-25",
+          "number": "TEST-PO-20261125-2",
+          "item": "TEST-ITEM-2",
+          "quantity": 3,
+          "timestamp": "2026-11-25 09:00:00",
+          "warehouse": "테스트 창고 2000",
+          "reflected": "N"
+        }
+      ],
+      "after": [
+        {
+          "index": 1,
+          "date": "2026-11-25",
+          "number": "TEST-PO-20261125-1",
+          "item": "TEST-ITEM-1",
+          "quantity": 2,
+          "timestamp": "2026-11-25 09:00:00",
+          "warehouse": "테스트 창고 2000",
+          "reflected": "Y"
+        },
+        {
+          "index": 2,
+          "date": "2026-11-25",
+          "number": "TEST-PO-20261125-2",
+          "item": "TEST-ITEM-2",
+          "quantity": 3,
+          "timestamp": "2026-11-25 09:00:00",
+          "warehouse": "테스트 창고 2000",
+          "reflected": "Y"
+        }
+      ]
+    },
+    {
+      "plant": "2000",
+      "date": "2026-11-24",
+      "reject": false,
+      "before": [
+        {
+          "index": 1,
+          "date": "2026-11-24",
+          "number": "TEST-PO-20261124-1",
+          "item": "TEST-ITEM-1",
+          "quantity": 2,
+          "timestamp": "2026-11-24 09:00:00",
+          "warehouse": "테스트 창고 2000",
+          "reflected": "N"
+        }
+      ],
+      "after": [
+        {
+          "index": 1,
+          "date": "2026-11-24",
+          "number": "TEST-PO-20261124-1",
+          "item": "TEST-ITEM-1",
+          "quantity": 2,
+          "timestamp": "2026-11-24 09:00:00",
+          "warehouse": "테스트 창고 2000",
+          "reflected": "Y"
+        }
+      ]
+    },
+    {
+      "plant": "1000",
+      "date": "2026-11-25",
+      "reject": false,
+      "before": [
+        {
+          "index": 1,
+          "date": "2026-11-25",
+          "number": "TEST-PO-20261125-1",
+          "item": "TEST-ITEM-1",
+          "quantity": 2,
+          "timestamp": "2026-11-25 09:00:00",
+          "warehouse": "테스트 창고 1000",
+          "reflected": "N"
+        }
+      ],
+      "after": [
+        {
+          "index": 1,
+          "date": "2026-11-25",
+          "number": "TEST-PO-20261125-1",
+          "item": "TEST-ITEM-1",
+          "quantity": 2,
+          "timestamp": "2026-11-25 09:00:00",
+          "warehouse": "테스트 창고 1000",
+          "reflected": "Y"
+        }
+      ]
+    },
+    {
+      "plant": "2000",
+      "date": "2026-11-23",
+      "reject": true,
+      "before": [
+        {
+          "index": 1,
+          "date": "2026-11-23",
+          "number": "TEST-PO-20261123-1",
+          "item": "TEST-ITEM-1",
+          "quantity": 2,
+          "timestamp": "2026-11-23 09:00:00",
+          "warehouse": "테스트 창고 2000",
+          "reflected": "N"
+        }
+      ],
+      "after": [
+        {
+          "index": 1,
+          "date": "2026-11-23",
+          "number": "TEST-PO-20261123-1",
+          "item": "TEST-ITEM-1",
+          "quantity": 2,
+          "timestamp": "2026-11-23 09:00:00",
+          "warehouse": "테스트 창고 2000",
+          "reflected": "Y"
+        }
+      ]
+    }
+  ],
+  "shipments": [
+    {
+      "plant": "2000",
+      "date": "2026-11-24",
+      "number": "TESTESCO000001",
+      "failure": null,
+      "before": [
+        {
+          "index": 1,
+          "shipDate": "20261124",
+          "inputDate": null,
+          "shipNumber": "TESTESCO000001",
+          "inputNumber": null,
+          "shipItem": "TEST-ESCO-1",
+          "inputItem": "TEST-IN-1",
+          "shipQty": 3,
+          "inputQty": null,
+          "shipTime": "20261124091000",
+          "inputTime": null,
+          "warehouse": "테스트 창고 2000",
+          "warehouseCode": "TEST-2000"
+        },
+        {
+          "index": 2,
+          "shipDate": "20261124",
+          "inputDate": null,
+          "shipNumber": "TESTESCO000001",
+          "inputNumber": null,
+          "shipItem": "TEST-ESCO-2",
+          "inputItem": "TEST-IN-2",
+          "shipQty": 4,
+          "inputQty": null,
+          "shipTime": "20261124091000",
+          "inputTime": null,
+          "warehouse": "테스트 창고 2000",
+          "warehouseCode": "TEST-2000"
+        }
+      ],
+      "after": [
+        {
+          "index": 1,
+          "shipDate": "20261124",
+          "inputDate": "20261125",
+          "shipNumber": "TESTESCO000001",
+          "inputNumber": "TEST-IN-1",
+          "shipItem": "TEST-ESCO-1",
+          "inputItem": "TEST-IN-1",
+          "shipQty": 3,
+          "inputQty": 3,
+          "shipTime": "20261124091000",
+          "inputTime": "20261125102500",
+          "warehouse": "테스트 창고 2000",
+          "warehouseCode": "TEST-2000"
+        },
+        {
+          "index": 2,
+          "shipDate": "20261124",
+          "inputDate": "20261125",
+          "shipNumber": "TESTESCO000001",
+          "inputNumber": "TEST-IN-1",
+          "shipItem": "TEST-ESCO-2",
+          "inputItem": "TEST-IN-2",
+          "shipQty": 4,
+          "inputQty": 4,
+          "shipTime": "20261124091000",
+          "inputTime": "20261125102500",
+          "warehouse": "테스트 창고 2000",
+          "warehouseCode": "TEST-2000"
+        }
+      ]
+    },
+    {
+      "plant": "1000",
+      "date": "2026-11-24",
+      "number": "TESTESCO000002",
+      "failure": null,
+      "before": [
+        {
+          "index": 1,
+          "shipDate": "20261124",
+          "inputDate": null,
+          "shipNumber": "TESTESCO000002",
+          "inputNumber": null,
+          "shipItem": "TEST-ESCO-1",
+          "inputItem": "TEST-IN-1",
+          "shipQty": 3,
+          "inputQty": null,
+          "shipTime": "20261124091000",
+          "inputTime": null,
+          "warehouse": "테스트 창고 1000",
+          "warehouseCode": "TEST-1000"
+        }
+      ],
+      "after": [
+        {
+          "index": 1,
+          "shipDate": "20261124",
+          "inputDate": "20261125",
+          "shipNumber": "TESTESCO000002",
+          "inputNumber": "TEST-IN-2",
+          "shipItem": "TEST-ESCO-1",
+          "inputItem": "TEST-IN-1",
+          "shipQty": 3,
+          "inputQty": 3,
+          "shipTime": "20261124091000",
+          "inputTime": "20261125102500",
+          "warehouse": "테스트 창고 1000",
+          "warehouseCode": "TEST-1000"
+        }
+      ]
+    },
+    {
+      "plant": "2000",
+      "date": "2026-11-24",
+      "number": "TESTESCO000003",
+      "failure": "ESCO_CREATE_FAILED",
+      "before": [
+        {
+          "index": 1,
+          "shipDate": "20261124",
+          "inputDate": null,
+          "shipNumber": "TESTESCO000003",
+          "inputNumber": null,
+          "shipItem": "TEST-ESCO-1",
+          "inputItem": "TEST-IN-1",
+          "shipQty": 3,
+          "inputQty": null,
+          "shipTime": "20261124091000",
+          "inputTime": null,
+          "warehouse": "테스트 창고 2000",
+          "warehouseCode": "TEST-2000"
+        }
+      ],
+      "after": [
+        {
+          "index": 1,
+          "shipDate": "20261124",
+          "inputDate": "20261125",
+          "shipNumber": "TESTESCO000003",
+          "inputNumber": "TEST-IN-3",
+          "shipItem": "TEST-ESCO-1",
+          "inputItem": "TEST-IN-1",
+          "shipQty": 3,
+          "inputQty": 3,
+          "shipTime": "20261124091000",
+          "inputTime": "20261125102500",
+          "warehouse": "테스트 창고 2000",
+          "warehouseCode": "TEST-2000"
+        }
+      ]
+    },
+    {
+      "plant": "2000",
+      "date": "2026-11-24",
+      "number": "TESTESCO000004",
+      "failure": "ESCO_ADJUST_FAILED",
+      "before": [
+        {
+          "index": 1,
+          "shipDate": "20261124",
+          "inputDate": null,
+          "shipNumber": "TESTESCO000004",
+          "inputNumber": null,
+          "shipItem": "TEST-ESCO-1",
+          "inputItem": "TEST-IN-1",
+          "shipQty": 3,
+          "inputQty": null,
+          "shipTime": "20261124091000",
+          "inputTime": null,
+          "warehouse": "테스트 창고 2000",
+          "warehouseCode": "TEST-2000"
+        },
+        {
+          "index": 2,
+          "shipDate": "20261124",
+          "inputDate": null,
+          "shipNumber": "TESTESCO000004",
+          "inputNumber": null,
+          "shipItem": "TEST-ESCO-2",
+          "inputItem": "TEST-IN-2",
+          "shipQty": 4,
+          "inputQty": null,
+          "shipTime": "20261124091000",
+          "inputTime": null,
+          "warehouse": "테스트 창고 2000",
+          "warehouseCode": "TEST-2000"
+        }
+      ],
+      "after": [
+        {
+          "index": 1,
+          "shipDate": "20261124",
+          "inputDate": "20261125",
+          "shipNumber": "TESTESCO000004",
+          "inputNumber": "TEST-IN-4",
+          "shipItem": "TEST-ESCO-1",
+          "inputItem": "TEST-IN-1",
+          "shipQty": 3,
+          "inputQty": 3,
+          "shipTime": "20261124091000",
+          "inputTime": "20261125102500",
+          "warehouse": "테스트 창고 2000",
+          "warehouseCode": "TEST-2000"
+        },
+        {
+          "index": 2,
+          "shipDate": "20261124",
+          "inputDate": "20261125",
+          "shipNumber": "TESTESCO000004",
+          "inputNumber": "TEST-IN-4",
+          "shipItem": "TEST-ESCO-2",
+          "inputItem": "TEST-IN-2",
+          "shipQty": 4,
+          "inputQty": 4,
+          "shipTime": "20261124091000",
+          "inputTime": "20261125102500",
+          "warehouse": "테스트 창고 2000",
+          "warehouseCode": "TEST-2000"
+        }
+      ]
+    },
+    {
+      "plant": "2000",
+      "date": "2026-11-24",
+      "number": "TESTESCO000005",
+      "failure": null,
+      "before": [
+        {
+          "index": 1,
+          "shipDate": "20261124",
+          "inputDate": null,
+          "shipNumber": "TESTESCO000005",
+          "inputNumber": null,
+          "shipItem": "TEST-ESCO-1",
+          "inputItem": "TEST-IN-1",
+          "shipQty": 3,
+          "inputQty": null,
+          "shipTime": "20261124091000",
+          "inputTime": null,
+          "warehouse": "테스트 창고 2000",
+          "warehouseCode": "TEST-2000"
+        }
+      ],
+      "after": []
+    }
+  ]
+}

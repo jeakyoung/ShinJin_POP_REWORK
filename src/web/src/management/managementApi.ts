@@ -9,9 +9,10 @@ export type Issue = { number: string; revision: number; actor: { worker: string 
   movementId: string; stock: StockKey; quantity: number; origin: Selection['origin']
 }[] }
 export type RepairStatus = 'ALL' | 'COMPLETE' | 'OPEN'
-export type Repair = { issue: string; equipment: string; reason: string; opened: string; closed: string | null; result: string | null }
+export type Repair = { issue: string; equipment: string; reason: string; opened: string; closed: string | null; result: string | null
+  detail?: { sequence: number; equipmentName: string; reporter: string; resolver: string | null; openedTime: string
+    closedTime: string | null; elapsedHours: string } | null }
 type RepairView = { from: string; to: string; rows: Repair[] }
-type Versioned<T> = { revision: number; rows: T[] }
 
 const root = '/api/pop/management'
 export class ManagementError extends Error {
@@ -35,14 +36,20 @@ async function request<T>(url: string, signal: AbortSignal, body?: string): Prom
   return response.json()
 }
 
+type ItemDetail = { name: string; specification: string; quality: string; partNumber: string }
+export type SupplyScreen = {
+  revision: number
+  masters: { materialFlags: Record<string, string>; kind1: Record<string, string>; kind2: Record<string, Record<string, string>> }
+  items: Record<string, ItemDetail>
+  catalog: Stock[]
+  recent: PriorLine[]
+  held: ReturnView['rows']
+}
+
 export function loadExpendables(filters: Record<string, string>, signal: AbortSignal) {
   const params = new URLSearchParams()
   for (const [key, value] of Object.entries(filters)) if (value.trim()) params.set(key, value.trim())
-  return Promise.all([
-    request<Versioned<Stock>>('/expendables/catalog?' + params, signal),
-    request<Versioned<PriorLine>>('/expendables/recent', signal),
-    request<Issue[]>('/expendables/history', signal),
-  ])
+  return request<SupplyScreen>('/expendables/screen?' + params, signal)
 }
 export function issueExpendables(body: string, signal: AbortSignal) {
   return request<Issue>('/expendables/issues', signal, body)

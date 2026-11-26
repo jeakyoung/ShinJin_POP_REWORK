@@ -1,0 +1,37 @@
+.pop-shell > .supplies-form { padding:0; overflow:hidden; border:1px solid #293656; border-radius:0; background:#1a2239; color:white; }
+.supplies-filters { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)) minmax(72px,.27fr); gap:8px; padding:6px 10px; align-items:center; min-height:80px; background:#1d253d; }
+.supplies-filters > div { display:grid; grid-template-columns: .88fr 1fr; align-items:stretch; gap:3px; }
+.supplies-filters > div > span { display:grid; place-items:center; background:darkblue; color:white; font-size:1.2rem; }
+.supplies-filters > div > button { display:flex; align-items:center; justify-content:space-between; background:moccasin; color:#1a2239; }
+.supplies-form button { border-radius:0; }
+.supplies-out { min-height:68px; background:#2647a4; color:white; }
+.supplies-tabs { display:grid; grid-template-columns: 29.5fr 33.2fr 37.3fr; }
+.supplies-tabs button { color:white; border:1px solid #151d32; background:#274185; font-size:clamp(1rem,2vw,1.75rem); }
+.supplies-tabs button[aria-selected=true] { background:#e7e7e7; color:#202020; }
+.supplies-grid { flex:1;min-height:0; overflow:auto; }
+.supplies-grid table { min-width:820px; }
+.supplies-form table { width:100%; border-collapse:collapse; margin:0; }
+.supplies-form th, .supplies-form td { padding:3px 4px; border:1px solid #838b9e; text-align:center; vertical-align:middle; }
+.supplies-grid thead th { height:48px; color:white; background:#274185; font-weight:500; }
+.supplies-grid tbody :is(th,td) { background:white; color:#181e29; }
+.supplies-grid td > span { display:block; border-top:1px solid #aeb4c2; }
+.supplies-grid input:not([type=checkbox]) { width:4.5rem; text-align:center; }
+.supplies-grid input[type=checkbox] { width:32px; height:32px; }
+.supplies-grid td button { min-width:44px; padding:0 5px; }
+.supplies-form [role=status] { color:white; margin:0; padding:3px 12px; }
+.supplies-form dialog p { white-space:pre-line; margin-bottom:.75rem; }
+.supplies-lookup { width:min(450px,95vw); max-height:65vh; overflow:auto; padding:.3rem; }
+.supplies-lookup th { background:#037e6d; color:white; }
+.supplies-lookup td button { width:100%; background:#e4e9f3; color:#16191e; }
+@media(max-width:760px) {
+  .supplies-filters { grid-template-columns:1fr 1fr; }
+  .supplies-filters > div > span { font-size:1rem; }
+}
+
+.supplies-grid table{table-layout:fixed;} .supplies-grid :is(td,th){white-space:normal;overflow-wrap:anywhere;} .supplies-grid input:not([type=checkbox]){max-width:100%;} .supplies-tabs button{height:50px;padding:0;}
+
+/* Keep the native +/- controls inside their quantity columns on smaller terminals. */
+.supplies-grid td:has(> button) { padding-inline:1px; }
+.supplies-grid td > button { width:100%; min-width:0; min-height:44px; }
+.supplies-filters > div { min-width:0; }
+.supplies-filters > div > button { min-width:0; overflow-wrap:anywhere; }

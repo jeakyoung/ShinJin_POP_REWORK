@@ -1,0 +1,27 @@
+{
+  "plants": {"SITE-NORTH":"샘플 1사업장","SITE-SOUTH":"샘플 2사업장"},
+  "warehouses": {"BIN-A":"자재창고","BIN-B":"현장창고","BIN-C":"원자재창고","BIN-D":"제품창고"},
+  "bins": [
+    {"location":{"warehouse":"BIN-A","position":"A-01"},"name":"A-01"},
+    {"location":{"warehouse":"BIN-A","position":"A-02"},"name":"A-02"},
+    {"location":{"warehouse":"BIN-B","position":"B-01"},"name":"B-01"},
+    {"location":{"warehouse":"BIN-B","position":"B-02"},"name":"B-02"},
+    {"location":{"warehouse":"BIN-C","position":"C-01"},"name":"C-01"},
+    {"location":{"warehouse":"BIN-D","position":"D-01"},"name":"D-01"}
+  ],
+  "items":[
+    {"code":"ITEM-X","kind":"강판","qualityCode":"014","quality":"SS400","thickness":6,"width":150,"length":3000},
+    {"code":"ITEM-Y","kind":"평철","qualityCode":"015","quality":"S45C","thickness":9,"width":100,"length":2500,"extraMaterial":true}
+  ],
+  "defaults":[
+    {"item":"ITEM-X","location":{"warehouse":"BIN-B","position":"B-01"}},
+    {"item":"ITEM-X","location":{"warehouse":"BIN-A","position":"A-01"}}
+  ],
+  "stockRows":[
+    {"site":"SITE-NORTH","lot":{"item":"ITEM-X","lot":"0000000001"},"location":{"warehouse":"BIN-A","position":"A-01"},"quantity":4},
+    {"site":"SITE-NORTH","lot":{"item":"ITEM-X","lot":"0000000002"},"location":{"warehouse":"BIN-A","position":"A-01"},"quantity":2},
+    {"site":"SITE-NORTH","lot":{"item":"ITEM-X","lot":"0000000002"},"location":{"warehouse":"BIN-A","position":"A-02"},"quantity":2}
+  ],
+  "inputWarehouses":{"DEMO-A":["BIN-A","BIN-B"],"DEMO-A2":["BIN-A"],"DEMO-B":["BIN-C","BIN-D"]},
+  "auxiliaryWarehouses":{"DEMO-A":["BIN-B"],"DEMO-A2":[],"DEMO-B":["BIN-D"]}
+}

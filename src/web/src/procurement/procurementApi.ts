@@ -52,3 +52,18 @@ export function listSources(type: SourceType, number: string, date: string, sign
 export const loadSource = (source: SourceKey, signal: AbortSignal) => request<Source>(url(source), signal)
 export const receive = (source: SourceKey, body: string, signal: AbortSignal) =>
   request<Receipt>(url(source) + '/receipts', signal, body)
+
+export type PurchaseRow = { index: number; date: string; number: string; item: string; quantity: number;
+  timestamp: string; warehouse: string; reflected: string }
+export type EscoRow = { index: number; shipDate: string; inputDate: string | null; shipNumber: string; inputNumber: string | null;
+  shipItem: string; inputItem: string; shipQty: number; inputQty: number | null; shipTime: string; inputTime: string | null;
+  warehouse: string; warehouseCode: string }
+type PurchaseView = { date: string; rows: PurchaseRow[] }
+type EscoView = { number: string; rows: EscoRow[] }
+const forms = '/api/pop/procurement/forms/'
+export const loadPurchaseDay = (date: string, signal: AbortSignal) =>
+  request<PurchaseView>(forms + 'purchase' + (date ? '?' + new URLSearchParams({ date }) : ''), signal)
+export const loadEsco = (number: string, signal: AbortSignal) =>
+  request<EscoView>(forms + 'esco?' + new URLSearchParams({ number }), signal)
+export const applyPurchaseDay = (body: string, signal: AbortSignal) => request<PurchaseView>(forms + 'purchase', signal, body)
+export const applyEsco = (body: string, signal: AbortSignal) => request<EscoView>(forms + 'esco', signal, body)

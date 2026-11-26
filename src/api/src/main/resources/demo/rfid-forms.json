@@ -1,0 +1,37 @@
+{
+  "pallets": [
+    {
+      "terminal": "DEMO-A",
+      "worker": "DEMO-W01",
+      "number": "26000001",
+      "type": "철제",
+      "status": "사용",
+      "made": "2026-11-20",
+      "statusDate": "2026-11-20",
+      "note": "",
+      "registeredBy": "샘플 작업자 A",
+      "registeredAt": "2026-11-20 09:00:00"
+    },
+    {
+      "terminal": "DEMO-A",
+      "worker": "DEMO-W01",
+      "number": "26000002",
+      "type": "목재",
+      "status": "사용",
+      "made": "2026-11-21",
+      "statusDate": "2026-11-21",
+      "note": "",
+      "registeredBy": "샘플 작업자 A",
+      "registeredAt": "2026-11-21 09:00:00"
+    }
+  ],
+  "customers": [
+    {
+      "terminal": "DEMO-A",
+      "worker": "DEMO-W01",
+      "code": "900001",
+      "name": "검증 출고처",
+      "plan": "20261125201"
+    }
+  ]
+}

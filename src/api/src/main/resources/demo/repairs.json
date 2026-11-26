@@ -1,0 +1,86 @@
+[
+  {
+    "site": {
+      "factory": "F1",
+      "plant": "000001"
+    },
+    "issue": "REPAIR-A1",
+    "equipment": "EQ-A1",
+    "reason": "합성 점검",
+    "opened": "2026-10-25",
+    "closed": "2026-10-31",
+    "result": "점검 완료",
+    "detail": {
+      "sequence": 1,
+      "equipmentName": "절단기 A",
+      "reporter": "샘플 요청자 A",
+      "resolver": "샘플 정비자 A",
+      "openedTime": "00:00:01",
+      "closedTime": "00:00:01",
+      "elapsedHours": "144"
+    }
+  },
+  {
+    "site": {
+      "factory": "F1",
+      "plant": "000001"
+    },
+    "issue": "REPAIR-A2",
+    "equipment": "EQ-A2",
+    "reason": "합성 이상 확인",
+    "opened": "2026-11-25",
+    "closed": null,
+    "result": null,
+    "detail": {
+      "sequence": 2,
+      "equipmentName": "연마기 A",
+      "reporter": "샘플 요청자 A",
+      "resolver": null,
+      "openedTime": "00:30:00",
+      "closedTime": null,
+      "elapsedHours": "0.5"
+    }
+  },
+  {
+    "site": {
+      "factory": "F1",
+      "plant": "000001"
+    },
+    "issue": "REPAIR-OLD",
+    "equipment": "EQ-A1",
+    "reason": "합성 이전 기록",
+    "opened": "2026-10-24",
+    "closed": "2026-10-25",
+    "result": "확인 완료",
+    "detail": {
+      "sequence": 3,
+      "equipmentName": "절단기 A",
+      "reporter": "샘플 요청자 A",
+      "resolver": "샘플 정비자 A",
+      "openedTime": "23:59:59",
+      "closedTime": "00:59:59",
+      "elapsedHours": "1"
+    }
+  },
+  {
+    "site": {
+      "factory": "F2",
+      "plant": "000002"
+    },
+    "issue": "REPAIR-B1",
+    "equipment": "EQ-B1",
+    "reason": "합성 정비",
+    "opened": "2026-11-25",
+    "closed": "2026-11-25",
+    "result": "정비 완료",
+    "detail": {
+      "sequence": 1,
+      "equipmentName": "포장기 B",
+      "reporter": "샘플 요청자 B",
+      "resolver": "샘플 정비자 B",
+      "openedTime": "00:00:01",
+      "closedTime": "00:30:01",
+      "elapsedHours": "0.5"
+    }
+  }
+]

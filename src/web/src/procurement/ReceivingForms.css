@@ -1,0 +1,32 @@
+.pop-shell > .receiving-form { margin:0; padding:0; border:0; border-radius:0; background:#1a2239; color:white; }
+.receiving-form form { display:flex; flex-wrap:nowrap; align-items:center; gap:6px; height:80px; flex:none; box-sizing:border-box; padding:8px 14px 4px 9px; margin:0; background:#202941; }
+.receiving-form form label { display:grid; place-items:center; flex:0 1 140px; align-self:stretch; color:white; background:darkblue; font-weight:700; font-size:1.2rem; }
+.receiving-form form input { flex:0 1 460px; min-width:0; height:68px; border-radius:0; font-size:1.6rem; padding:0 15px; }
+.receiving-form form input[type=date] { flex-basis:232px; background:moccasin; color:#141720; }
+.receiving-form form button { min-width:min(14vw,125px); height:68px; background:#27438a; color:white; font-size:1.5rem; font-weight:bold; border-radius:0; }
+.receiving-form form button:last-child { margin-left:auto; background:#005366; }
+.workplace-client:has(> .receiving-form) { display:flex; flex-direction:column; }
+.workplace-client.pop-shell > .receiving-form { flex:1; min-width:0; min-height:0; display:flex; flex-direction:column; overflow:hidden; }
+.receiving-form form input[aria-label] {
+  background-color:white; color:black; background-repeat:no-repeat; background-position:right 2px center;
+  background-size:50px 50px; padding:0 56px 0 20px; font:32px Tahoma, sans-serif;
+}
+.receiving-form form input[type=date] { color:#151515; }
+.receiving-grid { flex:1; min-height:0; margin-top:5px; padding-right:24px; overflow-y:auto; scrollbar-gutter:stable; }
+.receiving-form[data-purchase=true] .receiving-grid { margin-top:2px; padding-right:14px; }
+.receiving-grid table { width:100%; margin:0; table-layout:fixed; border-collapse:collapse; }
+.receiving-grid :is(td,th) {
+  padding:2px 3px; vertical-align:middle; text-align:center; border:1px solid #181f34;
+  font:400 13.6px/1.25 "Noto Sans KR","Malgun Gothic",sans-serif; white-space:normal; overflow-wrap:anywhere;
+}
+.receiving-grid th { background:#274185; color:white; height:39px; }
+.receiving-grid td { color:white; background:#202941; height:35px; }
+.receiving-form [role=status]:empty { margin:0; padding:0; }
+.receiving-grid tr.selected td { background:#00781c; }
+.receiving-form [role=status] { margin:0; color:white; padding:4px 10px; }
+
+.receiving-form form button.receiving-date {
+  flex:0 1 232px; height:65px; min-width:0; padding:0 12px; color:#151515; background:moccasin;
+  font:700 24px "Noto Sans KR","Malgun Gothic",sans-serif;
+}
+.receiving-date span,.repair-date span { display:none; }

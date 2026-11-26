@@ -1,0 +1,273 @@
+{
+  "description": "합성 테스트 전용. 기본창고 코드와 초기 유형은 폼의 상수이며 모든 품목·재질·ETC·LOT 및 조회 반환 행은 샘플이다. 운영 SP 결과가 아니다.",
+  "sites": [
+    {
+      "code": "000001",
+      "name": "정남"
+    },
+    {
+      "code": "000002",
+      "name": "장수"
+    }
+  ],
+  "warehouses": [
+    {
+      "plant": "000001",
+      "code": "003",
+      "name": "제품창고(정남)",
+      "etc": "TEST-003"
+    },
+    {
+      "plant": "000002",
+      "code": "203",
+      "name": "제품창고(장수)",
+      "etc": "TEST-203"
+    },
+    {
+      "plant": "000002",
+      "code": "TEST-W2",
+      "name": "시험 제2창고",
+      "etc": "TEST-SL-W2"
+    }
+  ],
+  "qualities": [
+    {
+      "code": "Q-TEST",
+      "name": "시험재질",
+      "etc": "TEST-Q"
+    }
+  ],
+  "kinds": [
+    {
+      "plant": "000001",
+      "warehouse": "003",
+      "first": "100",
+      "second": "110",
+      "third": "SL",
+      "name": "SM규격-LONG",
+      "code2": "TEST-SL"
+    },
+    {
+      "plant": "000002",
+      "warehouse": "203",
+      "first": "100",
+      "second": "110",
+      "third": "SL",
+      "name": "SM규격-LONG",
+      "code2": "TEST-SL"
+    }
+  ],
+  "materials": [
+    {
+      "outPlant": "000001",
+      "inPlant": "000002",
+      "source": "003",
+      "destination": "203",
+      "spec": {
+        "quality": "Q-TEST",
+        "first": "100",
+        "second": "110",
+        "third": "SL",
+        "thickness": 2,
+        "width": 100,
+        "length": 1250
+      },
+      "item": "TEST-PLATE",
+      "part": "TEST-PART",
+      "outEtc": "TEST-003",
+      "inEtc": "TEST-203"
+    },
+    {
+      "outPlant": "000002",
+      "inPlant": "000001",
+      "source": "203",
+      "destination": "003",
+      "spec": {
+        "quality": "Q-TEST",
+        "first": "100",
+        "second": "110",
+        "third": "SL",
+        "thickness": 2,
+        "width": 100,
+        "length": 1250
+      },
+      "item": "TEST-PLATE",
+      "part": "TEST-PART",
+      "outEtc": "TEST-203",
+      "inEtc": "TEST-003"
+    }
+  ],
+  "lots": [
+    {
+      "plant": "000002",
+      "warehouse": "203",
+      "location": "QA-1",
+      "lot": "TEST-LOT-1",
+      "item": "TEST-PLATE",
+      "spec": {
+        "quality": "Q-TEST",
+        "first": "100",
+        "second": "110",
+        "third": "SL",
+        "thickness": 2,
+        "width": 100,
+        "length": 1250
+      },
+      "quantity": 4
+    },
+    {
+      "plant": "000002",
+      "warehouse": "203",
+      "location": "QA-2",
+      "lot": "TEST-LOT-2",
+      "item": "TEST-PLATE",
+      "spec": {
+        "quality": "Q-TEST",
+        "first": "100",
+        "second": "110",
+        "third": "SL",
+        "thickness": 2,
+        "width": 100,
+        "length": 1250
+      },
+      "quantity": 2
+    },
+    {
+      "plant": "000001",
+      "warehouse": "003",
+      "location": "QA-3",
+      "lot": "TEST-LOT-3",
+      "item": "TEST-PLATE",
+      "spec": {
+        "quality": "Q-TEST",
+        "first": "100",
+        "second": "110",
+        "third": "SL",
+        "thickness": 2,
+        "width": 100,
+        "length": 1250
+      },
+      "quantity": 3
+    }
+  ],
+  "erpRequestNumbers": [
+    "DEMO-REQ-001",
+    "DEMO-REQ-002",
+    "DEMO-REQ-003",
+    "DEMO-REQ-004",
+    "DEMO-REQ-005",
+    "DEMO-REQ-006",
+    "DEMO-REQ-007",
+    "DEMO-REQ-008",
+    "DEMO-REQ-009",
+    "DEMO-REQ-010",
+    "DEMO-REQ-011",
+    "DEMO-REQ-012",
+    "DEMO-REQ-013",
+    "DEMO-REQ-014",
+    "DEMO-REQ-015",
+    "DEMO-REQ-016",
+    "DEMO-REQ-017",
+    "DEMO-REQ-018",
+    "DEMO-REQ-019",
+    "DEMO-REQ-020",
+    "DEMO-REQ-021",
+    "DEMO-REQ-022",
+    "DEMO-REQ-023",
+    "DEMO-REQ-024",
+    "DEMO-REQ-025",
+    "DEMO-REQ-026",
+    "DEMO-REQ-027",
+    "DEMO-REQ-028",
+    "DEMO-REQ-029",
+    "DEMO-REQ-030",
+    "DEMO-REQ-031",
+    "DEMO-REQ-032"
+  ],
+  "stockSearches": [
+    {
+      "plant": "000002",
+      "warehouse": "203",
+      "quality": "Q-TEST",
+      "thickness": 0,
+      "location": "QA-1",
+      "lot": "TEST-LOT-1",
+      "item": "TEST-PLATE"
+    },
+    {
+      "plant": "000002",
+      "warehouse": "203",
+      "quality": "Q-TEST",
+      "thickness": 2,
+      "location": "QA-1",
+      "lot": "TEST-LOT-1",
+      "item": "TEST-PLATE"
+    },
+    {
+      "plant": "000002",
+      "warehouse": "203",
+      "quality": "Q-TEST",
+      "thickness": 0,
+      "location": "QA-2",
+      "lot": "TEST-LOT-2",
+      "item": "TEST-PLATE"
+    },
+    {
+      "plant": "000002",
+      "warehouse": "203",
+      "quality": "Q-TEST",
+      "thickness": 2,
+      "location": "QA-2",
+      "lot": "TEST-LOT-2",
+      "item": "TEST-PLATE"
+    },
+    {
+      "plant": "000001",
+      "warehouse": "003",
+      "quality": "Q-TEST",
+      "thickness": 0,
+      "location": "QA-3",
+      "lot": "TEST-LOT-3",
+      "item": "TEST-PLATE"
+    },
+    {
+      "plant": "000001",
+      "warehouse": "003",
+      "quality": "Q-TEST",
+      "thickness": 2,
+      "location": "QA-3",
+      "lot": "TEST-LOT-3",
+      "item": "TEST-PLATE"
+    }
+  ],
+  "requestStocks": [
+    {
+      "outPlant": "000001",
+      "spec": {
+        "quality": "Q-TEST",
+        "first": "100",
+        "second": "110",
+        "third": "SL",
+        "thickness": 2,
+        "width": 100,
+        "length": 1250
+      },
+      "warehouse": "003",
+      "item": "TEST-PLATE"
+    },
+    {
+      "outPlant": "000002",
+      "spec": {
+        "quality": "Q-TEST",
+        "first": "100",
+        "second": "110",
+        "third": "SL",
+        "thickness": 2,
+        "width": 100,
+        "length": 1250
+      },
+      "warehouse": "203",
+      "item": "TEST-PLATE"
+    }
+  ]
+}

@@ -1,3 +1,5 @@
+import { TouchSelect } from '../TouchFields'
+import '../adminTouch.css'
 import { useEffect, useRef, useState } from 'react'
 import { getSessionData, SessionExpired } from '../workHistoryApi'
 import { outputMessage, savePdf } from './outputDocument'
@@ -29,7 +31,7 @@ export default function OutputPreview({ onSessionExpired }: { onSessionExpired: 
     }).catch((failure: unknown) => {
       if (controller.signal.aborted) return
       if (failure instanceof SessionExpired) onSessionExpired()
-      else setError('합성 출력 예제를 조회하지 못했습니다.')
+      else setError('출력 대상을 조회하지 못했습니다.')
     })
     return () => controller.abort()
   }, [onSessionExpired])
@@ -79,8 +81,8 @@ export default function OutputPreview({ onSessionExpired }: { onSessionExpired: 
   }
 
   return (
-    <section className="synthetic-output" aria-label="합성 출력 미리보기">
-      <h2>합성 출력 미리보기</h2>
+    <section className="synthetic-output pop-touch-form" aria-label="출력 미리보기">
+      <h2>출력 미리보기</h2>
       {examples && (
         <form onSubmit={(event) => {
           event.preventDefault()
@@ -92,10 +94,10 @@ export default function OutputPreview({ onSessionExpired }: { onSessionExpired: 
           setSelected(choice)
           setRequest((value) => value + 1)
         }}>
-          <label>출력 예제
-            <select value={choice} onChange={(event) => setChoice(event.target.value)}>
+          <label>출력 대상
+            <TouchSelect value={choice} onValue={next => setChoice(next)}>
               {examples.map((example) => <option key={key(example)} value={key(example)}>{example.label}</option>)}
-            </select>
+            </TouchSelect>
           </label>
           <button type="submit" disabled={!choice}>미리보기</button>
         </form>

@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -27,8 +28,14 @@ public final class ManagementDemo {
     public record Receipt(String number, Actor actor, Instant recordedAt, long revision, List<Movement> lines) {}
     public record PriorLine(String request, StockKey stock, String name, int issued, int available) {}
     public record Recent(long revision, List<PriorLine> rows) {}
+    public record RepairDetail(int sequence, String equipmentName, String reporter, String resolver,
+                               LocalTime openedTime, LocalTime closedTime, String elapsedHours) {}
     public record Repair(Site site, String issue, String equipment, String reason, LocalDate opened,
-                         LocalDate closed, String result) {}
+                         LocalDate closed, String result, RepairDetail detail) {
+        public Repair(Site site, String issue, String equipment, String reason, LocalDate opened, LocalDate closed, String result) {
+            this(site, issue, equipment, reason, opened, closed, result, null);
+        }
+    }
     public record RepairView(LocalDate from, LocalDate to, List<Repair> rows) {}
     public record Reply<T>(int status, String code, T value) {}
 
@@ -105,6 +112,7 @@ public final class ManagementDemo {
         if (start.isAfter(end) || status == null) return error(422, "INVALID_REPAIR_FILTER");
         return ok(new RepairView(start, end, repairs.stream().filter(row -> row.site().equals(actor.site())
                 && !row.opened().isBefore(start) && !row.opened().isAfter(end)
+                && (row.detail() == null || !row.opened().equals(start) || !row.detail().openedTime().isBefore(LocalTime.of(0, 0, 1)))
                 && (status == RepairStatus.ALL || (row.closed() != null) == (status == RepairStatus.COMPLETE)))
                 .sorted(Comparator.comparing(Repair::opened).thenComparing(Repair::issue)).toList()));
     }

@@ -9,6 +9,23 @@ export type Movement = {
 export type InventoryView = {
   actor: Actor; version: number; canMove: boolean; locations: Location[]
   balances: Balance[]; movements: Movement[]
+  documents: DocumentHeader[]; catalog: Catalog; today: string
+}
+export type DocumentHeader = { number: string; requestNo: string; date: string; warehouse: string; actor: Actor; movementIds: string[] }
+export type Item = { code: string; kind: string; qualityCode: string; quality: string; thickness: number; width: number; length: number; extraMaterial: boolean }
+export type Catalog = { plants: Record<string,string>; warehouses: Record<string,string>; bins: { location: Location; name: string }[];
+  items: Item[]; defaults: {item: string; location: Location}[]; inputWarehouses: Record<string,string[]>; auxiliaryWarehouses: Record<string,string[]> }
+export type MoveLine = { lot: Lot; source: Location; rowDestination: Location; quantity: string }
+export type DocumentCommand = CommandKey & ({ action: 'SAVE'; destinationSite: string; warehouse: string; lines: MoveLine[] }
+  | {action: 'DELETE_LINES'; documentNo: string; selectedIds: string[]})
+
+export function stockKey(balance: Pick<Balance,'lot'|'location'>) {
+  return JSON.stringify([balance.lot.item,balance.lot.lot,balance.location.warehouse,balance.location.position])
+}
+export function locationName(view: InventoryView, location: Location) {
+  if (location.position === '000000') return '미적용'
+  return view.catalog.bins.find(row => row.location.warehouse === location.warehouse
+    && row.location.position === location.position)?.name ?? location.position
 }
 
 type CommandKey = { expectedVersion: number; requestId: string }
@@ -45,5 +62,10 @@ export async function sendInventory(command: Command) {
     credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(command),
+  }))
+}
+export async function sendInventoryDocument(command: DocumentCommand) {
+  return read<{ version: number; documentNo: string | null }>(await fetch(base + '/documents', {
+    method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(command),
   }))
 }

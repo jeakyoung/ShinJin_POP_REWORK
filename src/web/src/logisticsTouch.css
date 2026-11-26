@@ -1,0 +1,13 @@
+.logistics-touch { --logistics-border: #899db1; }
+.logistics-touch > h2:first-child { background: #28496b; color: white; padding: .65rem 1rem; }
+.logistics-touch :is(button, select, input:not([type=checkbox]), summary) { min-height: 48px; font: inherit; box-sizing: border-box; }
+.logistics-touch :is(button, summary) { padding: .45rem .8rem; touch-action: manipulation; }
+.logistics-touch summary { cursor: pointer; }
+.logistics-touch :focus-visible { outline: 3px solid #1167ab; outline-offset: 2px; }
+.logistics-touch form { padding: .75rem; background: #edf2f6; border: 1px solid var(--logistics-border); }
+.logistics-touch table { width: 100%; border-collapse: collapse; }
+.logistics-touch :is(th,td) { padding: .45rem; border: 1px solid var(--logistics-border); }
+.logistics-touch dialog { padding: 1rem; border: 2px solid var(--logistics-border); }
+.logistics-touch dialog::backdrop { background: #12243680; }
+.logistics-touch dialog output { display: block; text-align: right; font: bold 1.6rem monospace; }
+.logistics-touch .logistics-keys { display: grid; grid-template-columns: repeat(3, 1fr); gap: .25rem; margin: .5rem 0; }

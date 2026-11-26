@@ -1,0 +1,88 @@
+.employee-form, .employee-modal { font-family:"Noto Sans KR",sans-serif; }
+.pop-shell section.employee-form { overflow:auto; padding:0; margin:0; background:#1a2239; min-height:700px; border:0; border-radius:0; }
+.employee-form fieldset { display:block; position:relative; min-width:1280px; height:100px; background:#1d253d; }
+.employee-lookup { position:absolute; top:25px; left:12px; display:flex; height:50px; align-items:stretch; }
+.employee-lookup:nth-child(2) { left:453px; }
+.employee-lookup > span { display:grid; place-items:center; width:175px; font-size:13.8pt; font-weight:400; background:darkblue; color:white; }
+.employee-form button { border-radius:0; }
+.employee-lookup > button { width:200px; background:moccasin; color:black; font-size:13.8pt; }
+.employee-lookup i { float:right; }
+.employee-choices { position:absolute; z-index:1; left:175px; top:50px; width:450px; height:327px; overflow:auto; background:white; border:1px solid #888; }
+.employee-choices > div,.employee-choices > button { display:grid; grid-template-columns:1fr 1fr; align-items:center; text-align:center; width:100%; height:50px; font-size:21px; }
+.employee-choices > div { background:#037e6d; color:white; }
+.employee-choices > button { color:#161616; background:white; border-bottom:1px solid #bbb; }
+.employee-form fieldset > button { position:absolute; top:15px; left:1056px; width:100px; height:70px; padding:0; font-size:27px; font-weight:700; background:#095c5e; color:white; }
+.employee-form fieldset > button:last-child { left:1166px; }
+.employee-form table { min-width:1280px; width:100%; border-collapse:collapse; table-layout:fixed; }
+.employee-form :is(th,td) { height:50px; padding:0; text-align:center; border:1px solid #181f34; font-weight:bold; font-size:21px; }
+.employee-form th { background:#274185; color:white; font-weight:400; }
+.employee-form th:nth-child(1) { width:6%; }
+.employee-form th:nth-child(2) { width:8%; }
+.employee-form th button { background:transparent; color:inherit; width:100%; }
+.employee-form td { background:#202941; color:#868ea2; font-size:12pt; font-weight:400; }
+.employee-form input[type=checkbox] { width:30px; height:30px; accent-color:#868ea2; vertical-align:middle; }
+.employee-modal { padding:0; border:1px solid #888; border-radius:0; margin:auto; box-sizing:content-box; }
+.employee-password { width:792px; max-width:98vw; color:black; background:#eee; }
+.employee-password form { display:block; margin:0; }
+.employee-password header { position:relative; height:100px; background:#082e78; color:white; padding:0; }
+.employee-password header > img { position:absolute; left:3.8%; top:9px; width:100px; height:80px; }
+.employee-password header b { position:absolute; left:16.8%; top:21px; font-size:37px; }
+.employee-password header button { position:absolute; right:2.8%; top:17px; height:68px; width:68px; padding:0; background:transparent; }
+.employee-password header button img { width:100%; }
+.employee-password label { display:block; padding:26px 4% 0; height:214px; box-sizing:border-box; font-size:37px; font-weight:bold; }
+.employee-password input { display:block; margin:17px auto 0; width:100%; height:82px; font-size:37px; box-sizing:border-box; }
+.employee-password footer { display:flex; align-items:center; justify-content:center; gap:10px; height:100px; background:#f3f3f3; }
+.employee-password footer button { width:45.45%; height:70px; font-size:21px; font-weight:bold; color:white; background:#0c2c6d; }
+.employee-password footer button:last-child { background:#8e8e8e; }
+.employee-message { padding:22px; }
+.employee-preview { width:738px; height:min(622px,95vh); max-width:98vw; }
+.employee-preview[open] { display:flex; flex-direction:column; overflow:auto; background:#eee; }
+.employee-preview.expanded { width:96vw; height:94vh; }
+.employee-chrome { position:relative; min-width:738px; flex:none; height:79px; background-repeat:no-repeat; background-color:#eee; }
+.pop-shell .employee-chrome button, .pop-shell .employee-chrome input { position:absolute; height:24px; min-height:0; padding:0; margin:0; border:0; border-radius:0; }
+.employee-chrome button { background:transparent; }
+.employee-chrome button:hover:enabled { background:#2276ae22; }
+.employee-chrome input { top:56px; left:330px; width:69px; max-height:20px; font:12px Arial; background:white; color:black; }
+.employee-paper { flex:1; overflow:auto; padding:16px; background:#ccc; }
+.employee-paper img { max-width:none; display:block; height:auto; border:1px solid #aaa; }
+.employee-preview footer { display:flex; align-items:center; justify-content:space-between; min-height:24px; padding:0 8px; color:#181818; font:12px Arial,sans-serif; }
+
+.workplace-client.pop-shell > section.employee-form { display:flex; flex-direction:column; height:100%; min-height:0; overflow:hidden; }
+.employee-form fieldset { flex:none; display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr) 100px 100px; align-items:center;
+  gap:10px; min-width:0; height:100px; padding:8px 12px; margin:0; box-sizing:border-box; border:0; }
+.employee-form .employee-lookup { position:relative; inset:auto; min-width:0; }
+.employee-form .employee-lookup > span { width:min(38%,175px); }
+.employee-form .employee-lookup > button { width:auto; min-width:0; flex:1; }
+.employee-form .employee-lookup .employee-choices { left:0; width:min(450px,100%); height:auto; max-height:327px; }
+.employee-form fieldset > button, .employee-form fieldset > button:last-child { position:static; width:100%; }
+.employee-list { flex:1; min-height:0; overflow:auto; scrollbar-gutter:stable; }
+.employee-list table { width:100%; min-width:680px; }
+.employee-list th { position:sticky; top:0; z-index:1; }
+.employee-list td { overflow-wrap:anywhere; }
+
+.employee-password form > header {margin:0}
+.employee-password footer button,.employee-password input {border-radius:0}
+.employee-lookup > button img {float:right;width:24px;height:23px}
+.employee-form tr[data-focused=true] td {background:#ededed;color:#202941}
+
+.employee-message {width:683px;height:376px;box-sizing:content-box;padding:0;overflow:hidden}
+.employee-message p {margin:0;height:259px;display:grid;place-items:center;font-size:21.75pt;font-weight:bold;color:black}
+.employee-message button {position:absolute;top:276px;left:234px;width:212px;height:80px;border-radius:0;background:#224895;color:white;font-size:18pt}
+
+.employee-message {height:406px}
+.employee-message::before {content:"System Message";display:block;height:30px;padding-left:6px;color:#222;background:#f5f5f5;font:12px/30px "Segoe UI",sans-serif}
+.employee-message button {top:306px}
+.employee-preview { width:min(96vw,1200px); height:min(94dvh,900px); }
+.employee-preview.expanded { width:calc(100vw - 4px); height:calc(100dvh - 4px); max-width:none; max-height:none; }
+.employee-chrome { height:auto; min-width:0; }
+.employee-preview-title,.employee-preview-actions { display:flex; gap:2px; align-items:center; }
+.employee-preview-title { padding-left:10px; background:#f0f0f0; color:#444; }
+.employee-preview-title > span { flex:1; }
+.employee-preview-menu { font:14px/26px "Segoe UI",sans-serif; color:#222; padding:0 12px; background:#eee; }
+.employee-preview-actions { flex-wrap:wrap; padding:0 5px; border-block:1px solid #bbb; }
+.pop-shell .employee-chrome :is(button,input) { position:static; box-sizing:border-box; height:44px; min-height:44px; }
+.employee-chrome button { display:grid; place-items:center; min-width:44px; }
+.employee-chrome button > span { display:block; background-repeat:no-repeat; }
+.employee-chrome button:disabled { opacity:.55; }
+.pop-shell .employee-preview-actions input { width:75px; background:white; border:1px solid #aaa; text-align:center; color:#222; }
+.employee-inactive { display:block; height:26px; opacity:.52; }

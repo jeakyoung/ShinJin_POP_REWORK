@@ -1,0 +1,30 @@
+.pop-shell > .repair-history { margin:0; padding:0; border:0; border-radius:0; color:white; background:#1a2239; }
+.repair-history form { display:grid; grid-template-columns:minmax(95px,175fr) minmax(125px,200fr) auto minmax(125px,200fr) minmax(90px,175fr) minmax(100px,200fr) minmax(72px,246fr); align-items:center; gap:3px; margin:0; min-height:100px; padding:10px 12px; background:#1d253d; }
+.repair-history form > span { display:grid; place-items:center; min-height:50px; color:white; background:darkblue; }
+.repair-history form :is(input,button) { min-width:0; height:50px; border-radius:0; color:#171c2d; background:moccasin; font-size:1.05rem; }
+.repair-history form > button[type=button] { display:flex; justify-content:space-between; align-items:center; }
+.repair-history form > button[type=submit] { justify-self:end; width:min(100%,100px); height:80px; color:white; background:#25418a; font-weight:700; font-size:1.4rem; }
+.repair-grid { overflow:auto; flex:1;min-height:0; }
+.repair-history table { width:100%; margin:0; border-collapse:collapse; }
+.repair-grid table { min-width:900px; }
+.repair-history :is(th,td) { vertical-align:middle; text-align:center; border:1px solid #a5adbd; padding:5px; }
+.repair-grid thead th { padding:0; background:#274185; }
+.repair-grid th button { background:transparent; color:white; width:100%; padding:.2rem; font-size:1rem; border-radius:0; }
+.repair-grid td { color:#182033; background:white; height:46px; }
+.repair-grid tr.selected td { background:#00781c; color:white; }
+.repair-grid td.open-hours,.repair-grid tr.selected td.open-hours { color:red; }
+.repair-history [role=status] { color:white; padding:0 8px; }
+.repair-history dialog { width:min(450px,92vw); padding:6px; }
+.repair-history dialog th { color:white; background:#037e6d; }
+.repair-history dialog td button { width:100%; }
+@media(max-width:780px) {
+  .repair-history form { grid-template-columns:repeat(4,minmax(0,1fr)); }
+  .repair-history form > span:first-child { grid-column:1/-1; }
+  .repair-history form > button[type=submit] { height:auto; }
+}
+
+.repair-grid table {table-layout:fixed;} .repair-grid td{white-space:normal;overflow-wrap:anywhere;} .repair-grid th button span{display:block;}
+
+@media(min-width:1000px){.repair-history form{grid-template-columns:175fr 200fr 27fr 200fr 191fr 200fr 263fr;gap:0;} .repair-history form>span:nth-of-type(2){margin-left:min(1.25vw,16px);} .repair-history form>b{text-align:center;}}
+
+.repair-history form > button.repair-date { display:block; text-align:center; }

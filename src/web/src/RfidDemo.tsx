@@ -1,6 +1,7 @@
-﻿import RfidPhotos from './RfidPhotos'
+﻿import RfidOperations from './RfidOperations'
+import './floor-work.css'
+import RfidForms from './RfidForms'
 import { useEffect, useRef, useState } from 'react'
-import ScanInput from './ScanInput'
 import { SessionExpired } from './workHistoryApi'
 type Command =
   | { action: 'register'; tag: string }
@@ -43,16 +44,15 @@ function recoverPending(key: string): Pending | undefined {
   }
 }
 
-export default function RfidDemo({ actor, onSessionExpired }: { actor: string; onSessionExpired: () => void }) {
+const titles = { rfid: 'TAG 등록', rfidMatch: '파렛트 매칭', rfidLoad: '파렛트 적재', rfidMove: '입출고 수동등록', rfidHistory: '입출고 현황' }
+
+export default function RfidDemo({ entry, actor, onSessionExpired }: { entry: keyof typeof titles; actor: string; onSessionExpired: () => void }) {
 
   const storageKey = 'synthetic-rfid-pending:' + actor
   const [pending, setPending] = useState(() => recoverPending(storageKey))
-  const [tag, setTag] = useState('')
-  const [pallet, setPallet] = useState('')
-  const [item, setItem] = useState('')
-  const [eventId, setEventId] = useState('')
+  const [manual, setManual] = useState(false)
   const [notice, setNotice] = useState('')
-  const [state, setState] = useState<View>({ history: [], netInventoryDelta: 0 })
+  const [, setState] = useState<View>({ history: [], netInventoryDelta: 0 })
   const [busy, setBusy] = useState(true)
   const request = useRef<AbortController | null>(null)
   useEffect(() => {
@@ -73,16 +73,6 @@ export default function RfidDemo({ actor, onSessionExpired }: { actor: string; o
   function clearPending() {
     sessionStorage.removeItem(storageKey)
     setPending(undefined)
-  }
-
-  function begin(command: Command) {
-    if (busy || request.current || pending) return
-    const eventId = command.action === 'in' || command.action === 'out' ? command.eventId.trim() : crypto.randomUUID()
-    if (!eventId) {
-      setNotice(labels.INVALID_INPUT)
-      return
-    }
-    void execute({ ...command, eventId })
   }
 
   async function execute(command: Pending) {
@@ -114,20 +104,11 @@ export default function RfidDemo({ actor, onSessionExpired }: { actor: string; o
     }
   }
   return (
-    <section aria-labelledby="rfid-title">
-      <h2 id="rfid-title">합성 RFID·파렛트</h2>
-      <p>데모 서버 메모리에 저장되며 내 단말·작업자의 이력을 표시합니다.</p>
-      <ScanInput actor={actor} modes={[{ value: 'lot', label: '태그' }]} label="태그 스캔"
-        onRoute={(route) => { if (route.kind === 'lot') setTag(route.code) }} />
-      <label>태그<input value={tag} onChange={(event) => setTag(event.target.value)} /></label>
-      <label>파렛트<input value={pallet} onChange={(event) => setPallet(event.target.value)} /></label>
-      <label>품목<input value={item} onChange={(event) => setItem(event.target.value)} /></label>
-      <label>이동 이벤트 키<input value={eventId} onChange={(event) => setEventId(event.target.value)} /></label>
-      <button type="button" disabled={busy || !!pending} onClick={() => begin({ action: 'register', tag })}>태그 등록</button>
-      <button type="button" disabled={busy || !!pending} onClick={() => begin({ action: 'match', tag, pallet })}>파렛트 매칭</button>
-      <button type="button" disabled={busy || !!pending} onClick={() => begin({ action: 'load', pallet, item })}>품목 적재</button>
-      <button type="button" disabled={busy || !!pending} onClick={() => begin({ action: 'in', pallet, eventId })}>수동 입고</button>
-      <button type="button" disabled={busy || !!pending} onClick={() => begin({ action: 'out', pallet, eventId })}>수동 출고</button>
+    <div className="rf-shell">
+      {(entry === 'rfid' || entry === 'rfidMatch' || entry === 'rfidHistory' && !manual) && <RfidForms key={entry}
+        entry={entry} actor={actor} onSessionExpired={onSessionExpired} onManual={() => setManual(true)} />}
+      {(entry === 'rfidLoad' || entry === 'rfidMove' || entry === 'rfidHistory' && manual) &&
+        <RfidOperations key={entry} packing={entry === 'rfidLoad'} actor={actor} onSessionExpired={onSessionExpired} />}
       {pending && <div>
         <p>응답 확인 대기 중인 명령 {pending.action}</p>
         <button type="button" disabled={busy} onClick={() => void execute(pending)}>동일 명령 재시도</button>
@@ -137,12 +118,7 @@ export default function RfidDemo({ actor, onSessionExpired }: { actor: string; o
         }}>재시도 종료</button>
       </div>}
       <p role="status">{notice}</p>
-      <p>합성 재고 증감 {state.netInventoryDelta}</p>
-      <h3>이동 이력</h3>
-      <ol>{state.history.map((row) => <li key={row.eventId}>
-        {row.direction === 'IN' ? '입고' : '출고'} · {row.pallet} · {row.tag} · {row.items.join(', ')}
-      </li>)}</ol>
-      <RfidPhotos actor={actor} movementCount={state.history.length} onSessionExpired={onSessionExpired} />
-    </section>
+      {entry === 'rfidHistory' && manual && <button onClick={() => setManual(false)}>입출고 현황</button>}
+    </div>
   )
 }

@@ -15,7 +15,11 @@ public interface ShippingDomain {
     record Shipment(String number, Instant confirmedAt, Actor confirmedBy, Instant cancelledAt,
                     Actor cancelledBy) {}
     record Snapshot(Handoff handoff, Status status, long version, Shipment shipment, int reprintCount) {}
-    record Command(String handoffId, Action action, Long expectedVersion, String requestId) {}
+    record Command(String handoffId, Action action, Long expectedVersion, String requestId, Boolean printChecked, String previewPrinter) {
+        public Command(String handoffId, Action action, Long expectedVersion, String requestId) {
+            this(handoffId, action, expectedVersion, requestId, null, null);
+        }
+    }
     record Reply(int status, String error, Snapshot snapshot) {}
 
     void publish(Handoff handoff);

@@ -116,12 +116,43 @@ public final class SyntheticOutput {
     }
 
     public Output renderShipment(ShipmentDocument shipment) {
-        var row = new Row(shipment.lot(), "원포장 " + shipment.packingRef(), shipment.item(),
-                shipment.deferred() ? "이월" : "일반", shipment.quantity(),
-                "품목 " + shipment.item() + " · 확정 " + shipment.confirmedAt());
-        var page = new Page(List.of(new Section(List.of(row), null)));
-        return render(new Document(TITLES.get("shipment"), shipment.number(), List.of(210, 297),
-                "shipment", List.of(page), shipment.quantity(), List.of(), false));
+        return renderShipment(List.of(shipment));
+    }
+
+    public Output renderShipment(List<ShipmentDocument> lots) {
+        if (lots.isEmpty()) throw new IllegalArgumentException("No shipment rows");
+        String number = lots.get(0).number();
+        if (lots.stream().anyMatch(lot -> !number.equals(lot.number()))) throw new IllegalArgumentException("Mixed shipment numbers");
+        var rows = lots.stream().map(lot -> {
+            String type = lot.deferred() ? "이월" : "일반";
+            String label = "품목 " + lot.item() + " · 확정 " + lot.confirmedAt();
+            if (lots.size() == 1) return new Row(lot.lot(), "원포장 " + lot.packingRef(), lot.item(), type, lot.quantity(), label);
+            return new Row(lot.lot(), "원포장 " + lot.packingRef(), label, type, lot.quantity(), "");
+        }).toList();
+        var pages = new java.util.ArrayList<Page>();
+        int rowsPerPage = 15; // frmLogistics6 builds each shipping report from 15 lines.
+        for (int start = 0; start < rows.size(); start += rowsPerPage) {
+            pages.add(new Page(List.of(new Section(rows.subList(start,Math.min(start + rowsPerPage,rows.size())),null))));
+        }
+        var total = lots.stream().map(ShipmentDocument::quantity).reduce(BigDecimal.ZERO,BigDecimal::add);
+        return render(new Document(TITLES.get("shipment"),number,List.of(210,297),"shipment",pages,total,List.of(),false));
+    }
+
+    public record PlanDocumentRow(String plan, String originalOrder, String issuedOrder, String item, BigDecimal quantity) {}
+
+    public Output renderPlan(boolean multiple, boolean specification, List<PlanDocumentRow> selected) {
+        var rows = selected.stream().map(row -> new Row(row.plan(), "원 주문 " + row.originalOrder(),
+                "발행 주문 " + row.issuedOrder(), row.item(), row.quantity(),
+                "대상 계획 " + row.plan())).toList();
+        var pages = new ArrayList<Page>();
+        for (int start = 0; start < rows.size(); start += 4) {
+            pages.add(new Page(List.of(new Section(rows.subList(start, Math.min(start + 4, rows.size())), null))));
+        }
+        var total = selected.stream().map(PlanDocumentRow::quantity).reduce(BigDecimal.ZERO, BigDecimal::add);
+        var title = (specification ? "규격 변경 계획" : "생산계획")
+                + (multiple ? " 복수 출력" : " 단일 출력");
+        return render(new Document(title, "PLAN-" + rows.get(0).id(), List.of(210, 297), "plan",
+                List.copyOf(pages), total, List.of(), true));
     }
 
     private Output render(Document model) {

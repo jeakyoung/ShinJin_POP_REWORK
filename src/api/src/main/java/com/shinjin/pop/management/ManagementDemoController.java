@@ -23,13 +23,15 @@ import synthetic.management.ManagementDemo.Reply;
 import synthetic.management.ManagementDemo.ReturnCommand;
 import synthetic.management.ManagementDemo.Site;
 import synthetic.management.ManagementDemo.Stock;
-import synthetic.management.ManagementDemo.StockKey;
+import tools.jackson.databind.json.JsonMapper;
 
+import java.io.IOException;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @Profile("demo")
@@ -37,23 +39,45 @@ import java.util.List;
 public final class ManagementDemoController {
     private static final Site A = new Site("F1", "000001");
     private static final Site B = new Site("F2", "000002");
-    private static final LocalDate DAY = LocalDate.of(2026, 11, 25);
+    record ItemDetail(String name, String specification, String quality, String partNumber) {}
+    record Masters(Map<String, String> materialFlags, Map<String, String> kind1, Map<String, Map<String, String>> kind2) {}
+    record SupplyDataset(List<Stock> stocks, Map<String, ItemDetail> items, Masters masters) {}
+    record SupplyScreen(long revision, Masters masters, Map<String, ItemDetail> items,
+                        List<Stock> catalog, List<ManagementDemo.PriorLine> recent, List<ManagementDemo.ReturnLine> held) {}
+
+    private static <T> T fixture(String name, Class<T> type) {
+        try (var stream = ManagementDemoController.class.getResourceAsStream("/demo/" + name)) {
+            if (stream == null) throw new IllegalStateException("Missing " + name);
+            return JsonMapper.builder().build().readValue(stream, type);
+        } catch (IOException ex) {
+            throw new IllegalStateException("Invalid " + name, ex);
+        }
+    }
+
+    private final SupplyDataset supplies = fixture("expendables.json", SupplyDataset.class);
 
     private final ManagementDemo domain = new ManagementDemo(
             Clock.fixed(Instant.parse("2026-11-25T01:00:00Z"), ZoneOffset.UTC),
-            List.of(
-                    new Stock(A, new StockKey("SUP-01", "LOT-M1", "WH-M1", "BIN-01"), "샘플 장갑", "SAFETY", "HAND", "GENERAL", 6),
-                    new Stock(A, new StockKey("SUP-01", "LOT-M1", "WH-M1", "BIN-02"), "샘플 장갑", "SAFETY", "HAND", "GENERAL", 3),
-                    new Stock(A, new StockKey("SUP-02", "LOT-M2", "WH-M1", "BIN-03"), "샘플 청소포", "SHOP", "CLEAN", "GENERAL", 4),
-                    new Stock(B, new StockKey("SUP-01", "LOT-M1", "WH-M1", "BIN-01"), "샘플 장갑", "SAFETY", "HAND", "GENERAL", 2),
-                    new Stock(B, new StockKey("SUP-03", "LOT-M3", "WH-M2", "BIN-01"), "샘플 보호대", "SAFETY", "HAND", "GENERAL", 1)),
-            List.of(
-                    new Repair(A, "REPAIR-A1", "EQ-A1", "합성 점검", DAY.minusMonths(1), DAY.minusDays(25), "점검 완료"),
-                    new Repair(A, "REPAIR-A2", "EQ-A2", "합성 이상 확인", DAY, null, null),
-                    new Repair(A, "REPAIR-OLD", "EQ-A1", "합성 이전 기록", DAY.minusMonths(1).minusDays(1), DAY.minusMonths(1), "확인 완료"),
-                    new Repair(B, "REPAIR-B1", "EQ-B1", "합성 정비", DAY, DAY, "정비 완료")));
+            supplies.stocks(),
+            List.of(fixture("repairs.json", Repair[].class)));
 
     public record Failure(String code) {}
+
+    @GetMapping("/expendables/screen")
+    ResponseEntity<SupplyScreen> supplyScreen(HttpServletRequest request, @RequestParam(required = false) String materialFlag,
+                              @RequestParam(required = false) String kind1, @RequestParam(required = false) String kind2) {
+        var operator = actor(request);
+        synchronized (domain) {
+            var catalog = domain.catalog(operator, materialFlag, kind1, kind2).value();
+            var recent = domain.recent(operator).value();
+            var held = domain.returnView(operator).value().rows().stream().filter(row -> row.remaining() > 0).toList();
+            var items = new java.util.HashMap<String, ItemDetail>();
+            supplies.stocks().stream().filter(stock -> stock.site().equals(operator.site()))
+                    .forEach(stock -> items.put(stock.key().item(), supplies.items().get(stock.key().item())));
+            return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(new SupplyScreen(
+                    catalog.revision(), supplies.masters(), items, catalog.rows(), recent.rows(), held));
+        }
+    }
 
     @GetMapping("/expendables/catalog")
     ResponseEntity<?> catalog(HttpServletRequest request, @RequestParam(required = false) String materialFlag,

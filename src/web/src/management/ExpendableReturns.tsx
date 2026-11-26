@@ -1,3 +1,5 @@
+import { TouchInput } from '../TouchFields'
+import '../adminTouch.css'
 import { useLayoutEffect, useRef, useState } from 'react'
 import { SessionExpired } from '../workHistoryApi'
 import { loadReturns, ManagementError, returnExpendables } from './managementApi'
@@ -108,7 +110,7 @@ function ReturnScreen({ scope, onSessionExpired }: { scope: string; onSessionExp
   const canSubmit = !!view && lines.length > 0 && lines.every(({ movementId, quantity }) =>
     positive(quantity) && Number(quantity) <= (view.rows.find((row) => row.movementId === movementId)?.remaining ?? 0))
   return (
-    <section aria-label="합성 소모품 반납">
+    <section className="pop-touch-form" aria-label="소모품 반납">
       <h2>소모품 반납</h2>
       <button type="button" disabled={locked} onClick={() => void run(refresh)}>반납 가능량 조회</button>
       {view && <p>재고 버전 {view.revision}</p>}
@@ -120,9 +122,9 @@ function ReturnScreen({ scope, onSessionExpired }: { scope: string; onSessionExp
           <tr key={row.movementId}><td>{row.issue}</td><th scope="row">{row.movementId}</th>
             <td>{[row.stock.item, row.stock.lot, row.stock.warehouse, row.stock.location].join(' / ')}</td>
             <td>{row.issued}</td><td>{row.returned}</td><td>{row.remaining}</td>
-            <td><input inputMode="numeric" aria-label={row.movementId + ' 반납 수량'} disabled={locked || row.remaining === 0}
-              value={amounts[row.movementId] ?? ''} onChange={(event) =>
-                setAmounts({ ...amounts, [row.movementId]: event.target.value })} /></td></tr>
+            <td><TouchInput inputMode="numeric" aria-label={row.movementId + ' 반납 수량'} disabled={locked || row.remaining === 0}
+              value={amounts[row.movementId] ?? ''} onValue={next =>
+                setAmounts({ ...amounts, [row.movementId]: next })} /></td></tr>
         ))}</tbody>
       </table></div>}
       <button type="button" disabled={locked || !canSubmit} onClick={() => {

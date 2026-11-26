@@ -1,0 +1,17 @@
+.transfer-output-dialog { max-height: 95vh; overflow: auto; padding: 0; }
+.transfer-output-dialog form { position: sticky; top: 0; text-align: right; background: Canvas; z-index: 1; }
+.transfer-output-page { box-sizing: border-box; position: relative; background: white; color: black; width: 8.27in; height: 11.69in; padding: .25625in .28in .69469in .25in; font: 12pt Arial, sans-serif; }
+.transfer-output-page h2 { height: .64423in; margin: 0; display: grid; place-items: center; font: bold 28pt Arial, sans-serif; color: black; }
+.transfer-output-page .report-row { display: grid; text-align: center; }
+.transfer-output-page .report-row > * { display: grid; align-items: center; min-width: 0; overflow-wrap: anywhere; border-left: 1px solid black; }
+.transfer-output-page .report-row > :last-child { border-right: 1px solid black; }
+.transfer-output-page .report-note, .transfer-output-page .report-meta { min-height: .36298in; font-size: 15pt; }
+.transfer-output-page .report-note { grid-template-columns: 1.07075fr 6.66590fr; border-block: 1px solid black; }
+.transfer-output-page .report-note :last-child { text-align: left; }
+.transfer-output-page .report-meta { grid-template-columns: 2.25855fr 2.32509fr 2.23069fr 5.00941fr 1.11745fr 3.37783fr; }
+.transfer-output-page time { font-size: 10pt; }
+.transfer-output-page .report-columns { grid-template-columns: .30330fr 1.46661fr .75887fr 2.09044fr .81109fr 2.06456fr; height: .33542in; background: #c0ffc0; border-block: 1px solid black; }
+.transfer-output-page .report-detail { min-height: .35in; border-bottom: 1px solid black; }
+.transfer-output-page .report-detail > :nth-child(4) { font-size: 14pt; }
+.transfer-output-page .report-total { grid-template-columns: 1.50730fr 1.24602fr .48345fr 1.23060fr; height: .30208in; font-size: 14pt; border-bottom: 1px solid black; }
+.transfer-output-page small { position: absolute; top: 11.0732in; left: 3.68792in; width: 1in; font: 8pt Arial, sans-serif; text-align: center; border: 1px solid black; }

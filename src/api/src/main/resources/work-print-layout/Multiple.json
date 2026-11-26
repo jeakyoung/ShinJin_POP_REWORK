@@ -1,0 +1,53 @@
+{
+"source":"rptMultipleCustomerWorkOrders3",
+"margins":[26.0,26.0,26.66667,147.1875],
+"bands":{
+"TopMargin":{"height":26.66667,"cells":[
+]},
+"BottomMargin":{"height":147.1875,"cells":[
+]},
+"Detail1":{"height":28.0,"cells":[
+{"id":"xrTableCell22","kind":"text","x":0.0,"y":0.0,"w":33.184,"h":28.0,"font":12.0,"bold":false,"border":"Left Bottom","align":"MiddleCenter","field":"No","parameter":false,"drawingMark":false,"showText":false,"fixed":false},
+{"id":"xrTableCell45","kind":"text","x":33.184,"y":0.0,"w":46.554,"h":28.0,"font":11.0,"bold":false,"border":"Left Bottom","align":"MiddleCenter","field":"DeliveryDate","parameter":false,"drawingMark":false,"showText":false,"fixed":false},
+{"id":"xrTableCell15","kind":"text","x":79.738,"y":0.0,"w":80.0,"h":28.0,"font":12.0,"bold":false,"border":"Left Bottom","align":"MiddleCenter","fixed":true,"field":"ItemName","parameter":false,"drawingMark":false,"showText":false},
+{"id":"xrTableCell46","kind":"text","x":159.738,"y":0.0,"w":80.0,"h":28.0,"font":12.0,"bold":false,"border":"Left Bottom","align":"MiddleCenter","fixed":true,"field":"MatQualityName2","parameter":false,"drawingMark":false,"showText":false},
+{"id":"xrTableCell16","kind":"text","x":239.738,"y":0.0,"w":218.182,"h":28.0,"font":14.0,"bold":false,"border":"Left Bottom","align":"MiddleLeft","fixed":true,"field":"MatSpec","parameter":false,"drawingMark":false,"showText":false},
+{"id":"xrTableCell47","kind":"text","x":457.92,"y":0.0,"w":55.0,"h":28.0,"font":12.0,"bold":false,"border":"Left Bottom","align":"MiddleRight","field":"ProdPlanQty","parameter":false,"drawingMark":false,"showText":false,"fixed":false},
+{"id":"xrTableCell23","kind":"text","x":512.92,"y":0.0,"w":120.913,"h":28.0,"font":12.0,"bold":false,"border":"Left Bottom","align":"MiddleCenter","fixed":true,"field":"Remark2","parameter":false,"drawingMark":false,"showText":false},
+{"id":"xrTableCell26","kind":"text","x":633.833,"y":0.0,"w":141.167,"h":28.0,"font":12.0,"bold":false,"border":"Left Right Bottom","align":"MiddleCenter","parameter":false,"drawingMark":false,"showText":false,"fixed":false},
+{"id":"xrBarCode1","kind":"barcode","x":635.538,"y":0.955,"w":135.46,"h":26.0,"font":6.0,"bold":false,"border":"None","align":"MiddleCenter","field":"ProdPlanBarCode","parameter":false,"showText":true,"drawingMark":false,"fixed":false}]},
+"GroupFooter1":{"height":55.29817,"cells":[
+{"id":"xrTableCell18","kind":"text","x":0.0,"y":0.0,"w":457.92,"h":30.208,"font":14.0,"bold":false,"border":"Left Bottom","align":"MiddleCenter","text":"합계","parameter":false,"drawingMark":false,"showText":false,"fixed":false},
+{"id":"xrTableCell17","kind":"text","x":457.92,"y":0.0,"w":55.0,"h":30.208,"font":14.0,"bold":false,"border":"Left Bottom","align":"MiddleRight","format":"{0:#,#.##}","field":"TotalProdPlanQty","parameter":true,"drawingMark":false,"showText":false,"fixed":false},
+{"id":"xrTableCell24","kind":"text","x":512.92,"y":0.0,"w":262.08,"h":30.208,"border":"Left Right Bottom","bold":false,"parameter":false,"drawingMark":false,"showText":false,"fixed":false},
+{"id":"xrLabel4","kind":"text","x":347.503,"y":30.208,"w":90.0,"h":19.465,"border":"None","align":"MiddleCenter","field":"PageTotal","parameter":true,"bold":false,"drawingMark":false,"showText":false,"fixed":false}]},
+"Detail":{"height":0.0,"cells":[
+]},
+"GroupHeader1":{"height":301.4809,"cells":[
+{"id":"xrTableCell3","kind":"text","x":0.0,"y":273.064,"w":33.184,"h":28.0,"font":12.0,"bold":false,"border":"Left Top Bottom","fill":"#c0ffc0","align":"MiddleCenter","text":"NO","parameter":false,"drawingMark":false,"showText":false,"fixed":false},
+{"id":"xrTableCell4","kind":"text","x":33.184,"y":273.064,"w":46.554,"h":28.0,"font":12.0,"bold":false,"border":"Left Top Bottom","fill":"#c0ffc0","align":"MiddleCenter","text":"납기","parameter":false,"drawingMark":false,"showText":false,"fixed":false},
+{"id":"xrTableCell38","kind":"text","x":79.738,"y":273.064,"w":80.0,"h":28.0,"font":12.0,"bold":false,"border":"Left Top Bottom","fill":"#c0ffc0","align":"MiddleCenter","text":"품목","parameter":false,"drawingMark":false,"showText":false,"fixed":false},
+{"id":"xrTableCell21","kind":"text","x":159.738,"y":273.064,"w":80.0,"h":28.0,"font":12.0,"bold":false,"border":"Left Top Bottom","fill":"#c0ffc0","align":"MiddleCenter","text":"재질","parameter":false,"drawingMark":false,"showText":false,"fixed":false},
+{"id":"xrTableCell36","kind":"text","x":239.738,"y":273.064,"w":218.182,"h":28.0,"font":12.0,"bold":false,"border":"Left Top Bottom","fill":"#c0ffc0","align":"MiddleCenter","text":"품목정보","parameter":false,"drawingMark":false,"showText":false,"fixed":false},
+{"id":"xrTableCell31","kind":"text","x":457.92,"y":273.064,"w":55.0,"h":28.0,"font":12.0,"bold":false,"border":"Left Top Bottom","fill":"#c0ffc0","align":"MiddleCenter","text":"수량","parameter":false,"drawingMark":false,"showText":false,"fixed":false},
+{"id":"xrTableCell25","kind":"text","x":512.92,"y":273.064,"w":120.913,"h":28.0,"font":12.0,"bold":false,"border":"Left Top Bottom","fill":"#c0ffc0","align":"MiddleCenter","text":"비고","parameter":false,"drawingMark":false,"showText":false,"fixed":false},
+{"id":"xrTableCell35","kind":"text","x":633.833,"y":273.064,"w":141.167,"h":28.0,"font":12.0,"bold":false,"border":"Left Top Right Bottom","fill":"#c0ffc0","align":"MiddleCenter","text":"작지 바코드","parameter":false,"drawingMark":false,"showText":false,"fixed":false},
+{"id":"xrLabelDrawMark","kind":"text","x":652.919,"y":5.0,"w":122.081,"h":64.208,"font":28.0,"bold":true,"border":"Left Top Right Bottom","align":"MiddleCenter","text":"도면","drawingMark":true,"parameter":false,"showText":false,"fixed":false},
+{"id":"xrTableCell2","kind":"text","x":2.0,"y":10.638,"w":131.25,"h":58.571,"font":26.0,"bold":true,"border":"None","fill":"LightGray","align":"MiddleCenter","field":"DateDD","parameter":true,"drawingMark":false,"showText":false,"fixed":false},
+{"id":"xrTableCell1","kind":"text","x":133.25,"y":5.0,"w":519.669,"h":64.208,"font":27.0,"bold":true,"border":"None","align":"MiddleCenter","field":"CustName1","parameter":true,"drawingMark":false,"showText":false,"fixed":false},
+{"id":"xrTableCell5","kind":"text","x":0.0,"y":151.502,"w":79.738,"h":56.146,"font":14.0,"bold":false,"border":"Left Top","align":"MiddleCenter","text":"수주NO","parameter":false,"drawingMark":false,"showText":false,"fixed":false},
+{"id":"xrTableCell10","kind":"text","x":79.738,"y":151.502,"w":435.597,"h":56.146,"font":24.0,"bold":false,"border":"Left Top","align":"MiddleLeft","field":"ORDER_NO","parameter":false,"drawingMark":false,"showText":false,"fixed":false},
+{"id":"xrTableCell6","kind":"text","x":515.335,"y":151.502,"w":56.428,"h":56.146,"font":16.0,"bold":false,"border":"Left Top","align":"MiddleCenter","text":"TEL","parameter":false,"drawingMark":false,"showText":false,"fixed":false},
+{"id":"xrTableCell7","kind":"text","x":571.762,"y":151.502,"w":203.238,"h":56.146,"font":16.0,"bold":false,"border":"Left Top Right","align":"MiddleCenter","field":"CustTel","parameter":true,"drawingMark":false,"showText":false,"fixed":false},
+{"id":"xrLabel13","kind":"text","x":148.292,"y":73.375,"w":209.625,"h":78.127,"font":36.0,"bold":false,"border":"None","align":"TopCenter","fixed":true,"field":"MatQualityName2","parameter":false,"drawingMark":false,"showText":false},
+{"id":"xrTableCell19","kind":"text","x":652.919,"y":73.375,"w":122.081,"h":39.063,"align":"TopCenter","font":18.0,"bold":false,"border":"None","text":"수주일자","parameter":false,"drawingMark":false,"showText":false,"fixed":false},
+{"id":"xrTableCell20","kind":"text","x":652.919,"y":112.438,"w":122.081,"h":39.063,"align":"TopCenter","font":16.0,"bold":false,"border":"None","field":"OrderDate","parameter":true,"drawingMark":false,"showText":false,"fixed":false},
+{"id":"xrBarCode3","kind":"barcode","x":357.92,"y":73.375,"w":294.999,"h":78.127,"font":12.0,"bold":true,"border":"None","align":"MiddleCenter","field":"ORDER_NO_FULL","parameter":true,"showText":true,"drawingMark":false,"fixed":false},
+{"id":"xrLabel1","kind":"text","x":2.0,"y":73.375,"w":131.25,"h":54.168,"font":26.0,"bold":false,"border":"None","align":"MiddleCenter","field":"CUST_ITEM_CODE_QUALITY","parameter":true,"drawingMark":false,"showText":false,"fixed":false},
+{"id":"xrTableCell32","kind":"text","x":0.0,"y":207.648,"w":79.738,"h":32.708,"border":"Left Top","font":14.0,"bold":false,"align":"MiddleCenter","text":"고객명","parameter":false,"drawingMark":false,"showText":false,"fixed":false},
+{"id":"xrTableCell33","kind":"text","x":79.738,"y":207.648,"w":315.752,"h":32.708,"border":"Left Top","font":16.0,"bold":false,"align":"MiddleLeft","field":"CustName2","parameter":true,"drawingMark":false,"showText":false,"fixed":false},
+{"id":"xrTableCell34","kind":"text","x":395.49,"y":207.648,"w":119.845,"h":32.708,"border":"Left Top","font":14.0,"bold":false,"align":"MiddleCenter","text":"발주번호","parameter":false,"drawingMark":false,"showText":false,"fixed":false},
+{"id":"xrTableCell37","kind":"text","x":515.335,"y":207.648,"w":259.665,"h":32.708,"border":"Left Top Right","font":16.0,"bold":true,"align":"MiddleCenter","field":"OrderNo2","parameter":true,"drawingMark":false,"showText":false,"fixed":false},
+{"id":"xrTableCell39","kind":"text","x":0.0,"y":240.356,"w":79.738,"h":32.708,"border":"Left Top Bottom","font":14.0,"bold":false,"align":"MiddleCenter","text":"비고","parameter":false,"drawingMark":false,"showText":false,"fixed":false},
+{"id":"xrTableCell40","kind":"text","x":79.738,"y":240.356,"w":695.262,"h":32.708,"border":"Left Top Right Bottom","font":16.0,"bold":false,"align":"MiddleLeft","fixed":true,"field":"Remark","parameter":true,"drawingMark":false,"showText":false}]}
+}}
