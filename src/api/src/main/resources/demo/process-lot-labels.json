@@ -1,0 +1,39 @@
+{
+  "requirements": [
+    {
+      "terminal": "DEMO-A",
+      "factory": "샘플 1공장",
+      "workStatus": "DEMO-INPUT",
+      "order": "DEMO-ORDER-11",
+      "line": 1
+    }
+  ],
+  "labels": [
+    {
+      "terminal": "DEMO-A",
+      "factory": "샘플 1공장",
+      "quality": "합성 강재 A",
+      "thickness": 2.5,
+      "width": 80,
+      "workStatus": "DEMO-INPUT",
+      "lot": "LOT-A-01",
+      "material": "MAT-LAB-A",
+      "name": "합성 자재 가",
+      "length": 120,
+      "grade": "GRADE-DEMO"
+    },
+    {
+      "terminal": "DEMO-A",
+      "factory": "샘플 1공장",
+      "quality": "합성 강재 A",
+      "thickness": 2.5,
+      "width": 80,
+      "workStatus": "DEMO-INPUT",
+      "lot": "LOT-A-02",
+      "material": "MAT-LAB-B",
+      "name": "합성 자재 나",
+      "length": 160,
+      "grade": "GRADE-DEMO"
+    }
+  ]
+}

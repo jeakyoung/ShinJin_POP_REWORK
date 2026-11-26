@@ -1,0 +1,22 @@
+{
+  "sampleDate": "2026-11-25",
+  "terminals": [
+    {
+      "id": "DEMO-A", "name": "POP A", "factory": "샘플 1공장", "workCenter": "003 검증 작업장",
+      "workers": [{"id":"DEMO-W01","name":"샘플 작업자 A","department":"생산 1팀"}]
+    },
+    {
+      "id": "DEMO-A2", "name": "POP A2", "factory": "샘플 1공장", "workCenter": "103 검증 작업장",
+      "workers": [{"id":"DEMO-W04","name":"샘플 작업자 D","department":"생산 1팀"}]
+    }
+  ],
+  "work": [],
+  "stations": {
+    "DEMO-A": {"profile":"basket-003","center":"003","slots":[1],"stages":[],"inputLot":null,"inputQty":0},
+    "DEMO-A2": {"profile":"basket-103","center":"103","slots":[1],"stages":[],"inputLot":null,"inputQty":0}
+  },
+  "menuProcesses": {
+    "DEMO-A": {"slots":{"1":"001"},"settings":{"A-CUT":"001"}},
+    "DEMO-A2": {"slots":{"1":"001"},"settings":{"A2-CUT":"001"}}
+  }
+}

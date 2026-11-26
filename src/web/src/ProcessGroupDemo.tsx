@@ -1,0 +1,163 @@
+import { useLayoutEffect, useRef, useState } from 'react'
+import WorkRejections from './WorkRejections'
+import TouchField from './TouchField'
+import './processGroupScreen.css'
+import GroupReturnGrid from './GroupReturnGrid'
+import {returnProblem} from './groupReturn'
+import type {Material,ReturnRow} from './groupReturn'
+import ProcessPlans from './ProcessPlans'
+import {InventoryMessage, InventoryPad} from './InventoryDialogs'
+
+type Stage = { process: string; warehouse: string; processCode?: string; warehouseCode?: string }
+type Result = { plan: string; stage: Stage; good: number; bad: number }
+type View = {
+  setting: { stages: Stage[]; inputLot: string; inputQty: number }
+  badTotals:Record<string,number>
+  activeInput: { groupId: string; paused: boolean; quantity: number } | null
+  material:Material|null; returns:ReturnRow[]; revision: number; ready: string[]; started: string[]; results: Result[]
+}
+type Transition = 'STOP' | 'RESTART'
+type Props = { actor:string; workCode?:string; onSessionExpired: () => void }
+
+export default function ProcessGroupDemo({ actor,workCode,onSessionExpired }: Props) {
+  const [view, setView] = useState<View>()
+  const [refresh, setRefresh] = useState(0)
+  const [checked, setChecked] = useState<string[]>([])
+  const [amounts, setAmounts] = useState<Record<string, { good?: string }>>({})
+  const [busy, setBusy] = useState(false)
+  const [rejection,setRejection]=useState<string>()
+  const [notice, setNotice] = useState('')
+  const active = useRef<AbortController | null>(null)
+  const [draft,setDraft]=useState<ReturnRow[]>([])
+  const [command,setCommand]=useState<'START'|'FINISH'|'DELETE'>('START')
+  const [inputQty, setInputQty] = useState(0)
+  const [inputPad, setInputPad] = useState(false)
+  const [transition, setTransition] = useState<Transition>()
+  const [reverse,setReverse]=useState(false)
+  const [error,setError]=useState('')
+  const confirm = useRef<HTMLDialogElement>(null)
+  const url = '/api/pop/process-group-demo'
+  useLayoutEffect(() => {
+    const controller = new AbortController()
+    fetch(url, { signal: controller.signal, cache: 'no-store' }).then(async response => {
+      if (controller.signal.aborted) return
+      if (response.status === 401) return onSessionExpired()
+      if (!response.ok) throw Error()
+      const current: View = await response.json()
+      if (!controller.signal.aborted) {setView(current);setInputQty(current.activeInput?.quantity ?? current.setting.inputQty);setDraft(current.returns??[]);setChecked(current.started)}
+    }).catch(() => { if (!controller.signal.aborted) setNotice('그룹 작업을 불러오지 못했습니다.') })
+    return () => { controller.abort(); active.current?.abort() }
+  }, [url, onSessionExpired, refresh])
+
+  const finishing = !!view?.started.length
+  async function submit(action:'START'|'FINISH'|'DELETE'|'DELETE_RETURNS'|Transition, ids?:string[]) {
+    if (!view || active.current) return false
+    if(action==='START'||action==='FINISH'){
+      if(action==='FINISH' && inputQty<1){setError('투입수량을 입력하십시오.');return false}
+      const problem=returnProblem(draft,view.material,action==='FINISH')
+      if(problem){setError(problem);return false}
+    }
+    if(action==='DELETE'&&!checked.length){setError('삭제할 작업지시번호를 선택하십시오.');return false}
+    const controller = new AbortController()
+    active.current = controller
+    setBusy(true)
+    setNotice('')
+    try {
+      const changingState = action==='STOP' || action==='RESTART'
+      const lines = changingState ? undefined : action==='FINISH' ? view.started.map(plan => ({ plan, good: amounts[plan]?.good, bad:String(view.badTotals[plan]??0) })) : checked.map(plan => ({ plan }))
+      const response = await fetch(url, { method:'POST',signal:controller.signal,headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({ action,revision:view.revision,lines,
+          groupId:changingState || action==='FINISH' ? view.activeInput?.groupId : undefined,
+          inputQuantity:action==='START'||action==='FINISH' ? inputQty : undefined,
+          returns:action==='START'||action==='FINISH'?draft:undefined,returnIds:ids }) })
+      if(controller.signal.aborted)return false
+      if(response.status===401){onSessionExpired();return false}
+      if(response.status===422){setError('입력값을 확인하십시오.');return false}
+      if(!response.ok)throw Error()
+      const next:View=await response.json()
+      if(controller.signal.aborted)return false
+      setView(next)
+      if(action!=='DELETE_RETURNS'){
+        const sameGroup=action==='DELETE' && (finishing?next.started.length:next.ready.length)>0
+        if(!sameGroup) {
+          setDraft(next.returns)
+          setInputQty(next.activeInput?.quantity ?? next.setting.inputQty)
+        }
+        setChecked(next.started);setAmounts({})
+      }
+      if(changingState)setError(action==='STOP'?'작업 일시 중단 되었습니다.':'작업 재시작 되었습니다.')
+      return true
+    }catch{
+      if(!controller.signal.aborted){setView(undefined);setNotice('처리 결과를 다시 조회하세요.')}
+      return false
+    }finally{
+      if(active.current===controller)active.current=null
+      if(!controller.signal.aborted)setBusy(false)
+    }
+  }
+  async function remove(ids:string[]){
+    const stored=ids.filter(id=>view?.returns.some(r=>r.id===id))
+    if(stored.length && !await submit('DELETE_RETURNS',stored))return false
+    setDraft(old=>old.filter(r=>!ids.includes(r.id)));return true
+  }
+  function ask(action:'START'|'FINISH'|'DELETE'){
+    if(action==='DELETE'&&!checked.length){setError('삭제할 작업지시번호를 선택하십시오.');return}
+    setCommand(action);confirm.current?.showModal()
+  }
+  const plans = view ? (finishing ? view.started : view.ready) : []
+  const stages = view?.setting.stages ?? []
+  const canStart = !busy && stages.length > 0 && !finishing && checked.length > 0
+  const canFinish = !busy && finishing && !view.activeInput?.paused && checked.length===plans.length && plans.every(plan => Number(amounts[plan]?.good) >= 1)
+  const title = command==='DELETE'?'선택한 작업지시 번호를 삭제 하시겠습니까?':command==='FINISH'?'그룹 실적 완료':'그룹 작업 시작'
+  const info=plans.length?view?.material:undefined
+  return <section className="group5" aria-label="그룹 작업"><div className="group5-scroll"><div className="group5-form">
+    <header className="group5-bar"><button className="group5-scan" aria-label="작업지시 스캔" disabled />
+      <span className="group5-grade">재질 :　<b>{info?.grade??'-'}</b></span><span className="group5-thickness">두께　<b>{info?.thickness??'-'}</b></span><span className="group5-width">폭　<b>{info?.width??'-'}</b></span>
+      <button className="group5-start" aria-label="그룹 작업 시작" disabled={!canStart} onClick={()=>ask('START')}>START<small>작업시작</small></button>
+      <button className="group5-stop" disabled={busy || !view?.activeInput} onClick={()=>setTransition(view?.activeInput?.paused?'RESTART':'STOP')}>
+        {view?.activeInput?.paused?'RESTART':'STOP'}<small>{view?.activeInput?.paused?'재시작':'작업중단'}</small></button>
+      <button className="group5-finish" aria-label="그룹 실적 완료" disabled={!canFinish} onClick={()=>ask('FINISH')}>END<small>작업완료</small></button>
+      <button className="group5-reverse" disabled={!view||busy} onClick={()=>setReverse(true)}>REVERSE<small>역발행</small></button>
+      <button className="group5-delete" disabled={!plans.length||busy} onClick={()=>ask('DELETE')}>DELETE<small>선택삭제</small></button>
+      <button className="group5-print" disabled>PRINT<small>프린트</small></button>
+    </header>
+    <div className="group5-grid"><table aria-label="그룹 작업지시"><colgroup>{[50,50,150,80,70,70,70,70,70,70,70,60,90,70,70,70,50].map((width,i)=><col key={i} style={{width}} />)}</colgroup>
+    <thead><tr>{['선택','순번','거래처명 / 수주번호','납기일','두께','폭','길이','수주량','생산잔량','생산수량','불량수량','창고명','로케이션명','배치수','시작시간','종료시간',''].map(h=><th key={h}>{h}</th>)}</tr></thead>
+    <tbody>{plans.map((plan,i)=><tr key={plan} onClick={event=>{if(!(event.target as HTMLElement).closest('button,input,label'))setChecked([...plans])}}><td><label><input aria-label={plan} type="checkbox" checked={checked.includes(plan)} disabled={busy}
+      onChange={e=>setChecked(e.target.checked?[...checked,plan]:checked.filter(x=>x!==plan))}/>{plan}</label></td><td>{i+1}</td>
+      {['','',info?.thickness,info?.width,'','',''].map((value,col)=><td key={col}>{value}</td>)}
+      <td>{finishing && <TouchField layout="decimal" label={plan+' 양품'} value={amounts[plan]?.good??''} disabled={busy}
+        onValueChange={good=>setAmounts(old=>({...old,[plan]:{good}}))}/>}</td>
+      <td>{finishing && <button type="button" disabled={busy} aria-label={plan+' 불량수량'} onClick={()=>setRejection(plan)}>{view.badTotals[plan]??0}</button>}</td>
+      {Array.from({length:6},(_,col)=><td key={'tail'+col}/>)}</tr>)}</tbody></table></div>
+    <div className="group5-progress"><span>선택건<br/>공정진행현황</span><table aria-label="선택건 공정진행현황"><thead><tr>{['발주','소재입고','폭 절단','평탄','평면','측면','길이절단','포장'].map(h=><th key={h}>{h}</th>)}</tr></thead><tbody><tr>{Array.from({length:8},(_,i)=><td key={i}/>)}</tr></tbody></table><span>품목유형 :　<b>-</b></span></div>
+    <div className="group5-material inputs"><header><strong>투입자재</strong><button disabled aria-label="투입자재 스캔" className="material-scan"/><button disabled aria-label="투입자재 추가">＋</button><button disabled aria-label="투입자재 삭제">－</button></header>
+      <table aria-label="투입자재"><colgroup>{[50,80,80,65,65,35,60,35].map((width,i)=><col key={i} style={{width}} />)}</colgroup>
+        <thead><tr>{['선택','창고','로케이션','길이','재고'].map(h=><th key={h}>{h}</th>)}<th colSpan={3}>투입수량</th></tr></thead>
+        <tbody>{!!plans.length && view?.setting.inputLot && <tr><td/><td/><td/><td/><td>{view.setting.inputQty}</td>
+          <td><button disabled={busy} className="input-minus" aria-label="투입수량 감소" onClick={()=>setInputQty(n=>n<2?n:n-1)} /></td>
+          <td><button disabled={busy} aria-label="투입수량 입력" onClick={()=>setInputPad(true)}>{inputQty}</button></td>
+          <td><button disabled={busy} className="input-plus" aria-label="투입수량 증가" onClick={()=>setInputQty(n=>Math.min(view.setting.inputQty,n+1))} /></td>
+        </tr>}</tbody></table>
+      {inputPad && view && <div className="group5-pad count"><InventoryPad label="투입수량" onClose={()=>setInputPad(false)}
+        onApply={value=>{setInputQty(Math.min(value,view.setting.inputQty));setInputPad(false)}} /></div>}
+    </div>
+    {view && <GroupReturnGrid rows={draft} material={view.material} enabled={!!plans.length} hasInput={!!view.setting.inputLot && view.setting.inputQty>0} busy={busy} change={setDraft} remove={remove}/>}
+    </div>
+    {view && <div className="group5-details"><p>투입 LOT {view.setting.inputLot} · 수량 {inputQty}</p>
+      <ol>{stages.map(s=><li key={s.process}>{s.process} · {s.warehouse}</li>)}</ol>
+      {!stages.length && <p>공정·창고 순서가 설정되지 않아 그룹 작업을 시작할 수 없습니다.</p>}
+      {!!view.results.length && <table><caption>계획별 공정 실적</caption><thead><tr>{['계획','공정','창고','양품','불량'].map(h=><th key={h}>{h}</th>)}</tr></thead>
+      <tbody>{view.results.map(r=><tr key={r.plan+'/'+r.stage.process}><th>{r.plan}</th><td>{r.stage.process}</td><td>{r.stage.warehouse}</td><td>{r.good}</td><td>{r.bad}</td></tr>)}</tbody></table>}</div>}
+    </div><p role="status">{notice}</p>{notice && !view && <button onClick={()=>{setNotice('');setRefresh(n=>n+1)}}>다시 조회</button>}
+    <dialog ref={confirm} className="floor-confirm" aria-label={title+' 확인'}><h3>{title} 확인</h3><p>{(command==='FINISH'?plans:checked).join(', ')}</p>
+      <button onClick={()=>confirm.current?.close()}>취소</button><button disabled={busy} onClick={()=>{confirm.current?.close();void submit(command)}}>확정</button></dialog>
+    {transition && <InventoryMessage text={transition==='STOP'?'작업 일시 중단 하시겠습니까?':'작업 재시작 하시겠습니까?'}
+      onClose={()=>setTransition(undefined)} onYes={()=>{setTransition(undefined);void submit(transition)}} />}
+    {error && <InventoryMessage text={error} onClose={()=>setError('')}/>}
+    {rejection && view?.activeInput && <WorkRejections actor={actor} path={url+'/groups/'+view.activeInput.groupId+'/plans/'+encodeURIComponent(rejection)+'/rejections'}
+      onClose={()=>setRejection(undefined)} onSaved={()=>{setRejection(undefined);setRefresh(n=>n+1)}} onExpired={onSessionExpired}
+      onError={message=>{setRejection(undefined);setError(message)}}/>}
+    {reverse && view && <ProcessPlans source="frmProcess5" actor={actor} workCode={workCode ?? stages[0]?.processCode ?? ''} storagePrefix="pop-process5-plan:" initial="choose" parentQualities={info?[info.grade]:[]} onClose={()=>setReverse(false)} onAttached={()=>{}} onSessionExpired={onSessionExpired}/>}
+  </section>
+}

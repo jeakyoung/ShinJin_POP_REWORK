@@ -1,0 +1,18 @@
+﻿{
+  "sites": [
+    {"site":"SITE-NORTH","date":"2030-01-02","plantCode":"000001","workCode":"001","process":"절단",
+     "warehouses":["BIN-INPUT","BIN-PRODUCT"],"qualities":["GRADE-DEMO"],
+     "stock":[
+       {"target":{"date":"2030-01-02","sequence":1},"source":{"item":"ITEM-CUT","lot":"LOT-DEMO-A","warehouse":"BIN-INPUT","position":"POS-01"}},
+       {"target":{"date":"2030-01-02","sequence":1},"source":{"item":"ITEM-CUT","lot":"LOT-DEMO-A","warehouse":"BIN-INPUT","position":"POS-02"}}
+     ],
+     "orders":[
+       {"key":{"number":"ORDER-DEMO-A","history":2,"line":1},"month":"2030-01","stock":7,"inProcess":0,"defaultListed":true},
+       {"key":{"number":"ORDER-DEMO-A","history":2,"line":2},"month":"2030-01","stock":7,"inProcess":3,"defaultListed":false},
+       {"key":{"number":"ORDER-DEMO-C","history":0,"line":1},"month":"2029-12","stock":2,"inProcess":0,"defaultListed":false}
+     ]},
+    {"site":"SITE-SOUTH","date":"2030-01-02","plantCode":"000002","workCode":"002","process":"포장",
+     "warehouses":["BIN-SOUTH"],"qualities":["GRADE-DEMO"],"stock":[],
+     "orders":[{"key":{"number":"ORDER-DEMO-S","history":0,"line":1},"month":"2030-01","stock":0,"inProcess":0,"defaultListed":true}]}
+  ]
+}

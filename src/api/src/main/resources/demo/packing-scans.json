@@ -1,0 +1,50 @@
+[
+  {
+    "key": "F2/000002/20261125/9",
+    "listBarcode": "P20261125000001",
+    "orderNo": "202611S00001",
+    "qualitySpec": "A01A",
+    "orderLine": "202611S00001-01",
+    "previousInputs": []
+  },
+  {
+    "key": "F2/000002/20261125/15",
+    "listBarcode": "P20261125000001",
+    "orderNo": "202611S00001",
+    "qualitySpec": "A01A",
+    "orderLine": "202611S00001-02",
+    "previousInputs": [
+      {
+        "warehouse": "B-STOCK",
+        "location": "B-01",
+        "lot": "CUT-STD-S1"
+      },
+      {
+        "warehouse": "B-STOCK",
+        "location": "B-02",
+        "lot": "CUT-STD-S1"
+      },
+      {
+        "warehouse": "B-AUX",
+        "location": "B-03",
+        "lot": "CUT-STD-S1"
+      }
+    ]
+  },
+  {
+    "key": "F2/000002/20261125/14",
+    "listBarcode": "P20261125000001",
+    "orderNo": "202611S00002",
+    "qualitySpec": "B02B",
+    "orderLine": "202611S00002-01",
+    "previousInputs": []
+  },
+  {
+    "key": "F1/000001/20261125/9",
+    "listBarcode": "P20261125000002",
+    "orderNo": "202611S00003",
+    "qualitySpec": "A01A",
+    "orderLine": "202611S00003-01",
+    "previousInputs": []
+  }
+]

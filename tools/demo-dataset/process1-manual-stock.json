@@ -1,0 +1,30 @@
+[
+  {
+    "terminal": "DEMO-A",
+    "lot": "SYNMAT0001",
+    "warehouse": "WH-A",
+    "location": "BIN-01",
+    "quantity": 4
+  },
+  {
+    "terminal": "DEMO-A",
+    "lot": "SYNAUX0001",
+    "warehouse": "WH-A2",
+    "location": "BIN-02",
+    "quantity": 2
+  },
+  {
+    "terminal": "DEMO-A",
+    "lot": "SYNREM0007",
+    "warehouse": "REM-CUT",
+    "location": "R-01",
+    "quantity": 2
+  },
+  {
+    "terminal": "DEMO-A",
+    "lot": "SYNREM0003",
+    "warehouse": "REM-STD",
+    "location": "R-01",
+    "quantity": 2
+  }
+]

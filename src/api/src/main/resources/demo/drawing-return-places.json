@@ -1,0 +1,19 @@
+{
+  "sites": {
+    "F1/000001": {
+      "warehouses": [
+        {"code":"010","name":"합성 반납창고","locations":[{"code":"R-A01","name":"합성 A 1구역"},{"code":"R-A02","name":"합성 A 2구역"}]},
+        {"code":"013","name":"합성 생철·분철창고","locations":[{"code":"R-S01","name":"합성 분철 구역"}]}
+      ],
+      "results": [
+        {"material":"A-Q1","quality":"A-Q1","warehouse":"010","inputItem":"ITEM-A","thickness":14,"width":245,"length":8},
+        {"material":"A-Q1","quality":"A-Q1","warehouse":"010","inputItem":"ITEM-A","thickness":14,"width":245,"length":150},
+        {"material":"S45C","quality":"A-Q1","warehouse":"010","inputItem":"ITEM-B","thickness":16,"width":300,"length":8}
+      ]
+    },
+    "F2/000002": {
+      "warehouses": [{"code":"010","name":"합성 B 반납창고","locations":[{"code":"R-B01","name":"합성 B 1구역"}]}],
+      "results": []
+    }
+  }
+}

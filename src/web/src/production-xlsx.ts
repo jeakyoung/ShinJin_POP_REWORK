@@ -1,5 +1,6 @@
-﻿import { cells, headers, totals } from './production-report.ts';
-import type { Report } from './production-report.ts';
+import { bands } from './production-report.ts';
+import type { Report, ReportRow } from './production-report.ts';
+import { productionStyles } from './production-xlsx-styles.ts';
 
 const encoder = new TextEncoder();
 const xml = (value: string) => value.replace(/[&<>"']/g, (character) =>
@@ -16,7 +17,7 @@ function crc32(bytes: Uint8Array) {
   return ~crc >>> 0;
 }
 
-// Small stored ZIP for the five fixed ASCII entry names. No filesystem access.
+// Small stored ZIP for the fixed ASCII entry names. No filesystem access.
 function archive(entries: Readonly<Record<string, string>>): Uint8Array {
   const local: Uint8Array[] = [];
   const central: Uint8Array[] = [];
@@ -72,22 +73,48 @@ function archive(entries: Readonly<Record<string, string>>): Uint8Array {
 
 export function exportProductionXlsx(report: Report): Uint8Array | undefined {
   if (!report.rows.length) return;
-  const summary = ['합계', '', '', '', '', '', '', '', ...totals(report.rows), '', '', '', ''];
-  const rows = [headers, ...report.rows.map(cells), summary].map((values, index) => {
-    const number = index + 1;
-    const fields = values.map((value, column) => {
-      const ref = String.fromCharCode(65 + column) + number;
-      return typeof value === 'number' ? `<c r="${ref}"><v>${value}</v></c>`
-        : `<c r="${ref}" t="inlineStr"><is><t xml:space="preserve">${xml(value)}</t></is></c>`;
-    });
-    return `<row r="${number}">${fields.join('')}</row>`;
-  });
+  const coordinate = (column: number, row: number) => String.fromCharCode(65 + column) + row;
+  function cell(column: number, row: number, value: string | number | null, style: number) {
+    const attr = 'r="' + coordinate(column, row) + '" s="' + style + '"';
+    if (value === null || value === '') return '<c ' + attr + '/>';
+    if (typeof value === 'number') return '<c ' + attr + '><v>' + value + '</v></c>';
+    return '<c ' + attr + ' t="inlineStr"><is><t xml:space="preserve">' + xml(value) + '</t></is></c>';
+  }
+  const widths = [5.14, 10.43, 5.14, 7, 8.43, 14, 4.86, 4.86, 17.29, 7.57, 4.29];
+  const cols = widths.map((width, i) => '<col min="' + (i + 1) + '" max="' + (i + 1) + '" width="' + width + '" customWidth="1"/>');
+  const bandTitles = widths.map((_, column) => cell(column, 1, [1,5,6,9].includes(column) ? ' ' : null, 1));
+  const rows = ['<row r="1" ht="12.75" customHeight="1">' + bandTitles.join('') + '</row>'];
+  const merges = ['G1:H1'];
+  function writeBand(first: number, row?: ReportRow) {
+    const grid = [Array<string>(11), Array<string>(11)];
+    for (const [tier, fields] of bands.entries()) {
+      for (const field of fields) {
+        const numeric = field.key === 'index' || field.key === 'run';
+        const qty = field.key === 'ordered' || field.key === 'bad';
+        const style = !row ? 2 : field.key === null ? 6 : field.key === 'good' ? 7 : numeric ? 3 : qty ? 5 : 4;
+        const value = !row ? field.title : field.key ? row[field.key] : null;
+        for (let dy = 0; dy < (field.rowSpan ?? 1); dy++) {
+          for (let dx = 0; dx < (field.colSpan ?? 1); dx++) {
+            grid[tier + dy][field.column + dx] = cell(field.column + dx, first + tier + dy, dx || dy ? null : value, style);
+          }
+        }
+        if (field.rowSpan || field.colSpan) merges.push(coordinate(field.column, first + tier) + ':' +
+          coordinate(field.column + (field.colSpan ?? 1) - 1, first + tier + (field.rowSpan ?? 1) - 1));
+      }
+    }
+    grid.forEach((fields, tier) => rows.push('<row r="' + (first + tier) + '" ht="' + (row ? 28.5 : 32.25) +
+      '" customHeight="1">' + fields.join('') + '</row>'));
+  }
+  writeBand(2);
+  report.rows.forEach((row, i) => writeBand(4 + i * 2, row));
+  const merged = merges.map(ref => '<mergeCell ref="' + ref + '"/>').join('');
   const rels = 'http://schemas.openxmlformats.org/package/2006/relationships';
   return archive({
-    '[Content_Types].xml': '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>',
+    '[Content_Types].xml': '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>',
     '_rels/.rels': `<Relationships xmlns="${rels}"><Relationship Id="rId1" Type="${relationship}/officeDocument" Target="xl/workbook.xml"/></Relationships>`,
-    'xl/workbook.xml': `<workbook xmlns="${main}" xmlns:r="${relationship}"><sheets><sheet name="최종생산" sheetId="1" r:id="rId1"/></sheets></workbook>`,
-    'xl/_rels/workbook.xml.rels': `<Relationships xmlns="${rels}"><Relationship Id="rId1" Type="${relationship}/worksheet" Target="worksheets/sheet1.xml"/></Relationships>`,
-    'xl/worksheets/sheet1.xml': `<worksheet xmlns="${main}"><sheetViews><sheetView workbookViewId="0" showGridLines="1"/></sheetViews><sheetData>${rows.join('')}</sheetData></worksheet>`,
+    'xl/workbook.xml': `<workbook xmlns="${main}" xmlns:r="${relationship}"><sheets><sheet name="Sheet" sheetId="1" r:id="rId1"/></sheets></workbook>`,
+    'xl/_rels/workbook.xml.rels': `<Relationships xmlns="${rels}"><Relationship Id="rId1" Type="${relationship}/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="${relationship}/styles" Target="styles.xml"/></Relationships>`,
+    'xl/styles.xml': productionStyles,
+    'xl/worksheets/sheet1.xml': `<worksheet xmlns="${main}"><sheetViews><sheetView workbookViewId="0" showGridLines="1"/></sheetViews><cols>${cols.join('')}</cols><sheetData>${rows.join('')}</sheetData><mergeCells count="${merges.length}">${merged}</mergeCells></worksheet>`,
   });
 }

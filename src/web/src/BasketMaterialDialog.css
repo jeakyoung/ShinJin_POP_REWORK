@@ -1,0 +1,31 @@
+.basket-material[open] {
+  box-sizing: border-box;
+  display: grid;
+  grid-template-rows: minmax(42px,6.5%) minmax(52px,13%) 1fr minmax(60px,15.4%);
+  width: min(768px,98vw);
+  height: min(648px,96dvh);
+  max-width: none;
+  max-height: none;
+  padding: 0;
+  border: 1px solid #999;
+  color: white;
+  background: #1b233a;
+}
+.basket-material::backdrop { background: rgb(14 30 45 / 55%); }
+.basket-material .basket-tabs { display: flex; }
+.basket-material .basket-tabs button {
+  flex: 1; min-height: 0; border-radius: 0; border: 1px solid #aaa; padding: 0;
+  background: #ddd; color: black; font-size: clamp(16px,3vw,22px);
+}
+.basket-material .basket-tabs button[aria-selected=true] { background: #2647a4; color: white; }
+.basket-material :is(.basket-reset,.basket-close) {
+  width: 100%; border-radius: 3px; border: 1px solid #18306d;
+  background: #233d86; color: white; font-size: clamp(26px,5vw,46px); font-weight: bold;
+}
+.basket-material .basket-lines { overflow: auto; }
+.basket-material .basket-lines table { width: 100%; border-collapse: collapse; table-layout: fixed; color: white; }
+.basket-material .basket-lines :is(th,td) { padding: 3px; text-align: center; height: 40px; border: 1px solid #35435a; }
+.basket-material .basket-lines th { position: sticky; top: 0; background: #20283f; color: white; font-size: 13px; }
+.basket-material .basket-lines td { background: #1b233a; color: white; overflow-wrap: anywhere; }
+.basket-material .basket-lines .basket-selected td { background: #00781c; }
+.basket-material .basket-lines p { margin: 0; padding: .5rem; }

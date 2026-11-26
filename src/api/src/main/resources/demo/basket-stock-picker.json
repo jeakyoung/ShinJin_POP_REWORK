@@ -1,0 +1,190 @@
+[
+  {
+    "terminal": "DEMO-A",
+    "plant": "000001",
+    "issue": [
+      {
+        "code": "WAREHOUSE-DEMO",
+        "name": "자재창고"
+      }
+    ],
+    "auxiliary": [],
+    "locations": [
+      {
+        "warehouse": "WAREHOUSE-DEMO",
+        "raw": "BASK-LOC-01",
+        "location": {
+          "code": "BIN-DEMO",
+          "name": "A-01"
+        }
+      }
+    ],
+    "plans": [
+      {
+        "key": {
+          "date": "2030-01-01",
+          "sequence": 1
+        },
+        "status": "W"
+      },
+      {
+        "key": {
+          "date": "2030-01-01",
+          "sequence": 2
+        },
+        "status": "W"
+      }
+    ],
+    "stocks": [
+      {
+        "spec": {
+          "lot": {
+            "item": "ITEM-DEMO",
+            "lot": "LOT-DEMO",
+            "warehouse": "WAREHOUSE-DEMO",
+            "position": "BIN-DEMO"
+          },
+          "warehouseName": "자재창고",
+          "locationName": "A-01",
+          "qualityName": "SS400",
+          "thickness": 6,
+          "width": 150,
+          "length": 3000
+        },
+        "itemName": "합성 자재",
+        "workStatus": "W",
+        "stock": 10
+      }
+    ],
+    "answers": [
+      {
+        "division": "SELECT",
+        "warehouse": "WAREHOUSE-DEMO",
+        "grades": "GRADE-DEMO",
+        "status": "W",
+        "thickness": 2,
+        "width": 80,
+        "length": 0,
+        "lots": [
+          {
+            "item": "ITEM-DEMO",
+            "lot": "LOT-DEMO",
+            "warehouse": "WAREHOUSE-DEMO",
+            "position": "BIN-DEMO"
+          }
+        ]
+      },
+      {
+        "division": "SELECT",
+        "warehouse": "WAREHOUSE-DEMO",
+        "grades": "GRADE-B",
+        "status": "W",
+        "thickness": 4,
+        "width": 90,
+        "length": 0,
+        "lots": [
+          {
+            "item": "ITEM-DEMO",
+            "lot": "LOT-DEMO",
+            "warehouse": "WAREHOUSE-DEMO",
+            "position": "BIN-DEMO"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "terminal": "DEMO-A2",
+    "plant": "000003",
+    "issue": [
+      {
+        "code": "WAREHOUSE-DEMO",
+        "name": "자재창고"
+      }
+    ],
+    "auxiliary": [],
+    "locations": [
+      {
+        "warehouse": "WAREHOUSE-DEMO",
+        "raw": "BASK-LOC-01",
+        "location": {
+          "code": "BIN-DEMO",
+          "name": "A-01"
+        }
+      }
+    ],
+    "plans": [
+      {
+        "key": {
+          "date": "2030-01-02",
+          "sequence": 1
+        },
+        "status": "W"
+      },
+      {
+        "key": {
+          "date": "2030-01-02",
+          "sequence": 2
+        },
+        "status": "W"
+      }
+    ],
+    "stocks": [
+      {
+        "spec": {
+          "lot": {
+            "item": "ITEM-DEMO",
+            "lot": "LOT-DEMO",
+            "warehouse": "WAREHOUSE-DEMO",
+            "position": "BIN-DEMO"
+          },
+          "warehouseName": "자재창고",
+          "locationName": "A-01",
+          "qualityName": "SS400",
+          "thickness": 6,
+          "width": 150,
+          "length": 3000
+        },
+        "itemName": "합성 자재",
+        "workStatus": "W",
+        "stock": 10
+      }
+    ],
+    "answers": [
+      {
+        "division": "SELECT",
+        "warehouse": "WAREHOUSE-DEMO",
+        "grades": "GRADE-DEMO",
+        "status": "W",
+        "thickness": 2,
+        "width": 80,
+        "length": 0,
+        "lots": [
+          {
+            "item": "ITEM-DEMO",
+            "lot": "LOT-DEMO",
+            "warehouse": "WAREHOUSE-DEMO",
+            "position": "BIN-DEMO"
+          }
+        ]
+      },
+      {
+        "division": "SELECT",
+        "warehouse": "WAREHOUSE-DEMO",
+        "grades": "GRADE-B",
+        "status": "W",
+        "thickness": 4,
+        "width": 90,
+        "length": 0,
+        "lots": [
+          {
+            "item": "ITEM-DEMO",
+            "lot": "LOT-DEMO",
+            "warehouse": "WAREHOUSE-DEMO",
+            "position": "BIN-DEMO"
+          }
+        ]
+      }
+    ]
+  }
+]

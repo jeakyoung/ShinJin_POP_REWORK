@@ -1,0 +1,49 @@
+﻿.rev-pop { box-sizing:border-box; background:#1c253c; color:white; border:0; padding:0; max-height:99dvh; max-width:99vw; }
+.rev-pop::backdrop { background:#10172588; }
+.rev-pop button { border:1px solid #384669; border-radius:1px; background:#3b455f; color:white; padding:4px 10px; min-height:36px; touch-action:manipulation; }
+.rev-pop footer { display:flex; gap:1px; min-height:min(9dvh,90px); }
+.rev-pop footer button { flex:1; font-size:clamp(14px,2.3vh,25px); font-weight:700; }
+.rev-pop footer button:not(:last-child), .rev-editor > button { background:#103c91; }
+.rev-pop.rev-choose[open] { width:min(664px,96vw); height:min(464px,90dvh); padding: min(3vh,32px) 22px 22px; display:grid; grid-template-rows:2.3fr 1fr; gap:8%; }
+.rev-choose > div { display:flex; gap:3%; }
+.rev-choose > div button { flex:1; background:#203f95; font-size:clamp(18px,3vh,28px); font-weight:700; }
+.rev-choose > div button:nth-child(2) { background:#e0df52; color:#111; }
+.rev-main[open],.rev-stock[open] { width:min(1200px,99vw); height:min(828px,98dvh); display:flex; flex-direction:column; }
+.rev-stock[open] { width:min(870px,98vw); height:min(800px,98dvh); }
+.rev-sheet { display:flex; flex-flow:column nowrap; align-items:stretch; gap:0; flex:1; min-height:0; min-width:0; border:0; margin:0; padding:0; }
+.rev-sheet nav { display:flex; min-height:46px; background:#ddd; }
+.rev-sheet nav button { width:46%; background:#ddd; color:#181818; border-color:#999; font-size:22px; }
+.rev-sheet nav button[aria-pressed=true] { background:#f3f3f3; }
+.rev-filters { min-height:78px; display:flex; align-items:center; justify-content:space-evenly; flex-wrap:wrap; gap:.3rem; }
+.rev-filters label,.rev-choice { display:inline-flex; align-items:center; gap:.45rem; font-size:clamp(14px,2vw,24px); font-weight:700; }
+.rev-choice > button,.rev-filters input:not([type=checkbox]) { display:flex; justify-content:space-between; align-items:center; color:#141414; background:white; min-height:44px; min-width:6em; }
+.rev-choice b { color:#657085; transform:rotate(-40deg); }
+.rev-pop input[type=checkbox] { width:1.6em; height:1.6em; }
+.rev-grid { flex:1; min-height:0; overflow:auto; background:#192239; }
+.rev-grid table { width:100%; border-collapse:collapse; color:white; font-size:clamp(11px,1.1vw,15px); }
+.rev-grid :is(td,th) { border:1px solid #293750; text-align:center; background:#1c253b; padding:3px; height:39px; }
+.rev-grid th { background:#283e76; height:50px; }
+.rev-grid [aria-selected=true] td { background:#00781c; }
+.rev-steppers { white-space:nowrap; }
+.rev-steppers button,.rev-pop .rev-num { padding:2px 7px; }
+.rev-issue-body { display:flex; flex:1; min-height:0; }
+.rev-pop .rev-admin { writing-mode:vertical-rl; text-orientation:upright; background:#203b83; width:6%; min-width:40px; font-size:20px; }
+.rev-editor { display:grid; grid-template-columns:1fr 1fr .45fr; background:#26314d; }
+.rev-editor > div { display:grid; padding:6px 1vw; gap:3px; }
+.rev-editor label,.rev-editor span { color:white; }
+.rev-prompt,.rev-lookup { padding:14px; width:min(460px,90vw); }
+.rev-lookup > input,.rev-lookup button { width:100%; }
+.rev-prompt p { padding:12px 5px; }
+.rev-main iframe { width:100%; flex:1; border:0; }
+
+/* ComReversePlan1 registration footer: original 1198 × 67, with a gap between actions. */
+.rev-main .rev-sheet:has(> .rev-issue-body) > footer {
+  align-self:center;
+  width:calc(100% - 2px);
+  flex:0 0 67px;
+  min-height:67px;
+  justify-content:space-between;
+  gap:0;
+}
+.rev-main .rev-sheet:has(> .rev-issue-body) > footer button:first-child { flex:0 0 44.9082%; }
+.rev-main .rev-sheet:has(> .rev-issue-body) > footer button:last-child { flex:0 0 45.9933%; }

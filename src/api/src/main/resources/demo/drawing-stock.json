@@ -1,0 +1,82 @@
+[
+  {
+    "factory": "F1",
+    "site": "000001",
+    "lot": "REM-A",
+    "warehouse": "010",
+    "item": "ITEM-A",
+    "thickness": 14,
+    "width": 245,
+    "length": 800
+  },
+  {
+    "factory": "F1",
+    "site": "000001",
+    "lot": "P1-A",
+    "warehouse": "018",
+    "item": "ITEM-A",
+    "thickness": 14,
+    "width": 245,
+    "length": 800
+  },
+  {
+    "factory": "F1",
+    "site": "000001",
+    "lot": "REM-B",
+    "warehouse": "010",
+    "item": "ITEM-B",
+    "thickness": 7,
+    "width": 7,
+    "length": 900
+  },
+  {
+    "factory": "F1",
+    "site": "000001",
+    "lot": "P1-B",
+    "warehouse": "018",
+    "item": "ITEM-B",
+    "thickness": 7,
+    "width": 7,
+    "length": 900
+  },
+  {
+    "factory": "F1",
+    "site": "000001",
+    "lot": "REM-D",
+    "warehouse": "010",
+    "item": "ITEM-D",
+    "thickness": 8,
+    "width": 140,
+    "length": 800
+  },
+  {
+    "factory": "F1",
+    "site": "000001",
+    "lot": "P1-D",
+    "warehouse": "018",
+    "item": "ITEM-D",
+    "thickness": 8,
+    "width": 140,
+    "length": 800
+  },
+  {
+    "factory": "F2",
+    "site": "000002",
+    "lot": "REM-E",
+    "warehouse": "010",
+    "item": "ITEM-E",
+    "thickness": 3,
+    "width": 3,
+    "length": 570
+  },
+  {
+    "factory": "F2",
+    "site": "000002",
+    "lot": "P1-E",
+    "warehouse": "018",
+    "item": "ITEM-E",
+    "thickness": 3,
+    "width": 3,
+    "length": 570
+  }
+]

@@ -1,0 +1,12 @@
+[
+  {
+    "lot": { "item": "ITEM-DEMO", "lot": "LOT-DEMO", "warehouse": "WAREHOUSE-DEMO", "position": "BIN-DEMO" },
+    "warehouseName": "자재창고", "locationName": "A-01", "qualityName": "SS400",
+    "thickness": 6, "width": 150, "length": 3000
+  },
+  {
+    "lot": { "item": "ITEM-DEMO", "lot": "LOT-RETURN-DEMO", "warehouse": "WAREHOUSE-DEMO", "position": "BIN-RETURN-DEMO" },
+    "warehouseName": "자재창고", "locationName": "반납-01", "qualityName": "SS400",
+    "thickness": 6, "width": 150, "length": null
+  }
+]

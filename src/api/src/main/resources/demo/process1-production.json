@@ -1,0 +1,22 @@
+{
+  "terminals": {
+    "DEMO-A": {
+      "issue":["WH-A","WH-A2"],
+      "good":["WH-GOOD-A"],"bad":["WH-BAD-A"],"returns":["WH-RETURN-A","WH-RETURN-A2"],
+      "locations":{"WH-BAD-A":["BAD-01","BAD-02"],"WH-GOOD-A":["GOOD-01"]},
+      "reasons":[{"code":"QC-DEMO-01","name":"합성 치수 불량"},{"code":"QC-DEMO-02","name":"합성 표면 불량"}]
+    },
+    "DEMO-B": {
+      "issue":["WH-B"],
+      "good":["WH-GOOD-B"],"bad":[],"returns":["WH-RETURN-B"],
+      "locations":{"WH-GOOD-B":["GOOD-01"]},"reasons":[]
+    }
+  },
+  "starts":[{"terminal":"DEMO-A","date":"2026-11-25","sequence":102,"time":"2026-11-25T00:00:00Z","group":"GROUP-DEMO-A-102"}],
+  "balances":[{"terminal":"DEMO-A","date":"2026-11-25","sequence":101,"remaining":12.5},{"terminal":"DEMO-A","date":"2026-11-25","sequence":102,"remaining":8}],
+  "lots":[
+    {"terminal":"DEMO-A","lot":"LOT-A-01","warehouse":"WH-A","location":"BIN-01","spec":{"quality":"합성 강재 A","thickness":2.5,"width":80,"length":120}},
+    {"terminal":"DEMO-A","lot":"LOT-A-01","warehouse":"WH-A","location":"BIN-02","spec":{"quality":"합성 강재 A","thickness":2.5,"width":80,"length":120}},
+    {"terminal":"DEMO-A","lot":"LOT-A-01","warehouse":"WH-RETURN-A","location":"RET-01","spec":{"quality":"합성 강재 A","thickness":2.5,"width":80,"length":50}}
+  ]
+}

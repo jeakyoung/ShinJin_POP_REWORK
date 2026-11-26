@@ -1,0 +1,7 @@
+[
+  {"factory":"F1","site":"000001","orderNo":"202611S00001","qualityCode":"Q01S","drawing":true,"terminal":"DEMO-A","warehouse":"A-STOCK","material":"A-Q1","plans":["20261125/1","20261125/2"]},
+  {"factory":"F1","site":"000001","orderNo":"202611S00001","qualityCode":"Q01S","drawing":true,"terminal":"DEMO-A2","warehouse":"A2-STOCK","material":"A2-Q1","plans":["20261125/1","20261125/2"]},
+  {"factory":"F1","site":"000001","orderNo":"202611S00002","qualityCode":"Q02S","drawing":true,"terminal":"DEMO-A","warehouse":"A-STOCK","material":"A-Q2","plans":["20261125/4"]},
+  {"factory":"F1","site":"000001","orderNo":"202611S00003","qualityCode":"Q01S","drawing":false,"terminal":"DEMO-A","warehouse":"A-STOCK","material":"A-Q1","plans":["20261125/3"]},
+  {"factory":"F2","site":"000002","orderNo":"202611S00004","qualityCode":"Q01S","drawing":true,"terminal":"DEMO-B","warehouse":"B-STOCK","material":"B-Q1","plans":["20261125/1"]}
+]

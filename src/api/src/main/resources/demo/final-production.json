@@ -1,0 +1,96 @@
+[
+  {
+    "key": {
+      "factory": "F1",
+      "site": "000001",
+      "date": "2026-11-25",
+      "sequence": 201
+    },
+    "rows": [
+      {
+        "order": "TEST-201",
+        "plan": "20261125-201",
+        "run": 1,
+        "process": "절단",
+        "material": "테스트 강판",
+        "part": "TEST-P201",
+        "spec": "10 × 20 × 30",
+        "ordered": 4,
+        "good": 4,
+        "bad": 0,
+        "warehouse": "테스트 입고창고",
+        "worker": "샘플 작업자",
+        "started": "2026-11-25 08:00",
+        "finished": "2026-11-25 09:00"
+      },
+      {
+        "order": "TEST-201",
+        "plan": "20261125-201",
+        "run": 2,
+        "process": "연마",
+        "material": "테스트 강판",
+        "part": "TEST-P201",
+        "spec": "10 × 20 × 30",
+        "ordered": 4,
+        "good": 3,
+        "bad": 1,
+        "warehouse": "테스트 입고창고",
+        "worker": "샘플 작업자",
+        "started": "2026-11-25 08:00",
+        "finished": "2026-11-25 09:00"
+      }
+    ]
+  },
+  {
+    "key": {
+      "factory": "F1",
+      "site": "000001",
+      "date": "2026-11-25",
+      "sequence": 202
+    },
+    "rows": [
+      {
+        "order": "TEST-202",
+        "plan": "20261125-202",
+        "run": 1,
+        "process": "절단",
+        "material": "테스트 강판",
+        "part": "TEST-P202",
+        "spec": "10 × 20 × 30",
+        "ordered": 4,
+        "good": 4,
+        "bad": 0,
+        "warehouse": "테스트 입고창고",
+        "worker": "샘플 작업자",
+        "started": "2026-11-25 08:00",
+        "finished": "2026-11-25 09:00"
+      }
+    ]
+  },
+  {
+    "key": {
+      "factory": "F2",
+      "site": "000002",
+      "date": "2026-11-25",
+      "sequence": 203
+    },
+    "rows": [
+      {
+        "order": "TEST-203",
+        "plan": "20261125-203",
+        "run": 1,
+        "process": "절단",
+        "material": "테스트 강판",
+        "part": "TEST-P203",
+        "spec": "10 × 20 × 30",
+        "ordered": 4,
+        "good": 4,
+        "bad": 0,
+        "warehouse": "테스트 입고창고",
+        "worker": "샘플 작업자",
+        "started": "2026-11-25 08:00",
+        "finished": "2026-11-25 09:00"
+      }
+    ]
+  }
+]

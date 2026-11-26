@@ -59,7 +59,10 @@ public class DrawingController {
             mixedSeed(11, "M2"),
             seed("F1", "000001", 12, OrderType.DRAWING, "M3", false),
             mixedSeed(13, "M4"),
-            seed("F2", "000002", 1, OrderType.DRAWING, "E", true));
+            seed("F2", "000002", 1, OrderType.DRAWING, "E", true),
+            seed("F2", "000002", 9, OrderType.STANDARD_PACK, "STD-B", false),
+            seed("F2", "000002", 14, OrderType.STANDARD_PACK, "STD-C", false),
+            seed("F2", "000002", 15, OrderType.STANDARD_PACK, "STD-S1", false));
 
     private static final List<GroupSeed> GROUPS = List.of(
             new GroupSeed("PG-008-A", List.of(groupKey(5), groupKey(6))),
@@ -73,9 +76,30 @@ public class DrawingController {
             new SharedLot("F1", "000001", remnant("REM-AUTO-B"), new BigDecimal("0.500")));
 
     private final InMemoryDrawingDomain domain;
+    private final DrawingReturnPlaces returnPlaces;
+    private final DrawingGoodPlaces goodPlaces;
 
-    DrawingController(InMemoryDrawingDomain domain) {
+    private final Map<String, DisplayFields> display;
+    private final List<StockFields> stockFields;
+    private final Map<PlanKey,Seed> listedSeeds = new java.util.concurrent.ConcurrentHashMap<>();
+
+    DrawingController(InMemoryDrawingDomain domain, DrawingReturnPlaces returnPlaces, DrawingGoodPlaces goodPlaces,
+            @org.springframework.beans.factory.annotation.Value("${shinjin.demo.drawing-screen:classpath:demo/drawing-screen.json}")
+            org.springframework.core.io.Resource dataset,
+            @org.springframework.beans.factory.annotation.Value("${shinjin.demo.drawing-stock:classpath:demo/drawing-stock.json}")
+            org.springframework.core.io.Resource stockDataset) throws java.io.IOException {
         this.domain = domain;
+        this.returnPlaces = returnPlaces;
+        this.goodPlaces = goodPlaces;
+        try (var input = stockDataset.getInputStream()) {
+            stockFields = tools.jackson.databind.json.JsonMapper.builder().build().readValue(input,
+                    new tools.jackson.core.type.TypeReference<List<StockFields>>() {});
+        }
+        SEEDS.forEach(seed -> listedSeeds.put(seed.key(),seed));
+        try (var input = dataset.getInputStream()) {
+            display = new java.util.concurrent.ConcurrentHashMap<>(tools.jackson.databind.json.JsonMapper.builder().build().readValue(input,
+                    new tools.jackson.core.type.TypeReference<Map<String, DisplayFields>>() {}));
+        }
     }
 
     @Bean
@@ -84,21 +108,49 @@ public class DrawingController {
                 Clock.fixed(Instant.parse("2026-11-25T01:00:00Z"), ZoneOffset.UTC), SEEDS, GROUPS, SHARED_LOTS);
     }
 
+    static List<Seed> packingOrders(Session session) {
+        return SEEDS.stream().filter(seed -> seed.type() == OrderType.STANDARD_PACK && sameSite(session, seed.key())).toList();
+    }
+
     static List<PlanKey> scopedPlanKeys(Session session) {
         return SEEDS.stream().map(Seed::key).filter(key -> sameSite(session, key)).toList();
     }
 
-    record PlanOption(String key, String fgUse2, String item, String cutLot, BigDecimal orderQuantity) {}
+    record DisplayFields(String orderNumber, int orderSequence, String customer, String material, String kind,
+                         LocalDate dueDate, BigDecimal thickness, BigDecimal width, BigDecimal length,
+                         String returnWarehouse, String returnLocation, String qualityCode) {
+        String returnMaterial() {
+            return "014".equals(qualityCode) || "015".equals(qualityCode) ? "S45C" : material;
+        }
+    }
+    record StockFields(String factory, String site, String lot, String warehouse, String item,
+                       BigDecimal thickness, BigDecimal width, BigDecimal length) {}
+    record StockView(String lot, String warehouse, String item, BigDecimal thickness, BigDecimal width,
+                     BigDecimal length, BigDecimal available) {}
+    private List<StockView> stockViews(Session actor, PlanKey key, List<Input> inputs) {
+        var balances = domain.inputBalances(actor, key);
+        return inputs.stream().map(input -> {
+            var row = material(input.stock(), input.quantity());
+            var label = stockFields.stream().filter(info -> info.factory().equals(key.factory())
+                    && info.site().equals(key.site()) && info.lot().equals(row.lot())
+                    && info.warehouse().equals(row.warehouse()) && info.item().equals(row.item())).findFirst();
+            return new StockView(row.lot(), row.warehouse(), row.item(), label.map(StockFields::thickness).orElse(null),
+                    label.map(StockFields::width).orElse(null), label.map(StockFields::length).orElse(null),
+                    balances.getOrDefault(input.stock(), BigDecimal.ZERO));
+        }).toList();
+    }
+    record PlanOption(String key, String fgUse2, String item, String cutLot, BigDecimal orderQuantity, DisplayFields display,
+                      DrawingGoodPlaces.Options goodPlaces) {}
     record Material(String lot, String warehouse, String item, BigDecimal qty) {
         StockKey stock() { return new StockKey(lot, warehouse == null ? null : BINS.get(warehouse), item); }
     }
     record ShipmentView(String id, Material material, boolean deferred, String startedAt, String finishedAt) {}
     record PlanView(State state, String plateFlag, long version, String ownerTerminalId,
-                    boolean bypassedPack1, String shipPlanId, ShipmentView shipment, String activeGroupId) {}
+                    boolean bypassedPack1, String shipPlanId, ShipmentView shipment, String activeGroupId, String productionGroupNo,GoodPlace goodPlace) {}
     record ScanBody(Decision decision) {}
-    record ScanView(boolean accepted, String scanToken, List<Material> materials) {}
+    record ScanView(boolean accepted, String scanToken, List<Material> materials, List<StockView> stockDetails) {}
     record CommandBody(Action action, Long expectedVersion, String requestId, String lot, BigDecimal qty,
-                       BigDecimal goodQty, String scanToken, List<Material> inputs) {}
+                       BigDecimal goodQty, String scanToken, List<Material> inputs, List<MaterialReturn> returns,DrawingGoodPlaces.Codes goodPlace) {}
 
     record GroupCandidateView(Material material, List<String> eligiblePlans) {}
     record GroupMemberView(String key, PlanView snapshot, GroupResult result, List<Material> drawingInputs, Material autoRemnant) {}
@@ -111,15 +163,137 @@ public class DrawingController {
         return factory -> factory.addConnectorCustomizers(connector -> connector.setEncodedSolidusHandling("passthrough"));
     }
 
+    synchronized void registerPlanned(PlanKey key, String item, BigDecimal quantity, DisplayFields fields) {
+        if (listedSeeds.containsKey(key)) return;
+        var seed = new Seed(key,OrderType.DRAWING,item,quantity,new StockKey("",Bin.CUT,item),null,Map.of());
+        domain.registerInstruction(seed);
+        display.put(format(key),fields);
+        listedSeeds.put(key,seed);
+    }
+
+    static List<Seed> planningSeeds() { return SEEDS; }
+    DisplayFields fields(PlanKey key) { return display.get(format(key)); }
+
     @GetMapping("/plans")
     List<PlanOption> plans(HttpServletRequest request) {
         var session = session(request);
-        return SEEDS.stream().filter(seed -> sameSite(session, seed.key())).map(DrawingController::option).toList();
+        return listedSeeds.values().stream().filter(seed -> sameSite(session,seed.key()))
+                .sorted(java.util.Comparator.comparing((Seed seed) -> seed.key().date()).thenComparingInt(seed -> seed.key().sequence()))
+                .map(seed -> option(seed,goodPlaces.options(session,seed.key(),request))).toList();
+    }
+
+    @GetMapping("/return-places")
+    List<DrawingReturnPlaces.Warehouse> returnPlaces(HttpServletRequest request) {
+        return returnPlaces.choices(session(request), request);
+    }
+
+    @PostMapping("/good-place")
+    ResponseEntity<?> selectGood(HttpServletRequest request,@RequestBody DrawingGoodPlaces.Selection selection) {
+        var actor = session(request);
+        var key = selection.key()==null ? null : parse(selection.key());
+        if (key==null) return error(422,"INVALID_PLAN_KEY");
+        var result = domain.get(actor,key);
+        if (result.status()!=200) return error(result.status(),result.error());
+        var row=result.value();
+        if (row.ownerTerminal()!=null && !row.ownerTerminal().equals(actor.terminal())) return error(403,"TERMINAL_MISMATCH");
+        if (!(row.state()==State.CUT_READY || row.state()==State.DRAW_READY || row.state()==State.DRAW_ACTIVE || row.state()==State.DRAW_PAUSED))
+            return error(409,"INVALID_STATE");
+        return ResponseEntity.ok(goodPlaces.select(actor,key,row,selection,request));
+    }
+
+    private GoodPlace good(Session actor,PlanKey key,DrawingGoodPlaces.Codes codes,HttpServletRequest request) {
+        if(codes==null) return null;
+        var result=domain.get(actor,key);
+        if(result.status()!=200) throw new ResponseStatusException(HttpStatus.valueOf(result.status()),result.error());
+        return goodPlaces.resolve(actor,key,result.value(),codes,request);
+    }
+
+    record ReturnSpec(String key, String inputItem, MaterialReturn row) {}
+    @PostMapping("/return-material")
+    ResponseEntity<?> returnMaterial(HttpServletRequest request, @RequestBody ReturnSpec spec) {
+        var actor = session(request);
+        var key = spec.key() == null ? null : parse(spec.key());
+        var row = spec.row();
+        if (key == null || row == null || row.thickness() == null || row.width() == null || row.length() == null)
+            return error(422, "INVALID_MATERIAL_RETURN");
+        var state = domain.get(actor, key);
+        if (state.status() != 200) return error(state.status(), state.error());
+        if (!DrawingReturnPlaces.contains(returnPlaces.choices(actor, request), row.warehouse(), row.location()))
+            return error(422, "INVALID_RETURN_DESTINATION");
+        var info = fields(key);
+        String result = info == null ? "" : returnPlaces.lookup(actor, info.material(), row.warehouse(), spec.inputItem(), row);
+        return ResponseEntity.ok(Map.of("material", result));
+    }
+
+    private boolean validDestinations(List<MaterialReturn> lines,List<DisplayFields> permitted,HttpServletRequest request) {
+        if (lines.isEmpty()) return true;
+        var actor = session(request);
+        var choices = returnPlaces.choices(actor, request);
+        return lines.stream().allMatch(line -> line != null && DrawingReturnPlaces.contains(choices,line.warehouse(),line.location())
+                && permitted.stream().anyMatch(row ->
+                    (java.util.Objects.equals(row.returnWarehouse(),line.warehouse()) && java.util.Objects.equals(row.returnLocation(),line.location())
+                        && java.util.Objects.equals(row.returnMaterial(),line.material()))
+                    || returnPlaces.matchesResolvedMaterial(actor,row.material(),line)));
+    }
+
+    record ReturnEdit(String key, Long expectedVersion, String requestId, List<MaterialReturn> returns) {}
+    @PostMapping("/returns")
+    ResponseEntity<?> saveReturns(HttpServletRequest request,@RequestBody ReturnEdit edit) {
+        var actor = session(request);
+        var key = edit.key() == null ? null : parse(edit.key());
+        if (key == null || edit.expectedVersion() == null || edit.returns() == null) return error(422,"INVALID_MATERIAL_RETURN");
+        var state = domain.get(actor,key);
+        if (state.status()!=200) return error(state.status(),state.error());
+        List<DisplayFields> permitted;
+        if (state.value().activeGroupId() == null) permitted = java.util.stream.Stream.of(fields(key)).filter(java.util.Objects::nonNull).toList();
+        else {
+            var group = domain.group(actor,state.value().activeGroupId());
+            if (group.status()!=200) return error(group.status(),group.error());
+            permitted = group.value().members().stream().map(member -> fields(member.key())).filter(java.util.Objects::nonNull).toList();
+        }
+        if (!validDestinations(edit.returns(),permitted,request)) return error(422,"INVALID_RETURN_DESTINATION");
+        var result = domain.saveReturns(actor,key,edit.expectedVersion(),edit.requestId(),edit.returns());
+        return result.status()==200 ? ResponseEntity.ok(view(result.value())) : error(result.status(),result.error());
+    }
+
+    record DeleteRow(String key, Long expectedVersion) {}
+    record DeleteList(String requestId, List<DeleteRow> rows) {}
+    @PostMapping("/delete-listed")
+    ResponseEntity<?> deleteListed(HttpServletRequest request,@RequestBody DeleteList input) {
+        var actor = session(request);
+        if (input.rows() == null || input.rows().stream().anyMatch(row -> row == null || row.key() == null || row.expectedVersion() == null))
+            return error(422,"INVALID_LIST");
+        var rows = input.rows().stream().map(row -> new InMemoryDrawingDomain.DeleteLine(parse(row.key()),row.expectedVersion())).toList();
+        var result = domain.deleteListed(actor,input.requestId(),rows);
+        return result.status() == 200 ? ResponseEntity.ok(Map.of("deleted",true)) : error(result.status(),result.error());
     }
 
     @GetMapping("/groups")
     List<String> groups(HttpServletRequest request) {
         return domain.groups(session(request));
+    }
+
+    record GridMember(String key,Long expectedVersion,String scanToken,List<Material> inputs,BigDecimal goodQty,DrawingGoodPlaces.Codes goodPlace) {}
+    record GridCommand(String groupId,GroupAction action,String requestId,List<GridMember> members,List<MaterialReturn> returns) {}
+    @PostMapping("/work-grid/commands")
+    ResponseEntity<?> gridCommand(HttpServletRequest request,@RequestBody GridCommand body) {
+        var actor=session(request);
+        if(body.members()==null || body.members().stream().anyMatch(row->row==null || row.key()==null ||
+                row.expectedVersion()==null || row.expectedVersion()<0)) return error(422,"INVALID_GROUP_MEMBERS");
+        if(body.action()==GroupAction.DRAW_START && body.groupId()==null) {
+            var rows=body.members().stream().map(row->new InMemoryDrawingDomain.ScannedMember(parse(row.key()),
+                    row.expectedVersion(),row.scanToken(),inputs(row.inputs()),good(actor,parse(row.key()),row.goodPlace(),request))).toList();
+            if(rows.stream().anyMatch(row->row.inputs().stream().anyMatch(input->input.stock()==null || input.quantity()==null)))
+                return error(422,"INVALID_INPUT");
+            var returns=body.returns()==null ? List.<MaterialReturn>of() : body.returns();
+            var fields=rows.stream().map(row->fields(row.key())).filter(java.util.Objects::nonNull).toList();
+            if (!validDestinations(returns,fields,request)) return error(422,"INVALID_RETURN_DESTINATION");
+            return groupResponse(domain.startScannedGroup(actor,body.requestId(),rows,returns));
+        }
+        if(body.groupId()==null || body.action()==GroupAction.DRAW_START || body.action()==null)return error(422,"INVALID_GROUP_MEMBERS");
+        var lines=body.members().stream().map(row->new GroupLine(parse(row.key()),row.expectedVersion(),List.of(),row.goodQty(),false,
+                good(actor,parse(row.key()),row.goodPlace(),request))).toList();
+        return groupResponse(domain.executeGroup(actor,body.groupId(),new GroupCommand(body.action(),body.requestId(),lines)));
     }
 
     @GetMapping("/groups/{id}")
@@ -171,7 +345,9 @@ public class DrawingController {
             var details = domain.audit(session, key);
             return ResponseEntity.ok(Map.of("inventory", details.inventory().entrySet().stream()
                     .map(entry -> material(entry.getKey(), entry.getValue())).toList(),
-                    "records", details.records(), "drawingInputs", materials(details.drawingInputs())));
+                    "stockDetails", stockViews(session, key, details.drawingInputs()),
+                    "records", details.records(), "drawingInputs", materials(details.drawingInputs()), "returns", details.returns(), "goodQuantity",details.goodQuantity(),
+                    "productReceipts",details.productReceipts().stream().map(row->Map.of("material",material(row.stock(),row.quantity()),"location",row.location())).toList()));
         }
         return ResponseEntity.ok(view(result.value()));
     }
@@ -185,7 +361,7 @@ public class DrawingController {
         var result = domain.scan(session, key, body.decision());
         if (result.status() != 200) return error(result.status(), result.error());
         var scan = result.value();
-        return ResponseEntity.ok(new ScanView(scan.accepted(), scan.token(), materials(scan.materials())));
+        return ResponseEntity.ok(new ScanView(scan.accepted(), scan.token(), materials(scan.materials()), stockViews(session, key, scan.materials())));
     }
 
     @PostMapping({"/plans/{key}/commands", "/plans/{factory}/{site}/{date}/{seq}/commands"})
@@ -196,15 +372,19 @@ public class DrawingController {
         if (key == null) return error(400, "INVALID_PLAN_KEY");
         var scope = domain.get(session, key);
         if (scope.status() != 200) return error(scope.status(), scope.error());
+        if (body.action() == Action.STANDARD_PACK_CANCEL) return error(422, "USE_PACKING_COMMAND");
         if (body.expectedVersion() == null || body.expectedVersion() < 0) return error(422, "VERSION_REQUIRED");
-        var seed = SEEDS.stream().filter(item -> item.key().equals(key)).findFirst().orElseThrow();
+        var seed = listedSeeds.get(key);
         var stock = body.lot() == null
                 ? (body.action() == Action.STANDARD_PACK_FINISH ? seed.cutStock() : null)
                 : new StockKey(body.lot(), Bin.CUT, seed.item());
         var inputs = inputs(body.inputs());
+        var row = display.get(format(key));
+        if (body.returns() != null && !validDestinations(body.returns(),row == null ? List.of() : List.of(row),request))
+            return error(422, "INVALID_RETURN_DESTINATION");
         var amount = body.action() == Action.DRAW_FINISH ? body.goodQty() : body.qty();
         var result = domain.execute(session, key, new Command(body.action(), body.expectedVersion(),
-                body.requestId(), stock, amount, body.scanToken(), inputs));
+                body.requestId(), stock, amount, body.scanToken(), inputs, body.returns(),goodPlaces.resolve(session,key,scope.value(),body.goodPlace(),request)));
         return result.status() == 200 ? ResponseEntity.ok(view(result.value())) : error(result.status(), result.error());
     }
 
@@ -222,7 +402,7 @@ public class DrawingController {
         return new PlanView(snapshot.state(), snapshot.plateFlag(), snapshot.version(), snapshot.ownerTerminal(),
                 snapshot.bypassedPack1(), shipment == null ? null : shipment.id(),
                 shipment == null ? null : new ShipmentView(shipment.id(), material(shipment.stock(), shipment.quantity()),
-                        shipment.deferred(), shipment.startedAt().toString(), shipment.finishedAt().toString()), snapshot.activeGroupId());
+                        shipment.deferred(), shipment.startedAt().toString(), shipment.finishedAt().toString()), snapshot.activeGroupId(), snapshot.productionGroupNo(),snapshot.goodPlace());
     }
 
     private static Material material(StockKey stock, BigDecimal quantity) {
@@ -273,14 +453,14 @@ public class DrawingController {
                 remnant("REM-AUTO-A"), plan.stock());
     }
 
-    private static PlanOption option(Seed seed) {
+    private PlanOption option(Seed seed,DrawingGoodPlaces.Options options) {
         String type = switch (seed.type()) {
             case DRAWING -> "002";
             case DRAWING_DEFERRED -> "003";
             case STANDARD_PACK -> "PACK";
             case OTHER -> "001";
         };
-        return new PlanOption(format(seed.key()), type, seed.item(), seed.cutStock().lot(), seed.orderQuantity());
+        return new PlanOption(format(seed.key()), type, seed.item(), seed.cutStock().lot(), seed.orderQuantity(), display.get(format(seed.key())),options);
     }
 
     private static String path(HttpServletRequest request) {

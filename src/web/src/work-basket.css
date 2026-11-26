@@ -1,0 +1,59 @@
+/* frmProcess3 positions ComOrderNoScan 70 px from the login origin. */
+@media (min-width: 950px) {
+  .basket-board dialog.wp-scan-dialog { left: 70px; }
+}
+
+/* frmProcess3 uses fixed Designer positions inside the frmMain MDI client. */
+.workplace-client.pop-shell > .basket-board {
+  position: relative;
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 1250px;
+  height: 800px;
+  padding: 0;
+  font-family: "Noto Sans KR","Malgun Gothic",sans-serif;
+}
+.basket-board .prod-toolbar { position:relative; height:80px; padding:0; }
+.basket-board .prod-toolbar > .prod-scanner { position:absolute; left:13px; top:5px; width:140px; height:70px; }
+.basket-board .prod-toolbar .prod-info {
+  position:absolute; left:202px; top:9px; width:319px; height:60px;
+  display:grid; grid-template-columns:132px 177px; align-items:center; font-size:22pt;
+}
+.basket-board .prod-toolbar .prod-info b { font-size:24pt; }
+.basket-board .prod-toolbar .prod-command { position:absolute; top:5px; height:70px; width:85px; padding:0; font-size:14.25pt; }
+.basket-board .prod-toolbar .prod-command b { font-size:14.25pt; }
+.basket-board .prod-toolbar :nth-child(3) { left:568px; width:133px; }
+.basket-board .prod-toolbar :nth-child(4) { left:702px; }
+.basket-board .prod-toolbar :nth-child(5) { left:789px; }
+.basket-board .prod-toolbar :nth-child(6) { left:875px; }
+.basket-board .prod-toolbar :nth-child(7) { left:974px; width:95px; }
+.basket-board .prod-toolbar :nth-child(8) { left:1070px; top:6px; }
+.basket-board .prod-toolbar :nth-child(9) { left:1156px; }
+.basket-board .prod-middle { position:absolute; left:13px; top:90px; width:1231px; height:411px; }
+.basket-board .prod-tables { flex:none; display:grid; grid-template-columns:976px 255px; gap:0; height:334px; }
+.basket-board .prod-tables .prod-scroll table { table-layout:fixed; width:1040px; }
+.basket-board .prod-tables .prod-scroll :is(th,td) { height:40px; font-size:10pt; padding:0 2px; }
+.basket-board .prod-summary { box-sizing:border-box; width:auto; padding:3px 6px 6px 17px; grid-template-rows:repeat(4,40px) 141px; gap:6px; }
+.basket-board .prod-summary > span { display:flex; align-items:center; white-space:pre-line; font-size:12pt; }
+.basket-board .prod-stages { position:relative; box-sizing:border-box; display:block; height:77px; min-height:0; padding:0; }
+.basket-board .prod-stages > span { position:absolute; left:9px; top:9px; width:132px; height:59px; display:grid; align-content:center; text-align:center; font-size:15.75pt; }
+.basket-board .prod-stages table { position:absolute; left:172px; top:7px; width:670px; height:66px; }
+.basket-board .prod-stages :is(td,th) { font-size:10pt; }
+.basket-board .prod-panes { position:absolute; left:13px; top:517px; display:grid; grid-template-columns:610px 610px; gap:12px; height:278px; }
+.basket-board .prod-pane > header { position:relative; flex:0 0 60px; padding:0; }
+.basket-board .prod-pane > header > :is(h3,span,em) { position:absolute; top:10px; height:40px; display:flex; align-items:center; justify-content:center; font-size:16pt; }
+.basket-board .prod-pane > header h3 { left:21px; padding:0 0 0 9px; font-size:15.75pt; }
+.basket-board .prod-pane > header span:nth-child(2) { left:126px; width:58px; }
+.basket-board .prod-pane > header em:nth-child(3) { left:182px; width:70px; }
+.basket-board .prod-pane > header span:nth-child(4) { left:260px; width:44px; }
+.basket-board .prod-pane > header em:nth-child(5) { left:296px; width:70px; }
+.basket-board .prod-pane > header .prod-sign { position:absolute; top:4px; left:491px; width:57px; height:53px; background:#005bb5 url('./basket-add.svg') center / 40px 40px no-repeat; }
+.basket-board .prod-pane > header .prod-sign:last-child { left:550px; background-image:url('./basket-remove.svg'); }
+.basket-board .prod-pane .prod-scroll :is(td,th) { box-sizing:border-box; height:50px; font-size:10pt; }
+.pl-basket-picker .pl-surface { min-width:1280px; }
+.basket-board .prod-pane > header .basket-metric {
+  position:absolute; top:11px; left:182px; width:70px; height:40px; padding:0; border:0; border-radius:0;
+  background:#364367; color:#00d3ff; font-size:16pt;
+}
+.basket-board .prod-pane > header .basket-metric:nth-child(5) {left:296px}

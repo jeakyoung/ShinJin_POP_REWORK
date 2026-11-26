@@ -31,6 +31,7 @@ public final class InMemoryPlanningDomain implements PlanningDomain {
         final Map<String, Receipt> receipts = new HashMap<>();
         final Map<String, FollowupReceipt> followupReceipts = new HashMap<>();
         final Map<String, ManagementPlan> management = new LinkedHashMap<>();
+        final Map<OrderKey, Integer> printCounts = new HashMap<>();
         long revision;
         int sequence;
 
@@ -44,6 +45,7 @@ public final class InMemoryPlanningDomain implements PlanningDomain {
             receipts.putAll(source.receipts);
             followupReceipts.putAll(source.followupReceipts);
             management.putAll(source.management);
+            printCounts.putAll(source.printCounts);
             revision = source.revision;
             sequence = source.sequence;
         }
@@ -173,6 +175,87 @@ public final class InMemoryPlanningDomain implements PlanningDomain {
         var result = new FollowupResult(draft.revision, null, List.copyOf(plans));
         ledgers.put(actor.site(), draft);
         return remember(draft, actor, command.requestId(), command, result);
+    }
+
+    @Override
+    public synchronized Reply<PlanOutput> previewOutput(Actor actor, PlanOutputSelection raw) {
+        if (!valid(actor)) return fail(401, "LOGIN_REQUIRED");
+        var ledger = ledgers.get(actor.site());
+        if (!allowed(ledger, actor)) return fail(403, "TERMINAL_OUT_OF_SCOPE");
+        if (!validOutput(raw,false)) return fail(422, "INVALID_OUTPUT_SELECTION");
+        return outputRows(ledger, actor, ordered(raw), false,false);
+    }
+
+    @Override
+    public synchronized Reply<PlanOutput> prepareOutput(Actor actor, PlanOutputCommand command) {
+        return outputCommand(actor, command, false,false);
+    }
+
+    @Override
+    public synchronized Reply<PlanOutput> executeOutput(Actor actor, PlanOutputCommand command) {
+        return outputCommand(actor, command, true,false);
+    }
+
+    @Override
+    public synchronized Reply<PlanOutput> processPreview(Actor actor,PlanOutputSelection selection) {
+        if(!valid(actor))return fail(401,"LOGIN_REQUIRED");
+        var ledger=ledgers.get(actor.site());
+        if(!allowed(ledger,actor))return fail(403,"TERMINAL_OUT_OF_SCOPE");
+        if(!validOutput(selection,true))return fail(422,"INVALID_OUTPUT_SELECTION");
+        return outputRows(ledger,actor,ordered(selection),false,true);
+    }
+    @Override
+    public synchronized Reply<PlanOutput> processOutput(Actor actor, PlanOutputCommand command, boolean commit) {
+        return outputCommand(actor,command,commit,true);
+    }
+    private record ProcessReport(PlanOutputCommand command) {}
+    private Reply<PlanOutput> outputCommand(Actor actor, PlanOutputCommand raw, boolean execute,boolean processForm) {
+        if (raw == null || !validOutput(raw.selection(),processForm)) return fail(422, "INVALID_OUTPUT_SELECTION");
+        var command = new PlanOutputCommand(raw.requestId(), raw.expectedRevision(), ordered(raw.selection()));
+        Object receiptCommand=processForm?new ProcessReport(command):command;
+        var gate = gate(actor, command.requestId(), command.expectedRevision(), receiptCommand, PlanOutput.class);
+        if (gate != null) return gate;
+        var ledger = ledgers.get(actor.site());
+        var reply = outputRows(ledger, actor, command.selection(), execute,processForm);
+        if (!execute || reply.status() != 200) return reply;
+        return remember(ledger, actor, command.requestId(), receiptCommand, reply.value());
+    }
+
+    private static boolean validOutput(PlanOutputSelection selection,boolean processForm) {
+        return selection != null && selection.site() != null && selection.mode() != null
+                && selection.plans() != null && !selection.plans().isEmpty() && selection.plans().size() <= 30
+                && (processForm || selection.mode() != OutputMode.SINGLE || selection.plans().size() == 1)
+                && selection.plans().stream().allMatch(key -> key != null && key.date() != null && key.sequence() > 0)
+                && selection.plans().stream().distinct().count() == selection.plans().size();
+    }
+
+    private static PlanOutputSelection ordered(PlanOutputSelection selection) {
+        return new PlanOutputSelection(selection.site(), selection.mode(),
+                selection.plans().stream().sorted(Comparator.comparing(PlanKey::date)
+                        .thenComparingInt(PlanKey::sequence)).toList());
+    }
+
+    private static Reply<PlanOutput> outputRows(Ledger ledger, Actor actor, PlanOutputSelection selection, boolean execute,boolean processForm) {
+        if (!actor.site().equals(selection.site())) return fail(403, "OUTPUT_SCOPE_MISMATCH");
+        var plans = selection.plans().stream().map(ledger.plans::get).toList();
+        if (plans.stream().anyMatch(Objects::isNull)) return fail(404, "PLAN_NOT_FOUND");
+        boolean spec = plans.get(0).branch() == Branch.SPEC_CHANGE;
+        if (plans.stream().anyMatch(p -> (p.branch() == Branch.SPEC_CHANGE) != spec)) {
+            return fail(422, "MIXED_OUTPUT_BRANCH");
+        }
+        java.util.function.Function<Plan,OrderKey> orderKey=processForm?Plan::issuedOrder:Plan::originalOrder;
+        String order = orderKey.apply(plans.get(0)).number();
+        if ((processForm ? selection.mode()==OutputMode.MULTIPLE : !spec) && plans.stream().anyMatch(p -> !orderKey.apply(p).number().equals(order))) {
+            return fail(409, "MIXED_OUTPUT_ORDER");
+        }
+        if (execute && !spec) {
+            plans.stream().map(orderKey).distinct()
+                    .forEach(key -> ledger.printCounts.merge(key, 1, Integer::sum));
+        }
+        var rows = plans.stream().map(p -> new PlanOutputRow(p.key(), p.originalOrder(), p.issuedOrder(), p.item(),
+                p.quantity(), spec ? 0 : ledger.printCounts.getOrDefault(orderKey.apply(p), 0))).toList();
+        if (execute) ledger.revision++;
+        return ok(new PlanOutput(ledger.revision, selection.mode(), spec ? Branch.SPEC_CHANGE : plans.get(0).branch(), rows));
     }
 
     private <T> Reply<T> gate(Actor actor, String id, Long revision, Object command, Class<T> type) {

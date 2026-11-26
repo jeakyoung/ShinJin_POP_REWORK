@@ -1,0 +1,9 @@
+{
+  "goodWarehouses": {"DEMO-A":["BASK-GOOD-A"],"DEMO-A2":["BASK-GOOD-A2"]},
+  "rows": [
+    {"terminal":"DEMO-A","warehouse":"BASK-GOOD-A","orderNo":"BASKTEST0001","detailCode":"0001","quality":"A-Q1","key":{"date":"2030-01-01","sequence":1},"reQty":0},
+    {"terminal":"DEMO-A","warehouse":"BASK-GOOD-A","orderNo":"BASKTEST0001","detailCode":"0002","quality":"A-Q2","key":{"date":"2030-01-01","sequence":2},"reQty":0},
+    {"terminal":"DEMO-A2","warehouse":"BASK-GOOD-A2","orderNo":"BASKTEST0002","detailCode":"0001","quality":"A2-Q1","key":{"date":"2030-01-02","sequence":1},"reQty":0},
+    {"terminal":"DEMO-A2","warehouse":"BASK-GOOD-A2","orderNo":"BASKTEST0002","detailCode":"0002","quality":"A2-Q1","key":{"date":"2030-01-02","sequence":2},"reQty":0}
+  ]
+}

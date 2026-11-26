@@ -1,0 +1,6 @@
+[
+  {"terminal":"DEMO-A","key":{"date":"2030-01-01","sequence":1},"columns":{"mergeKey":"STD-A","quality":"GRADE-DEMO","qualityName":"합성 강재 A","thickness":2,"width":80,"length":100,"customer":"합성 거래처 가","orderDate":"2029-12-20","dueDate":"2030-01-10","remark":""}},
+  {"terminal":"DEMO-A","key":{"date":"2030-01-01","sequence":2},"columns":{"mergeKey":"STD-B","quality":"GRADE-B","qualityName":"합성 강재 B","thickness":4,"width":90,"length":110,"customer":"합성 거래처 나","orderDate":"2029-12-21","dueDate":"2030-01-11","remark":""}},
+  {"terminal":"DEMO-A2","key":{"date":"2030-01-02","sequence":1},"columns":{"mergeKey":"STD-A","quality":"GRADE-DEMO","qualityName":"합성 강재 A","thickness":2,"width":80,"length":100,"customer":"합성 거래처 가","orderDate":"2029-12-20","dueDate":"2030-01-10","remark":""}},
+  {"terminal":"DEMO-A2","key":{"date":"2030-01-02","sequence":2},"columns":{"mergeKey":"STD-A","quality":"GRADE-DEMO","qualityName":"합성 강재 A","thickness":2,"width":80,"length":120,"customer":"합성 거래처 가","orderDate":"2029-12-21","dueDate":"2030-01-11","remark":""}}
+]

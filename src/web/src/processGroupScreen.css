@@ -1,0 +1,112 @@
+.pop-shell:has(> .group5) { padding-inline:0 }
+.pop-shell:has(> .group5) > .authenticated-bar { margin-bottom:0 }
+.pop-shell > .group5 { margin:0; padding:0; border:0; border-radius:0; background:#141927; color:white }
+.group5-scroll { overflow:auto }
+.group5-form { position:relative; width:1280px; height:800px; font-family:"Malgun Gothic",sans-serif }
+.group5-bar { position:relative; height:80px; background:#1d253d; margin:0 }
+.group5-bar button { position:absolute; top:4px; width:85px; height:70px; padding:0; margin:0; border-radius:2px; color:white; font-size:20px; font-weight:bold; border:1px solid #182137 }
+.group5-form button:disabled { opacity:1; cursor:default }
+.group5-bar small { display:block; font-size:15px }
+.group5-bar .group5-scan { left:13px; top:5px; width:140px; background:url('./drawing-scan.png') center /100% 100% }
+.group5-bar > span { position:absolute; top:21px; font-size:24px }
+.group5-form b { color:#00d9ef }
+.group5-grade { left:193px }.group5-thickness { left:429px }.group5-width { left:574px }
+.group5-start { left:705px; background:#2647a4 }.group5-stop { left:792px; background:#ffff66; color:black!important }
+.group5-finish { left:878px; background:#f30 }.group5-bar .group5-reverse { left:977px; width:95px; background:#2647a4 }
+.group5-delete { left:1073px; background:#f30 }.group5-print,.group5-material header .material-label { background:#095657 }
+.group5-print { left:1159px }
+.group5-grid,.group5-material { position:absolute; overflow:auto; background:#1a2239; }
+.group5-grid { left:13px; top:90px; width:1231px; height:334px; overflow-y:scroll }
+.group5-form table { width:100%; border-collapse:collapse; table-layout:fixed; color:white }
+.group5-form :is(th,td) { text-align:center; padding:2px; font-size:14px; border:1px solid #202941; overflow:hidden; line-height:1.2 }
+.group5-form th { height:50px; background:#274185 }
+.group5-grid th { position:sticky; top:0 }
+.group5-grid td { height:50px; background:#202941 }
+.group5-grid td label { font-size:11px; gap:0; justify-items:center }
+.group5-grid td input[type=checkbox] { min-height:20px; width:20px; height:20px }
+.group5-grid .pop-field { display:flex; align-items:center }
+.group5-grid .pop-field > label { font-size:0; min-width:0 }
+.group5-grid .pop-field input { width:100%; min-height:30px; padding:0; font-size:14px }
+.group5-grid .pop-field > button { min-height:30px; padding:0 2px; font-size:12px }
+.group5-progress { position:absolute; left:13px; top:424px; width:1231px; height:77px; background:#182139; display:grid; grid-template-columns:167px 670px 1fr; align-items:center }
+.group5-progress > span:first-child { padding-left:24px }
+.group5-progress > span:last-child { padding-left:8px; font-size:25px }
+.group5-progress table { border:1px solid #afb7cb }
+.group5-progress :is(th,td) {height:32px;background:#1a2239}.group5-progress th { background:#2b3653 }
+.group5-material { top:517px; height:278px; overflow-y:scroll }
+.group5-material.inputs { left:13px; width:520px }.group5-material.returns { left:554px; width:690px }
+.group5-material header { height:60px; margin:0; padding:3px 2px 3px 21px; display:flex; align-items:center; gap:2px; background:#283451 }
+.group5-material strong { border-left:10px solid #717780; padding:8px; margin-right:auto }
+.group5-material header button { width:57px; height:53px; padding:0; border:1px solid #122c46; border-radius:2px; font-size:0; background:#075795 center/42px 42px no-repeat }
+.group5-material header button:nth-last-child(2) { background-image:url('./process5-add.svg') }
+.group5-material header button:last-child { background-image:url('./process5-remove.svg') }
+.group5-material header .material-scan { width:84px; margin-right:16px; background:url('./drawing-scan.png') center/100% 100% }
+.group5-material header .material-label { width:95px }
+.group5-material th { height:40px; background:#202941 }
+.group5-details { padding:8px 16px; background:#fff; color:#182139 }
+.group5 > p { color:white }
+
+.group5-material.returns table { width:640px }
+.group5-material.returns td { height:50px; font-size:16px }
+.group5-material.returns td button { width:100%;height:48px;min-height:0;margin:0;padding:0;background:transparent;border:0;color:inherit;font:inherit }
+.group5-material.returns td input { width:24px;height:24px;min-height:0 }
+.group5-place.inv-dialog[open] { width:885px;height:319px;max-width:none;max-height:none;overflow:visible;position:fixed;margin:auto;padding:0;border:0;border-radius:0;background:#262e47;color:white }
+.group5-place > :is(span,button) { position:absolute;left:16px;width:410px;margin:0;border-radius:0 }
+.group5-place > :is(span,button):nth-child(even) { left:461px }
+.group5-place > span { top:12px;height:79px;display:flex;align-items:center;font:700 33px "Noto Sans KR Bold","Malgun Gothic",sans-serif }
+.group5-place > button:nth-child(-n+4) { top:93px;height:90px;background:white;color:black;border:1px solid #aaa;font:700 18pt "Noto Sans KR Bold","Malgun Gothic",sans-serif;text-align:left;box-sizing:border-box;padding:0 106px 0 4px;white-space:normal;overflow-wrap:anywhere;line-height:1.1 }
+.group5-place > button i { position:absolute;right:0;top:0;width:100px;height:100%;border-left:1px solid #ccc }
+.group5-place > button i { background: url('./groupReturnLookup.svg') center / 50px 50px no-repeat }
+.group5-place > button:nth-child(n+5) { top:194px;height:109px;background:#0a3f9b;color:white;border:0;font:700 16px "Noto Sans KR Bold","Malgun Gothic",sans-serif }
+.group5-place > button:nth-child(6) { background:#3e4763 }
+.group5-options { position:absolute;z-index:1;top:183px;left:16px;width:510px;height:300px;overflow:auto;background:white;color:black;border:1px solid #888 }
+.group5-options.location { left:461px;width:410px }
+.group5-options header { margin:0;padding:8px;color:black;background:#eee }
+.group5-options button { display:flex;gap:8px;align-items:center;width:100%;min-height:45px;white-space:normal;overflow-wrap:anywhere;background:white;color:black;border:1px solid #ddd;border-radius:0 }
+.group5-options button span { width:40% }
+.group5-pad .inv-pad[open] { position:fixed;margin:auto;width:800px;height:1000px;max-width:none;max-height:none;box-sizing:border-box;display:block;padding:0;border:0;border-radius:0;background:#dfe3eb;color:black }
+.group5-pad.dimension .inv-pad[open] {height:912px}
+.group5-pad .inv-pad output {position:absolute;left:10px;top:12px;width:781px;height:238px;display:flex;align-items:center;justify-content:flex-end;background:white;color:#222;font-size:92px;padding:0 8px}
+.group5-pad.dimension .inv-pad output {top:7px;height:150px}
+.group5-pad .inv-pad > div {position:absolute;left:10px;top:282px;display:grid;grid-template-columns:repeat(3,250px);grid-template-rows:repeat(4,120px);gap:30px 15px}
+.group5-pad.dimension .inv-pad > div {top:194px}
+.group5-pad .inv-pad > div button {padding:0;border:1px solid #ccc;border-radius:0;background:white;color:#222;font:bold 62px 'Malgun Gothic',sans-serif}
+.group5-pad .inv-pad > div button:nth-child(10),.group5-pad.count .inv-pad > div button:last-child {background:#bdbfc9}
+.group5-pad .inv-pad footer {position:absolute;top:875px;left:10px;display:grid;grid-template-columns:382px 382px;gap:17px;margin:0;padding:0}
+.group5-pad.dimension .inv-pad footer {top:787px}
+.group5-pad .inv-pad footer button {height:113px;border:0;border-radius:0;background:#919191;color:white;font-size:48px}
+.group5-pad .inv-pad footer .inv-apply {background:#102c66}
+
+.workplace-client.pop-shell > .group5 { margin:0 }
+.workplace-client > .group5 { height:100% }
+.group5-scroll { height:100% }
+.group5-form { width:100%;min-width:1250px }
+.group5-bar { position:sticky;top:0;z-index:2 }
+.group5-bar > .group5-grade { top:9px;width:80px;height:60px;line-height:60px;white-space:nowrap }
+.group5-bar > .group5-thickness,.group5-bar > .group5-width { height:40px;line-height:40px;text-align:center }
+.group5-bar > .group5-thickness {width:58px}
+.group5-bar > .group5-width {width:44px;top:20px}
+.group5-bar > span b {position:absolute;top:0;overflow:hidden;white-space:nowrap;color:#00d9ef;font-weight:normal}
+.group5-grade b {left:77px;width:153px}
+.group5-thickness b {left:57px;width:73px}
+.group5-width b {left:44px;width:73px}
+.group5 :is(.inv-pad,.group5-place)::backdrop {background:transparent}
+.group5-pad.dimension .inv-pad > div button:last-child {background:white}
+
+.group5-material.returns tbody td { background:#202941;color:#868e9e }
+.group5-material.returns tbody tr[data-focused=true] td { background:#ebebeb;color:#222 }
+
+.group5-material.returns { overflow:visible }
+.group5-material.returns > header { position:relative }
+.group5-material.returns > header button { position:absolute;top:4px }
+.group5-material.returns > header .material-label { left:475px;top:5px }
+.group5-material.returns > header button:nth-last-child(2) { left:572px }
+.group5-material.returns > header button:last-child { left:631px }
+.group5-return-rows {height:218px;overflow-y:scroll;overflow-x:hidden}
+.group5-return-rows thead th {position:sticky;top:0;z-index:1}
+
+.group5-material.inputs table { width:470px }
+.group5-material.inputs tbody td { height:50px; padding:0; background:#202941; color:#868ea2 }
+.group5-material.inputs td button { width:100%; height:48px; min-height:0; padding:0; margin:0; border:0; color:inherit; font:inherit; background:transparent }
+.group5-material.inputs td .input-minus { background:url('./group5-input-minus.svg') center / 30px 1px no-repeat }
+.group5-material.inputs td .input-plus { background:url('./group5-input-plus.svg') center / 30px 30px no-repeat }

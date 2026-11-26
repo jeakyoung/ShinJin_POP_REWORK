@@ -60,6 +60,19 @@ public interface PlanningDomain {
     Reply<FollowupView> followups(Actor actor);
     Reply<FollowupResult> addManagement(Actor actor, ManagementCommand command);
     Reply<FollowupResult> batch(Actor actor, BatchCommand command);
+    enum OutputMode { SINGLE, MULTIPLE }
+    record PlanOutputSelection(Site site, OutputMode mode, List<PlanKey> plans) {}
+    record PlanOutputCommand(String requestId, Long expectedRevision, PlanOutputSelection selection) {}
+    record PlanOutputRow(PlanKey plan, OrderKey originalOrder, OrderKey issuedOrder, String item,
+                         BigDecimal quantity, int printCount) {}
+    record PlanOutput(long revision, OutputMode mode, Branch branch, List<PlanOutputRow> rows) {}
+
+    Reply<PlanOutput> previewOutput(Actor actor, PlanOutputSelection selection);
+    Reply<PlanOutput> prepareOutput(Actor actor, PlanOutputCommand command);
+    Reply<PlanOutput> executeOutput(Actor actor, PlanOutputCommand command);
+    Reply<PlanOutput> processOutput(Actor actor, PlanOutputCommand command, boolean commit);
+    Reply<PlanOutput> processPreview(Actor actor, PlanOutputSelection selection);
+
     record Reply<T>(int status, String error, T value) {}
 
     Reply<View> view(Actor actor, Filter filter);

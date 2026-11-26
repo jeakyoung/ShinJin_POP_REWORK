@@ -1,0 +1,220 @@
+[
+  {
+    "terminal": "DEMO-A",
+    "factory": "샘플 1공장",
+    "plant": "SITE-DEMO-A",
+    "order": "DEMO-ORDER-11",
+    "line": 1,
+    "status": "DEMO-INPUT",
+    "issue": [
+      {
+        "code": "WH-A",
+        "name": "합성 투입창고"
+      }
+    ],
+    "auxiliary": [
+      {
+        "code": "WH-A2",
+        "name": "합성 보조창고"
+      }
+    ],
+    "locations": [
+      {
+        "warehouse": "WH-A",
+        "raw": "LAB-LOCATION",
+        "location": {
+          "code": "BIN-01",
+          "name": "합성 위치 가"
+        }
+      },
+      {
+        "warehouse": "",
+        "raw": "LAB-LOCATION",
+        "location": {
+          "code": "BIN-01",
+          "name": "합성 위치 가"
+        }
+      }
+    ],
+    "remnantRoutes": [
+      {
+        "workCode": "001",
+        "warehouse": "REM-CUT",
+        "status": "DEMO-CUT",
+        "size": 7
+      },
+      {
+        "workCode": "*",
+        "warehouse": "REM-STD",
+        "status": "DEMO-REM",
+        "size": 3
+      }
+    ],
+    "answers": [
+      {
+        "division": "SELECT",
+        "warehouse": "WH-A",
+        "status": "DEMO-INPUT",
+        "thickness": 2.5,
+        "width": 80,
+        "length": 0,
+        "rows": [
+          {
+            "factory": "샘플 1공장",
+            "warehouse": "WH-A",
+            "location": "BIN-01",
+            "lot": "SYNMAT0001",
+            "material": "LAB-SYNMAT0001",
+            "name": "합성 자재 가",
+            "quality": "합성 강재 A",
+            "thickness": 2.5,
+            "width": 80,
+            "length": 120,
+            "workStatus": "DEMO-INPUT",
+            "available": 4
+          }
+        ]
+      },
+      {
+        "division": "SELECT",
+        "warehouse": "WH-A2",
+        "status": "DEMO-INPUT",
+        "thickness": 2.5,
+        "width": 80,
+        "length": 0,
+        "rows": [
+          {
+            "factory": "샘플 1공장",
+            "warehouse": "WH-A2",
+            "location": "BIN-02",
+            "lot": "SYNAUX0001",
+            "material": "LAB-SYNAUX0001",
+            "name": "합성 자재 가",
+            "quality": "합성 강재 A",
+            "thickness": 2.5,
+            "width": 80,
+            "length": 120,
+            "workStatus": "DEMO-INPUT",
+            "available": 2
+          }
+        ]
+      },
+      {
+        "division": "SELECT",
+        "warehouse": "",
+        "status": "DEMO-INPUT",
+        "thickness": 2.5,
+        "width": 80,
+        "length": 0,
+        "rows": []
+      },
+      {
+        "division": "SELECT2",
+        "warehouse": "REM-CUT",
+        "status": "DEMO-CUT",
+        "thickness": 7,
+        "width": 7,
+        "length": 7,
+        "rows": [
+          {
+            "factory": "샘플 1공장",
+            "warehouse": "REM-CUT",
+            "location": "R-01",
+            "lot": "SYNREM0007",
+            "material": "LAB-SYNREM0007",
+            "name": "합성 자재 가",
+            "quality": "합성 강재 A",
+            "thickness": 7,
+            "width": 7,
+            "length": 7,
+            "workStatus": "DEMO-CUT",
+            "available": 2
+          }
+        ]
+      },
+      {
+        "division": "SELECT2",
+        "warehouse": "REM-STD",
+        "status": "DEMO-REM",
+        "thickness": 3,
+        "width": 3,
+        "length": 3,
+        "rows": [
+          {
+            "factory": "샘플 1공장",
+            "warehouse": "REM-STD",
+            "location": "R-01",
+            "lot": "SYNREM0003",
+            "material": "LAB-SYNREM0003",
+            "name": "합성 자재 가",
+            "quality": "합성 강재 A",
+            "thickness": 3,
+            "width": 3,
+            "length": 3,
+            "workStatus": "DEMO-REM",
+            "available": 2
+          }
+        ]
+      }
+    ],
+    "remnantGrades": [
+      "GRADE-DEMO"
+    ]
+  },
+  {
+    "terminal": "DEMO-A",
+    "factory": "샘플 1공장",
+    "plant": "SITE-DEMO-A",
+    "order": "DEMO-ORDER-12",
+    "line": 2,
+    "status": "DEMO-INPUT",
+    "issue": [
+      {
+        "code": "WH-A",
+        "name": "합성 투입창고"
+      }
+    ],
+    "auxiliary": [
+      {
+        "code": "WH-A2",
+        "name": "합성 보조창고"
+      }
+    ],
+    "locations": [
+      {
+        "warehouse": "WH-A",
+        "raw": "LAB-LOCATION",
+        "location": {
+          "code": "BIN-01",
+          "name": "합성 위치 가"
+        }
+      },
+      {
+        "warehouse": "",
+        "raw": "LAB-LOCATION",
+        "location": {
+          "code": "BIN-01",
+          "name": "합성 위치 가"
+        }
+      }
+    ],
+    "remnantRoutes": [
+      {
+        "workCode": "001",
+        "warehouse": "REM-CUT",
+        "status": "DEMO-CUT",
+        "size": 7
+      },
+      {
+        "workCode": "*",
+        "warehouse": "REM-STD",
+        "status": "DEMO-REM",
+        "size": 3
+      }
+    ],
+    "answers": [],
+    "remnantGrades": [
+      "GRADE-DEMO"
+    ]
+  }
+]

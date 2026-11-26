@@ -91,7 +91,9 @@ public final class PlanningDemoController {
         return failure(status, status == 401 ? "LOGIN_REQUIRED" : "TERMINAL_OUT_OF_SCOPE");
     }
 
-    private static Actor actor(HttpServletRequest request) {
+    PlanningDomain domain() { return planning; }
+
+    static Actor actor(HttpServletRequest request) {
         var identity = DemoSessionController.requireIdentity(request);
         String terminal = identity.terminal().id();
         Site site = switch (terminal) {

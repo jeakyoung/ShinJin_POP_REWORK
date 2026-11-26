@@ -1,0 +1,15 @@
+{
+  "terminals": {
+    "DEMO-A": {
+      "warehouses": [
+        {"code":"WH-GOOD-A","name":"합성 양품창고","status":"C","etc":"SYNTH-A","locations":[{"code":"GOOD-01","name":"합성 양품 1구역"},{"code":"GOOD-02","name":"합성 양품 2구역"}]},
+        {"code":"WH-GOOD-A2","name":"합성 양품 예비창고","status":"N","etc":"SYNTH-A2","locations":[{"code":"GOOD-01","name":"합성 예비 1구역"},{"code":"GOOD-03","name":"합성 예비 3구역"}]}
+      ],
+      "plans":[{"date":"2026-11-25","sequence":101,"orderStatus":"L","warehouse":"WH-GOOD-A","location":"GOOD-01"},{"date":"2026-11-25","sequence":102,"orderStatus":"J","warehouse":"WH-GOOD-A","location":"GOOD-01"}]
+    },
+    "DEMO-B": {
+      "warehouses":[{"code":"WH-GOOD-B","name":"합성 B 양품창고","status":"G","etc":"","locations":[{"code":"GOOD-01","name":"합성 B 1구역"}]}],
+      "plans":[{"date":"2026-11-25","sequence":201,"orderStatus":"M","warehouse":"WH-GOOD-B","location":"GOOD-01"}]
+    }
+  }
+}

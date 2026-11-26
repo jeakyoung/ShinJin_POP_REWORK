@@ -1,0 +1,62 @@
+[
+  {
+    "item": "ITEM-STD",
+    "warehouse": "A2-STOCK",
+    "warehouseName": "합성 투입창고",
+    "location": "A2-01",
+    "locationName": "합성 위치 A2-01",
+    "qty": 4,
+    "auxiliary": false,
+    "materialCode": "A2-Q1"
+  },
+  {
+    "item": "ITEM-STD-B",
+    "warehouse": "B-STOCK",
+    "warehouseName": "합성 투입창고",
+    "location": "B-01",
+    "locationName": "합성 위치 B-01",
+    "qty": 4,
+    "auxiliary": false,
+    "materialCode": "B-Q1"
+  },
+  {
+    "item": "ITEM-STD-C",
+    "warehouse": "B-STOCK",
+    "warehouseName": "합성 투입창고",
+    "location": "B-03",
+    "locationName": "합성 위치 B-03",
+    "qty": 4,
+    "auxiliary": false,
+    "materialCode": "B-Q2"
+  },
+  {
+    "item": "ITEM-STD-S1",
+    "warehouse": "B-STOCK",
+    "warehouseName": "합성 투입창고",
+    "location": "B-01",
+    "locationName": "합성 위치 B-01",
+    "qty": 2,
+    "auxiliary": false,
+    "materialCode": "B-Q1"
+  },
+  {
+    "item": "ITEM-STD-S1",
+    "warehouse": "B-STOCK",
+    "warehouseName": "합성 투입창고",
+    "location": "B-02",
+    "locationName": "합성 위치 B-02",
+    "qty": 1,
+    "auxiliary": false,
+    "materialCode": "B-Q1"
+  },
+  {
+    "item": "ITEM-STD-S1",
+    "warehouse": "B-AUX",
+    "warehouseName": "합성 보조창고",
+    "location": "B-03",
+    "locationName": "합성 위치 B-03",
+    "qty": 1,
+    "auxiliary": true,
+    "materialCode": "B-Q1"
+  }
+]

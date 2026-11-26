@@ -1,0 +1,18 @@
+{
+  "sites": {
+    "F1/000001": {
+      "warehouses": [
+        {"code":"017","name":"합성 제품창고","status":"G","etc":"3400","locations":[{"code":"000000","name":"기본 위치"},{"code":"G-A01","name":"합성 A 양품구역"}]},
+        {"code":"018","name":"합성 도면창고","status":"H","etc":"SYNTH-018","locations":[{"code":"G-A02","name":"합성 A 도면구역"}]}
+      ],
+      "orders": {
+        "2026-11-25/1":{"status":"L","initial":{"warehouse":"017","location":"000000"}},
+        "2026-11-25/2":{"status":"J","initial":{"warehouse":"017","location":"000000"}}
+      }
+    },
+    "F2/000002": {
+      "warehouses":[{"code":"017","name":"합성 B 제품창고","status":"G","etc":"SYNTH-B","locations":[{"code":"G-B01","name":"합성 B 양품구역"}]}],
+      "orders":{"2026-11-25/1":{"status":"M","initial":{"warehouse":"017","location":"G-B01"}}}
+    }
+  }
+}

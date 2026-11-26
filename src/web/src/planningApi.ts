@@ -27,9 +27,17 @@ type FollowupBase = { requestId: string; expectedRevision: number }
 export type Command = SingleCommand | FollowupBase & (
   | { action: 'MANAGEMENT'; warehouse: string; spec: Spec<string>; quantity: string }
   | { action: 'BATCH'; rows: SingleCommand[] }
+  | { action: 'OUTPUT'; selection: OutputSelection }
 )
 export type Management = { id: string; month: string; warehouse: string; item: string; quantity: number }
-export type CommandResult = { revision: number; plan?: Plan; management?: Management; plans?: Plan[] }
+export type OutputSelection = { site: View['actor']['site']; mode: 'SINGLE' | 'MULTIPLE'; plans: PlanKey[] }
+export type OutputArtifact = {
+  report: { mode: OutputSelection['mode']; revision: number; branch: Branch; rows: {
+    plan: PlanKey; originalOrder: OrderKey; issuedOrder: OrderKey; item: string; quantity: number; printCount: number
+  }[] }
+  pdf: string
+}
+export type CommandResult = { revision: number; plan?: Plan; management?: Management; plans?: Plan[] } & Partial<OutputArtifact>
 
 export class PlanningError extends Error {
   readonly status: number
@@ -60,8 +68,8 @@ export async function loadPlanning(filter: Filter, signal?: AbortSignal) {
 
 export async function sendPlanning(command: Command) {
   const route = command.action === 'MANAGEMENT' ? '/management'
-    : command.action === 'BATCH' ? '/batch' : '/commands'
-  const payload = command.action === 'MANAGEMENT' || command.action === 'BATCH'
+    : command.action === 'BATCH' ? '/batch' : command.action === 'OUTPUT' ? '/output/execute' : '/commands'
+  const payload = command.action === 'MANAGEMENT' || command.action === 'BATCH' || command.action === 'OUTPUT'
     ? Object.fromEntries(Object.entries(command).filter(([key]) => key !== 'action')) : command
   return read<CommandResult>(await fetch(base + route, {
     method: 'POST', credentials: 'same-origin',
@@ -72,5 +80,12 @@ export async function sendPlanning(command: Command) {
 export async function loadManagement(signal: AbortSignal) {
   return read<{ revision: number; management: Management[] }>(await fetch(base + '/followups', {
     credentials: 'same-origin', cache: 'no-store', signal,
+  }))
+}
+
+export async function previewPlanningOutput(selection: OutputSelection) {
+  return read<OutputArtifact>(await fetch(base + '/output/preview', {
+    method: 'POST', credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(selection),
   }))
 }

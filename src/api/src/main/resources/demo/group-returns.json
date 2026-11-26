@@ -1,0 +1,116 @@
+{
+  "terminals": {
+    "DEMO-A": {
+      "grade": "GRADE-DEMO",
+      "returnGrade": "GRADE-DEMO",
+      "thickness": 2,
+      "width": 80,
+      "warehouses": [
+        {
+          "code": "RET-A",
+          "name": "합성 반납 A",
+          "scrap": false,
+          "locations": [
+            {
+              "code": "R1",
+              "name": "합성 위치 1"
+            },
+            {
+              "code": "R2",
+              "name": "합성 위치 2"
+            }
+          ]
+        },
+        {
+          "code": "RET-B",
+          "name": "합성 반납 B",
+          "scrap": false,
+          "locations": [
+            {
+              "code": "R3",
+              "name": "합성 위치 3"
+            }
+          ]
+        }
+      ],
+      "defaults": [
+        {
+          "warehouse": "RET-A",
+          "location": "R1"
+        }
+      ],
+      "matches": [
+        {
+          "warehouse": "RET-A",
+          "thickness": 2,
+          "width": 80,
+          "length": 120,
+          "item": "DEMO-R120"
+        },
+        {
+          "warehouse": "RET-B",
+          "thickness": 2,
+          "width": 80,
+          "length": 120,
+          "item": "DEMO-R120"
+        }
+      ]
+    },
+    "DEMO-A2": {
+      "grade": "GRADE-DEMO",
+      "returnGrade": "GRADE-DEMO",
+      "thickness": 2,
+      "width": 80,
+      "warehouses": [
+        {
+          "code": "RET-A",
+          "name": "합성 반납 A",
+          "scrap": false,
+          "locations": [
+            {
+              "code": "R1",
+              "name": "합성 위치 1"
+            },
+            {
+              "code": "R2",
+              "name": "합성 위치 2"
+            }
+          ]
+        },
+        {
+          "code": "RET-B",
+          "name": "합성 반납 B",
+          "scrap": false,
+          "locations": [
+            {
+              "code": "R3",
+              "name": "합성 위치 3"
+            }
+          ]
+        }
+      ],
+      "defaults": [
+        {
+          "warehouse": "RET-A",
+          "location": "R1"
+        }
+      ],
+      "matches": [
+        {
+          "warehouse": "RET-A",
+          "thickness": 2,
+          "width": 80,
+          "length": 120,
+          "item": "DEMO-R120"
+        },
+        {
+          "warehouse": "RET-B",
+          "thickness": 2,
+          "width": 80,
+          "length": 120,
+          "item": "DEMO-R120"
+        }
+      ]
+    }
+  }
+}

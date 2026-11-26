@@ -1,0 +1,77 @@
+.pop-shell .process-board {
+  --panel: #192238;
+  --line: #34425f;
+  background: #131928;
+  color: #f3f6fc;
+  padding: 8px;
+  border: 0;
+  border-radius: 0;
+  display: flex;
+  flex-direction: column;
+  height: calc(100dvh - 116px);
+  min-height: 420px;
+  font-size: .93rem;
+}
+.process-board p, .process-board small { color: #cfdbef; }
+.process-commands, .process-strip, .process-filters, .process-inputs {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 7px;
+}
+.process-commands { flex: none; background: #1d273e; padding: 6px; }
+.process-commands > div { margin-right: auto; padding: 0 10px; }
+.process-board h2, .process-board h3 { margin: 0; color: white; }
+.process-board .process-commands button { min-width: 82px; min-height: 62px; padding: 5px 9px; border-radius: 3px; }
+.process-commands b { display: block; font-size: 1.2rem; }
+.process-board .order-start { background: #2647a4; }
+.process-board .order-pause { background: #f2eb52; color: #171b25; }
+.process-board .order-complete { background: #e83a07; color: white; }
+.process-commands button:disabled { opacity: .67; }
+.process-body { min-height: 0; overflow: auto; scrollbar-gutter: stable; padding-top: 5px; }
+.process-filters { background: var(--panel); padding: 3px 8px; }
+.process-filters > label { flex: none; display: flex; align-items: center; gap: 5px; }
+.process-board select, .process-board input { color: #192238; }
+.process-board button:focus-visible, .process-board summary:focus-visible { outline: 3px solid #6fe9ff; }
+.process-grid, .process-stock { overflow: auto; background: var(--panel); border: 1px solid var(--line); }
+.process-grid { height: clamp(180px, 27dvh, 340px); }
+.process-stock { height: clamp(95px, 15dvh, 200px); }
+.process-board table { font-size: .88rem; }
+.process-board th, .process-board td { padding: 5px 8px; border: 1px solid var(--line); color: #e8f0ff; }
+.pop-shell .process-board table thead th { position: sticky; top: 0; background: #273e79; color: white; text-align: center; }
+.process-board td { background: var(--panel); }
+.process-grid tbody tr { cursor: pointer; }
+.process-grid tr[aria-current=true] td { background: #304c77; }
+.process-grid tr[aria-current=true] td:first-child { border-left: 4px solid #27defa; }
+.process-board table button { min-height: 40px; background: #273756; color: white; }
+.process-strip { min-height: 56px; margin: 5px 0 10px; padding: 6px 10px; background: var(--panel); }
+.process-strip span { padding: 5px 9px; background: #283654; border: 1px solid var(--line); }
+.process-panes { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
+.process-pane { min-width: 0; background: var(--panel); }
+.process-pane h3 { background: #263353; padding: 10px; border-inline-start: 6px solid #788394; }
+.process-inputs { align-items: end; padding: 6px; }
+.process-inputs label { flex: 1 1 8em; min-width: 0; }
+.process-board details { padding: 4px 8px; }
+.process-board .process-filters details[open] { flex-basis: 100%; }
+.process-board .floor-scan { color: #192238; background: #e1e7f1; }
+.process-board .pop-keypad { color: #162642; }
+@media(max-width:700px) {
+  .process-panes { grid-template-columns: minmax(0,1fr); }
+  .process-board .process-commands button { min-width: 52px; min-height: 48px; }
+  .process-commands > div { flex-basis: 100%; }
+  .process-commands h2 { display: inline; margin-right: 8px; }
+  .pop-shell .process-board { height: calc(100dvh - 145px); }
+}
+
+.process-board .order-plan { background: #294788; }
+.process-board .order-plan-list { background: #006f99; }
+.process-plan-dialog { width: min(72rem, 96vw); max-height: 88dvh; padding: 0; border: 1px solid #53617b; }
+.process-plan-dialog::backdrop { background: rgb(8 15 28 / 65%); }
+.process-plan-dialog > header, .process-plan-actions { display: flex; align-items: center; justify-content: space-between; padding: 12px; gap: 12px; }
+.process-plan-dialog > header { position: sticky; top: 0; z-index: 1; background: #253658; }
+.process-plan-actions { justify-content: center; }
+.process-plan-dialog .table-scroll th, .process-plan-dialog .table-scroll td { color: #18243a; background: #eff3fa; }
+.process-plan-dialog .pop-touch-form p { color: #243145; }
+
+
+.prod-scroll td.production-good-warehouseName { width:100px; min-width:100px; }
+.prod-scroll td.production-good-locationName { width:60px; min-width:60px; }
+.prod-scroll td:is(.production-good-warehouseName,.production-good-locationName) { white-space:normal; overflow-wrap:anywhere; }
+.prod-scroll td:is(.production-good-warehouseName,.production-good-locationName) .rev-num { white-space:normal; overflow-wrap:anywhere; }

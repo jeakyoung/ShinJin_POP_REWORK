@@ -1,0 +1,55 @@
+{
+  "F1/000001/20261125/1": {
+    "orderNumber": "202611S00001",
+    "orderSequence": 1,
+    "customer": "합성 거래처 가",
+    "material": "A-Q1",
+    "kind": "도면 가공품",
+    "dueDate": "2026-11-28",
+    "thickness": 12,
+    "width": 240,
+    "length": 600,
+    "returnWarehouse": "010",
+    "returnLocation": "R-A01"
+  },
+  "F1/000001/20261125/2": {
+    "orderNumber": "202611S00001",
+    "orderSequence": 2,
+    "customer": "합성 거래처 가",
+    "material": "A-Q1",
+    "kind": "도면 가공품",
+    "dueDate": "2026-11-28",
+    "thickness": 16,
+    "width": 300,
+    "length": 660,
+    "returnWarehouse": "010",
+    "returnLocation": "R-A01",
+    "qualityCode": "014"
+  },
+  "F1/000001/20261125/4": {
+    "orderNumber": "202611S00002",
+    "orderSequence": 1,
+    "customer": "합성 거래처 나",
+    "material": "A-Q2",
+    "kind": "도면 가공품",
+    "dueDate": "2026-11-28",
+    "thickness": 8,
+    "width": 140,
+    "length": 360,
+    "returnWarehouse": "010",
+    "returnLocation": "R-A01"
+  },
+  "F2/000002/20261125/1": {
+    "orderNumber": "202611S00004",
+    "orderSequence": 1,
+    "customer": "합성 거래처 다",
+    "material": "B-Q1",
+    "kind": "도면 가공품",
+    "dueDate": "2026-11-28",
+    "thickness": 10,
+    "width": 200,
+    "length": 420,
+    "returnWarehouse": "010",
+    "returnLocation": "R-B01"
+  }
+}

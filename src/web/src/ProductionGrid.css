@@ -1,0 +1,92 @@
+.pop-shell .prod-board { display:grid; grid-template-rows:9.8% 52% 1fr; gap:1.2%; height:calc(100dvh - 111px); min-height:440px; overflow:hidden; background:#121827; padding:0 1% .3%; border:0; border-radius:0; color:#fff; font-family:Arial,"Malgun Gothic",sans-serif; }
+.prod-board button { border-radius:1px; border:0; padding:2px 5px; color:white; background:#253450; touch-action:manipulation; }
+.prod-toolbar { display:flex; align-items:stretch; min-height:0; gap:.4%; background:#1c253c; }
+.prod-toolbar .prod-command { min-width:6.6%; font-size:clamp(10px,1.15vw,16px); line-height:1.2; }
+.prod-command b { display:block; font:bold clamp(12px,1.6vw,22px) Arial,sans-serif; }
+.prod-toolbar button:disabled { opacity:.65; }
+.prod-toolbar .blue,.prod-board .blue {background:#233e86}.prod-toolbar .yellow,.prod-board .yellow{background:#e1df51;color:#111}.prod-toolbar .orange,.prod-board .orange{background:#df3400}.prod-toolbar .cyan{background:#009fcc}.prod-toolbar .green,.prod-board .green{background:#055657}
+.prod-board .prod-scanner { background:#10182c; width:11%; border:1px solid #37435b; min-width:44px;display:grid;place-items:center; }
+.prod-scanner img { width:80%;height:88%;object-fit:contain; }
+.prod-info { flex:1; display:grid; align-content:center; gap:4px;text-align:center;font-size:clamp(12px,1.4vw,19px); }
+.prod-info b,.prod-stages b,.prod-pane header em {color:#00d9ef;font-style:normal}
+.prod-auto { display:flex; align-items:center; gap:5px; text-align:center; }
+.prod-auto input,.prod-board input[type=checkbox]{width:clamp(15px,1.6vw,23px);height:clamp(15px,1.6vw,23px);accent-color:#006e3b}
+.prod-board .prod-auto input {width:clamp(26px,3vw,43px);height:clamp(26px,3vw,43px);}
+.prod-auto span{background:#000c73;padding:6px}
+.prod-middle { min-height:0;display:flex;flex-direction:column; }
+.prod-tables {flex:1; min-height:0;display:flex;gap:1%;}
+.prod-scroll { min-height:0;min-width:0;overflow:auto;background:#1a2238;scrollbar-gutter:stable; flex:1; }
+.prod-board .prod-scroll table,.prod-board .prod-stages table {border-collapse:collapse;width:100%;table-layout:auto;font-size:clamp(10px,1vw,14px);color:white;margin:0;}
+.prod-scroll th,.prod-scroll td {text-align:center;background:#1a2238;color:white;border:1px solid #233049;padding:3px 6px;white-space:nowrap;}
+.prod-board .prod-scroll th {height:clamp(28px,5.2vh,50px); background:#293e77;color:white;position:sticky;top:0;z-index:1;}
+.prod-scroll td {height:36px;}
+.prod-scroll tr[aria-current=true] td,.prod-scroll tr[aria-selected=true] td{background:#00781c}
+.prod-summary { width:19%;display:grid;grid-template-rows:repeat(4,1fr) 3fr;gap:4px; }
+.prod-summary > span {background:#1c253c;padding:4px}
+.prod-stages {min-height:20%;background:#182239;display:flex;align-items:center;gap:3%;padding:3px 2%;font-size:clamp(11px,1.25vw,17px);}
+.prod-board .prod-stages table{width:56%;height:90%;border:1px solid #bac3d6;table-layout:fixed;}
+.prod-stages td,.prod-stages th{background:#1b243b;color:white;text-align:center;border:0;font-size:clamp(9px,.88vw,12px);padding:1px;}
+.prod-stages th{background:#2b3752;}
+.prod-panes {min-height:0;display:grid;grid-template-columns:1fr 1fr;gap:1%;}
+.prod-pane {min-height:0;min-width:0;display:flex;flex-direction:column;background:#192238;}
+.prod-pane > header {height:20%;min-height:40px;display:flex;align-items:center;gap:2%;padding:3px 1%;background:#27334f;}
+.prod-pane h3 {border-left:7px solid #777f84;padding:3px 8px;margin:0;color:white;font-size:clamp(12px,1.15vw,17px);}
+.prod-pane header em{margin-right:auto}
+.prod-pane header .prod-scanner{width:12%;height:92%}
+.prod-pane header button.prod-sign{background:#09568d;border:1px solid #0b395b;width:9%;min-width:35px;height:97%;font-size:clamp(22px,2.8vw,38px);font-weight:200;line-height:1}
+.prod-board .prod-pane .prod-scroll th {height:34px;background:#1d2941;}
+.prod-board .prod-status {position:absolute;bottom:8px;left:8px;background:#25344c;color:white;z-index:3;max-width:90%;padding:6px;}
+.prod-pane .basket-return-grid {margin:0;padding:0;min-height:0;background:inherit;border:0;overflow:auto}.prod-pane .basket-return-grid h3 {display:none}
+/* The host shell also styles public forms and cards. Both MDI client areas use flush panels. */
+.pop-shell .prod-board { height:calc(100dvh - 86px); margin:0; box-sizing:border-box; grid-template-rows:9.8% 52% minmax(0,1fr); }
+.prod-board header,.prod-board section { margin:0; border:0; border-radius:0; }
+.prod-board .prod-toolbar { padding:3px 1px; box-sizing:border-box; min-width:0; }
+.prod-board .prod-pane { margin:0;padding:0;border:none;border-radius:0; }
+.prod-board .prod-toolbar > * { min-height:0; }
+.prod-board .prod-toolbar .prod-auto { flex:0 0 auto; font-weight:400; line-height:1.25; }
+.prod-board .prod-toolbar .prod-info { line-height:1.3; gap:2px; font-weight:400; }
+.prod-board .prod-toolbar .prod-command { align-self:stretch; font-weight:400; min-width:0; padding:2px 6px; flex:0 0 6.65%; }
+.prod-board .prod-toolbar .prod-command b { font-size:clamp(14px,1.5vw,20px);white-space:nowrap; }
+.prod-board .prod-scanner { display:flex; align-items:center;justify-content:center; min-height:0;overflow:hidden; }
+.prod-board .prod-scanner img { display:block;min-height:0;max-height:100%;max-width:100%;width:100%;height:100%;object-fit:fill; }
+.prod-board .prod-pane>header { flex:0 0 21%; box-sizing:border-box; }
+.prod-board .prod-scroll table th,.prod-board .prod-stages table th { font-weight:400; line-height:1.15; }
+.prod-toolbar .prod-command[aria-label="장바구니 담기"] {flex-basis:10.7%}
+.prod-board table { margin:0; }
+.prod-board .prod-scroll { scrollbar-color:#b1b3b9 #e7e7e7; }
+.prod-board .prod-scroll input[type=checkbox] {min-height:0; padding:0;}
+.prod-board .prod-scroll .prod-quantity-step {white-space:nowrap;}
+.prod-board .prod-quantity-step button {min-width:24px;padding:0 2px;}
+.prod-board .prod-scroll td>.rev-num {width:100%;min-height:42px;background:transparent;}
+
+/* frmProcess1 Designer coordinates are relative to the MDI child workspace. */
+.pop-shell .prod-board[aria-label="작업지시 목록"] {
+  position:relative; display:block; width:1280px; min-width:1280px; height:800px; min-height:800px;
+  padding:0; overflow:visible;
+
+  & > .prod-toolbar { position:absolute; inset:0 auto auto 0; width:1280px; height:80px; padding:0; }
+  & > .prod-toolbar > .prod-scanner { position:absolute; left:13px; top:5px; width:140px; height:70px; }
+  & > .prod-toolbar > .prod-info { position:absolute; left:180px; top:0; width:225px; height:80px; font-size:18px; }
+  & > .prod-toolbar > .prod-auto { position:absolute; left:402px; top:0; width:188px; height:80px; }
+  & > .prod-toolbar .prod-command { position:absolute; top:4px; width:85px; height:70px; padding:2px; font-size:15px; }
+  & > .prod-toolbar .prod-command b { font-size:20px; }
+  & .prod-command[aria-label="작업 시작"] { left:596px; }
+  & .prod-command:is([aria-label="작업중단"],[aria-label="재시작"]) { left:683px; }
+  & .prod-command[aria-label="작업 완료"] { left:769px; }
+  & > .prod-toolbar [aria-label="생산계획"] { left:866px; top:5px; width:95px; }
+  & > .prod-toolbar [aria-label="계획현황"] { left:967px; width:95px; }
+  & .prod-command[aria-label="일괄삭제"] { left:1068px; }
+  & .prod-command[aria-label="프린트"] { left:1159px; }
+
+  & > .prod-middle { position:absolute; top:90px; left:13px; width:1231px; height:411px; }
+  & .prod-tables { flex:0 0 334px; gap:0; }
+  & .prod-stages { position:relative; min-height:0; height:77px; gap:0; padding:0 9px; }
+  & .prod-stages table { position:absolute; left:167px; top:6px; width:670px; height:66px; }
+  & .prod-stages span:last-of-type:not(:first-child) { margin-left:auto; width:380px; }
+  & > .prod-panes { position:absolute; top:517px; left:13px; width:1232px; height:278px; grid-template-columns:610px 610px; gap:12px; }
+  & .prod-pane > header { position:relative; flex:0 0 60px; padding-right:122px; }
+  & .prod-pane header button.prod-sign { position:absolute; left:491px; top:3px; width:57px; height:53px; }
+  & .prod-pane header button.prod-sign:last-of-type { left:550px; }
+  & .prod-pane header .prod-scanner { position:absolute; left:389px; top:3px; width:84px; height:53px; }
+  & .prod-scroll table th { height:50px; }
+}

@@ -1,0 +1,45 @@
+.pop-shell > .final-production { padding:0; margin:0; border:0; border-radius:0; background:#1a2239; }
+.final-production form { display:flex; align-items:center; gap:6px; height:84px; min-height:84px; padding:8px 14px 8px 9px; margin:0; background:#202941; }
+.final-production input { flex:0 1 460px; min-width:0; padding-left:20px; height:68px; border-radius:0; font-size:1.8rem; }
+.final-production form button { height:68px; min-width:min(10vw,125px); border-radius:1px; color:white; background:#25428c; font-weight:700; font-size:1.25rem; }
+.final-production form button:last-child { margin-left:auto; background:#005366; }
+.final-production-grid { flex:1;min-height:0; overflow:auto; }
+.final-production-grid table { table-layout:fixed; width:100%; min-width:850px; margin:0; border-collapse:collapse; }
+.final-production-grid :is(th,td) { color:white; border:1px solid #34425f; text-align:center; vertical-align:middle; overflow-wrap:anywhere; }
+.final-production-grid th { height:39px; background:#274185; font-size:.9rem; font-weight:500; }
+.final-production-grid td { background:#202941; height:35px; }
+.final-production-grid tr.selected td { background:#00781c; }
+.final-production-grid td.good { color:orange; }
+.final-production-grid td.spacer { background:white; }
+.final-production [role=status] { margin:0; padding:0 8px; color:white; }
+@media(max-width:720px) {
+  .final-production form { flex-wrap:wrap; }
+  .final-production input { flex:1 0 100%; }
+}
+
+.final-production-grid th {padding:0;text-align:center;height:39px;}
+
+.final-production form input {height:68px;transform:translateY(1px);border:1px solid #9e9e9e;border-radius:0;padding:0 5px 0 23px;font:32px Tahoma,Gulim,sans-serif;}
+.final-production form input::placeholder{font:24px Tahoma,Gulim,sans-serif;color:#797979;opacity:1;}
+.final-production form button{border:1px solid #14275b;box-shadow:inset 0 1px #385bb4,inset 0 -1px #1d3679;
+ background:linear-gradient(#29469b 0 16%,#243f8b 17% 84%,#223c86);font:700 24px "Noto Sans KR Bold","Microsoft Sans Serif",Gulim,sans-serif;}
+.final-production form button:last-child {font-size:18px;border-color:#002d41;box-shadow:inset 0 1px #08686d,inset 0 -1px #004a4f;background:linear-gradient(#08585d,#00525b);}
+.final-production-grid {overflow-y:scroll;overflow-x:hidden;scrollbar-gutter:stable;}
+.final-production-grid::-webkit-scrollbar{width:50px;background:#f0f0f0;}
+.final-production-grid::-webkit-scrollbar-thumb{background:#bdbdbd;border:6px solid #f0f0f0;}
+.final-production-grid table{width:calc(100% + 35px);}
+.final-production-grid :is(td,th){font:400 10.2pt "Noto Sans KR Regular","Microsoft Sans Serif",Gulim,sans-serif;text-align:center;white-space:nowrap;padding:0;}
+.final-production-grid thead th {height:39px;border-color:#253c77;background:linear-gradient(#294385,#263e80);}
+.final-production-grid thead tr:first-child th:last-child{background:linear-gradient(white,#f6f6fa);}
+.final-production-grid td{height:36.5px;border-color:#181f34;}
+.final-production-grid tr.selected td.spacer{background:#00781c;}
+
+.production-scroll-frame{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,1fr) 50px;}
+.final-production .final-production-grid{scrollbar-width:none;scrollbar-gutter:auto;overflow-y:auto;}
+.final-production-grid::-webkit-scrollbar{display:none}
+.final-production .production-scrollbar{display:flex;flex-direction:column;align-items:stretch;background:#f0f0f0;border-left:1px solid #ddd;}
+.final-production .production-scrollbar button{padding:0;height:16px;min-height:16px;border:0;background:transparent;color:#424242;border-radius:0;font-size:12px;}
+.final-production .production-scrollbar button:disabled{opacity:.28;}
+.final-production .production-scrollbar input{flex:1;width:100%;height:0;min-height:0;border-radius:0;margin:0;padding:1px 5px;writing-mode:vertical-lr;appearance:auto;background:transparent;accent-color:#a3a3a3;}
+.final-production .production-scrollbar input:disabled{visibility:hidden;}
+.final-production-grid tr.selected td.good{color:white;}

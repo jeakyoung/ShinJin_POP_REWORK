@@ -8,6 +8,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -29,13 +30,16 @@ public final class InMemoryDrawingDomain implements DrawingDomain {
     public record GroupMember(PlanKey key, Snapshot snapshot, GroupResult result, List<Input> drawingInputs, Input autoRemnant) {}
     public record GroupCandidate(StockKey stock, BigDecimal available, List<PlanKey> eligiblePlans) {}
     public record GroupView(String id, List<GroupMember> members, List<GroupCandidate> candidates) {}
-    public record GroupLine(PlanKey key, long expectedVersion, List<Input> inputs, BigDecimal goodQty, boolean confirmSkip) {
+    public record GroupLine(PlanKey key, long expectedVersion, List<Input> inputs, BigDecimal goodQty, boolean confirmSkip, GoodPlace goodPlace) {
+        public GroupLine(PlanKey key, long expectedVersion, List<Input> inputs, BigDecimal goodQty, boolean confirmSkip) {
+            this(key, expectedVersion, inputs, goodQty, confirmSkip, null);
+        }
         public GroupLine(PlanKey key, long expectedVersion, List<Input> inputs, BigDecimal goodQty) {
             this(key, expectedVersion, inputs, goodQty, false);
         }
         public GroupLine { inputs = inputs == null ? List.of() : List.copyOf(inputs); }
     }
-    public enum GroupAction { DRAW_START, DRAW_FINISH }
+    public enum GroupAction { DRAW_START, DRAW_PAUSE, DRAW_RESUME, DRAW_FINISH }
     public record GroupCommand(GroupAction action, String requestId, List<GroupLine> members) {
         public GroupCommand { members = members == null ? List.of() : List.copyOf(members); }
     }
@@ -46,7 +50,9 @@ public final class InMemoryDrawingDomain implements DrawingDomain {
     }
     private record GroupRequest(String groupId, RequestKey request) {}
     private record GroupReceipt(GroupCommand command, GroupView result) {}
-    public record Audit(Map<StockKey, BigDecimal> inventory, List<StageRecord> records, List<Input> drawingInputs) {}
+    public record ProductReceipt(StockKey stock, String location, BigDecimal quantity) {}
+    public record Audit(Map<StockKey, BigDecimal> inventory, List<StageRecord> records, List<Input> drawingInputs,
+                        List<MaterialReturn> returns, BigDecimal goodQuantity, List<ProductReceipt> productReceipts) {}
 
     private static final class Plan {
         final Seed seed;
@@ -54,6 +60,7 @@ public final class InMemoryDrawingDomain implements DrawingDomain {
         final Map<RequestKey, Receipt> receipts = new HashMap<>();
         final Map<String, Permit> permits = new HashMap<>();
         final List<StageRecord> records = new ArrayList<>();
+        GoodPlace goodPlace;
         State state = CUT_READY;
         long version;
         String owner;
@@ -61,8 +68,11 @@ public final class InMemoryDrawingDomain implements DrawingDomain {
         Instant pack2Started;
         Shipment shipment;
         String activeGroup;
+        String productionGroup;
         GroupResult groupResult;
         List<Input> drawingInputs = List.of();
+        List<MaterialReturn> returns = List.of();
+        BigDecimal goodQuantity = BigDecimal.ZERO;
 
         Plan(Seed seed) {
             this.seed = seed;
@@ -82,8 +92,12 @@ public final class InMemoryDrawingDomain implements DrawingDomain {
             pack2Started = source.pack2Started;
             shipment = source.shipment;
             activeGroup = source.activeGroup;
+            productionGroup = source.productionGroup;
             groupResult = source.groupResult;
             drawingInputs = source.drawingInputs;
+            returns = source.returns;
+            goodPlace = source.goodPlace;
+            goodQuantity = source.goodQuantity;
         }
 
         StockKey output(Bin bin) {
@@ -102,16 +116,26 @@ public final class InMemoryDrawingDomain implements DrawingDomain {
         Snapshot snapshot() {
             String flag = switch (state) {
                 case DRAW_READY -> "1";
-                case DRAW_ACTIVE -> bypass ? null : "1";
+                case DRAW_ACTIVE, DRAW_PAUSED -> bypass ? null : "1";
                 case PACK2_READY, PACK2_ACTIVE -> "2";
                 default -> null;
             };
-            return new Snapshot(state, flag, version, owner, bypass, shipment, activeGroup);
+            return new Snapshot(state, flag, version, owner, bypass, shipment, activeGroup,productionGroup,goodPlace);
         }
     }
 
     private final Map<PlanKey, Plan> plans = new LinkedHashMap<>();
     private final Map<String, GroupSeed> groups = new LinkedHashMap<>();
+    /** A new planning instruction has no material issued until a real stock row is selected. */
+    public synchronized void registerInstruction(Seed seed) {
+        if (!positive(seed.orderQuantity()) || seed.type() != OrderType.DRAWING || !seed.stock().isEmpty())
+            throw new IllegalArgumentException("Invalid drawing instruction");
+        plans.putIfAbsent(seed.key(),new Plan(seed));
+    }
+
+    public record DeleteLine(PlanKey key, long expectedVersion) {}
+    private record DeleteRequest(Session actor, String id) {}
+    private final Map<DeleteRequest,List<DeleteLine>> deletes = new HashMap<>();
     private final Map<GroupRequest, GroupReceipt> groupReceipts = new HashMap<>();
     private Map<SharedKey, BigDecimal> sharedStock;
     private final Clock clock;
@@ -160,6 +184,54 @@ public final class InMemoryDrawingDomain implements DrawingDomain {
         sharedStock = Map.copyOf(shared);
     }
 
+    public synchronized Reply<Boolean> deleteListed(Session actor, String id, List<DeleteLine> rows) {
+        if (!validSession(actor)) return error(401,"INVALID_SESSION");
+        if (!present(id) || rows == null || rows.isEmpty()) return error(422,"INVALID_LIST");
+        var keys = new java.util.HashSet<PlanKey>();
+        for (var row : rows) {
+            if (row == null || !inScope(actor,row.key())) return error(403,"PLAN_OUT_OF_SCOPE");
+            if (row.expectedVersion() < 0 || !keys.add(row.key())) return error(422,"INVALID_LIST");
+        }
+        var receipt = new DeleteRequest(actor,id);
+        if (deletes.containsKey(receipt)) return deletes.get(receipt).equals(rows) ? ok(true) : error(409,"REQUEST_ID_REUSED");
+        for (var row : rows) {
+            var plan = plans.get(row.key());
+            if (plan == null) return error(404,"PLAN_NOT_FOUND");
+            if (plan.owner != null && !plan.owner.equals(actor.terminal())) return error(409,"TERMINAL_MISMATCH");
+            if (plan.version != row.expectedVersion()) return error(409,"STALE_VERSION");
+            if (plan.state != CUT_READY && plan.state != DRAW_READY && plan.state != DRAW_ACTIVE && plan.state != DRAW_PAUSED)
+                return error(409,"COMPLETED_PLAN");
+            if (plan.activeGroup != null && !keys.containsAll(groups.get(plan.activeGroup).members())) return error(409,"INCOMPLETE_GROUP");
+        }
+        var restored = new HashMap<>(sharedStock);
+        for (var row : rows) {
+            var plan = plans.get(row.key());
+            if (plan.state == DRAW_ACTIVE || plan.state == DRAW_PAUSED) {
+                for (var input : plan.drawingInputs) {
+                    var key = SharedKey.of(row.key(),input.stock());
+                    if (restored.containsKey(key)) restored.merge(key,input.quantity(),BigDecimal::add);
+                    else plan.add(input.stock(),input.quantity());
+                }
+                plan.state = plan.bypass ? CUT_READY : DRAW_READY;
+                plan.bypass = false;
+                plan.owner = null;
+                plan.activeGroup = null;
+                plan.productionGroup = null;
+                plan.goodPlace = null;
+                plan.returns = List.of();
+                plan.groupResult = null;
+                plan.drawingInputs = List.of();
+                plan.records.removeIf(record -> record.action() == Action.DRAW_START ||
+                        record.action() == Action.DRAW_PAUSE || record.action() == Action.DRAW_RESUME);
+            }
+            plan.permits.clear();
+            plan.version++;
+        }
+        sharedStock = Map.copyOf(restored);
+        deletes.put(receipt,List.copyOf(rows));
+        return ok(true);
+    }
+
     @Override
     public synchronized Reply<Snapshot> get(Session session, PlanKey key) {
         if (!validSession(session)) return error(401, "INVALID_SESSION");
@@ -172,7 +244,7 @@ public final class InMemoryDrawingDomain implements DrawingDomain {
     public synchronized List<PlanKey> active(Session session) {
         if (!validSession(session)) return List.of();
         return plans.entrySet().stream()
-                .filter(entry -> inScope(session, entry.getKey()) && entry.getValue().state == DRAW_ACTIVE)
+                .filter(entry -> inScope(session, entry.getKey()) && (entry.getValue().state == DRAW_ACTIVE || entry.getValue().state == DRAW_PAUSED))
                 .map(Map.Entry::getKey).toList();
     }
 
@@ -223,12 +295,27 @@ public final class InMemoryDrawingDomain implements DrawingDomain {
         }
         if (command.expectedVersion() != plan.version) return error(409, "STALE_VERSION");
         if (command.action() == null) return error(422, "ACTION_REQUIRED");
-        boolean standard = command.action() == Action.STANDARD_PACK_START || command.action() == Action.STANDARD_PACK_FINISH;
+        boolean standard = switch (command.action()) {
+            case STANDARD_PACK_START, STANDARD_PACK_PAUSE, STANDARD_PACK_RESUME, STANDARD_PACK_FINISH, STANDARD_PACK_CANCEL -> true;
+            default -> false;
+        };
         if (standard && plan.seed.type() != OrderType.STANDARD_PACK) return error(422, "ORDER_NOT_STANDARD_PACK");
         if (!standard && !drawingOrder(plan)) return error(422, "ORDER_NOT_DRAWING");
 
         if (plan.activeGroup != null && command.action() == Action.DRAW_FINISH) {
             return error(409, "GROUP_FINISH_REQUIRED");
+        }
+        if (plan.activeGroup != null && (command.action() == Action.DRAW_PAUSE || command.action() == Action.DRAW_RESUME)) {
+            return error(409, "GROUP_TIME_CHANGE_REQUIRED");
+        }
+        if ((command.action() == Action.DRAW_PAUSE || command.action() == Action.DRAW_RESUME)
+                && (command.quantity() != null || command.stock() != null || command.scanToken() != null || !command.inputs().isEmpty())) {
+            return error(422, "UNEXPECTED_TIME_CHANGE_INPUT");
+        }
+        boolean finishing = command.action()==Action.DRAW_FINISH;
+        if (!command.returns().isEmpty() && ((command.action()!=Action.DRAW_START && command.action()!=Action.DRAW_FINISH)
+                || command.returns().stream().anyMatch(row -> !validReturn(row,finishing)))) {
+            return error(422,"INVALID_MATERIAL_RETURN");
         }
         plan = new Plan(plan);
         var stock = command.action() == Action.DRAW_START ? new HashMap<>(sharedStock) : sharedStock;
@@ -236,19 +323,57 @@ public final class InMemoryDrawingDomain implements DrawingDomain {
             case PACK1_START -> start(plan, CUT_READY, PACK1_ACTIVE, session);
             case PACK1_FINISH -> finishPack1(plan, command);
             case DRAW_START -> startDrawing(plan, session, command, stock);
+            case DRAW_PAUSE -> start(plan, DRAW_ACTIVE, DRAW_PAUSED, session);
+            case DRAW_RESUME -> start(plan, DRAW_PAUSED, DRAW_ACTIVE, session);
             case DRAW_FINISH -> finishDrawing(plan, command.quantity());
             case PACK2_START -> startPack2(plan, session);
             case PACK2_FINISH -> finishPack2(plan, command.quantity());
             case STANDARD_PACK_START -> startStandardPack(plan, session);
+            case STANDARD_PACK_PAUSE -> start(plan, STANDARD_PACK_ACTIVE, STANDARD_PACK_PAUSED, session);
+            case STANDARD_PACK_RESUME -> start(plan, STANDARD_PACK_PAUSED, STANDARD_PACK_ACTIVE, session);
             case STANDARD_PACK_FINISH -> finishStandardPack(plan, command);
+            case STANDARD_PACK_CANCEL -> {
+                if (plan.state != STANDARD_PACK_ACTIVE && plan.state != STANDARD_PACK_PAUSED) yield error(409, "INVALID_STATE");
+                plan.owner = null;
+                plan.pack2Started = null;
+                plan.state = CUT_READY;
+                yield null;
+            }
         };
         if (rejection != null) return rejection;
+        if (command.goodPlace() != null) {
+            if (command.action() != Action.DRAW_START && command.action() != Action.DRAW_FINISH) return error(422,"UNEXPECTED_GOOD_PLACE");
+            plan.goodPlace = command.goodPlace();
+        }
+        if (command.action() == Action.DRAW_START || command.action() == Action.DRAW_FINISH) plan.returns = command.returns();
         record(plan, session, command.action(), null, null, null);
         Snapshot snapshot = plan.snapshot();
         plan.receipts.put(request, new Receipt(command, snapshot));
         sharedStock = Map.copyOf(stock);
         plans.put(key, plan);
         return ok(snapshot);
+    }
+
+    /** execute replaces plan objects on success. Preserve the originals until the entire selection commits. */
+    public synchronized Reply<List<Snapshot>> packBatch(Session session, Map<PlanKey, Command> commands) {
+        var originals = new HashMap<PlanKey, Plan>();
+        var results = new ArrayList<Snapshot>();
+        boolean committed = false;
+        try {
+            for (var entry : commands.entrySet()) {
+                var key = entry.getKey();
+                var plan = plans.get(key);
+                if (plan == null || plan.seed.type() != OrderType.STANDARD_PACK) return error(422, "ORDER_NOT_STANDARD_PACK");
+                originals.put(key, plan);
+                var result = execute(session, key, entry.getValue());
+                if (result.status() != 200) return error(result.status(), result.error());
+                results.add(result.value());
+            }
+            committed = true;
+            return ok(List.copyOf(results));
+        } finally {
+            if (!committed) plans.putAll(originals);
+        }
     }
 
     private Reply<Snapshot> start(Plan plan, State from, State to, Session session) {
@@ -284,6 +409,7 @@ public final class InMemoryDrawingDomain implements DrawingDomain {
         }
         var rejection = deduct(plan, command.inputs(), shared);
         if (rejection != null) return rejection;
+        plan.productionGroup = UUID.randomUUID().toString();
         plan.bypass = permit.bypass();
         plan.state = DRAW_ACTIVE;
         plan.owner = session.terminal();
@@ -317,6 +443,48 @@ public final class InMemoryDrawingDomain implements DrawingDomain {
         return null;
     }
 
+    public record ScannedMember(PlanKey key,long expectedVersion,String scanToken,List<Input> inputs,GoodPlace goodPlace) {
+        public ScannedMember(PlanKey key,long expectedVersion,String scanToken,List<Input> inputs) {
+            this(key,expectedVersion,scanToken,inputs,null);
+        }
+    }
+    private record NativeStart(List<ScannedMember> members,List<MaterialReturn> returns,GroupView group) {}
+    private final Map<DeleteRequest,NativeStart> nativeStarts = new HashMap<>();
+
+    public synchronized Reply<GroupView> startScannedGroup(Session session,String requestId,List<ScannedMember> rows,List<MaterialReturn> returns) {
+        if(!validSession(session)) return error(401,"INVALID_SESSION");
+        if(!present(requestId) || rows==null || rows.size()<2) return error(422,"INVALID_GROUP_MEMBERS");
+        var receiptKey=new DeleteRequest(session,requestId);
+        var old=nativeStarts.get(receiptKey);
+        if (returns==null || returns.stream().anyMatch(row->!validReturn(row,false))) return error(422,"INVALID_MATERIAL_RETURN");
+        if(old!=null) return old.members().equals(rows) && old.returns().equals(returns)?ok(old.group()):error(409,"REQUEST_ID_REUSED");
+        var keys=new LinkedHashSet<PlanKey>();
+        var lines=new ArrayList<GroupLine>();
+        for(var row:rows) {
+            if(!inScope(session,row.key()))return error(403,"PLAN_OUT_OF_SCOPE");
+            var plan=plans.get(row.key());
+            if(plan==null)return error(404,"PLAN_NOT_FOUND");
+            if(!keys.add(row.key()) || !drawingOrder(plan)) return error(422,"INVALID_GROUP_MEMBERS");
+            if(plan.version!=row.expectedVersion())return error(409,"STALE_VERSION");
+            var permit=plan.permits.get(session.terminal());
+            if(permit==null || !permit.token().equals(row.scanToken()))return error(409,"SCAN_TOKEN_INVALID");
+            if(permit.bypass()) {
+                var remnant=autoRemnant(plan,sharedStock);
+                if(remnant==null || row.inputs().size()!=1 || !remnant.stock().equals(row.inputs().get(0).stock())
+                        || remnant.quantity().compareTo(row.inputs().get(0).quantity())!=0) return error(422,"INVALID_SKIP_INPUT");
+            }
+            lines.add(new GroupLine(row.key(),row.expectedVersion(),permit.bypass()?List.of():row.inputs(),null,permit.bypass(),row.goodPlace()));
+        }
+        String id="PG-008-"+UUID.randomUUID();
+        groups.put(id,new GroupSeed(id,List.copyOf(keys)));
+        var result=executeGroup(session,id,new GroupCommand(GroupAction.DRAW_START,requestId,List.copyOf(lines)));
+        if(result.status()!=200) { groups.remove(id);return result; }
+        var saved=List.copyOf(returns);
+        for(var key:keys) plans.get(key).returns=saved;
+        nativeStarts.put(receiptKey,new NativeStart(List.copyOf(rows),saved,result.value()));
+        return result;
+    }
+
     public synchronized List<String> groups(Session session) {
         if (!validSession(session)) return List.of();
         return groups.values().stream().filter(group -> inScope(session, group.members().get(0)))
@@ -346,7 +514,7 @@ public final class InMemoryDrawingDomain implements DrawingDomain {
         if (lines.size() != group.members().size()) return error(422, "INVALID_GROUP_MEMBERS");
         command = new GroupCommand(command.action(), command.requestId(), group.members().stream().map(key -> {
             var line = lines.get(key);
-            return new GroupLine(key, line.expectedVersion(), normalized(line.inputs()), normalized(line.goodQty()), line.confirmSkip());
+            return new GroupLine(key, line.expectedVersion(), normalized(line.inputs()), normalized(line.goodQty()), line.confirmSkip(),line.goodPlace());
         }).toList());
         var request = new GroupRequest(id, new RequestKey(session.terminal(), command.requestId()));
         var receipt = groupReceipts.get(request);
@@ -367,6 +535,10 @@ public final class InMemoryDrawingDomain implements DrawingDomain {
         int lineNumber = 0;
         for (var line : command.members()) {
             var updated = new Plan(plans.get(line.key()));
+            if (line.goodPlace()!=null) {
+                if (command.action()!=GroupAction.DRAW_START && command.action()!=GroupAction.DRAW_FINISH) return error(422,"UNEXPECTED_GOOD_PLACE");
+                updated.goodPlace = line.goodPlace();
+            }
             if (command.action() == GroupAction.DRAW_START) {
                 boolean bypass = updated.state == CUT_READY && line.confirmSkip();
                 if (updated.state != DRAW_READY && !bypass) return error(409, "GROUP_NOT_DRAW_READY");
@@ -390,10 +562,19 @@ public final class InMemoryDrawingDomain implements DrawingDomain {
                 start(updated, updated.state, DRAW_ACTIVE, session);
                 updated.bypass = bypass;
                 updated.activeGroup = id;
+                updated.productionGroup = id;
                 record(updated, session, Action.DRAW_START, null, null, null);
+            } else if (command.action() == GroupAction.DRAW_PAUSE || command.action() == GroupAction.DRAW_RESUME) {
+                if (!id.equals(updated.activeGroup)) return error(409, "GROUP_NOT_ACTIVE");
+                if (line.confirmSkip() || !line.inputs().isEmpty() || line.goodQty() != null) return error(422, "UNEXPECTED_GROUP_INPUT");
+                boolean pause = command.action() == GroupAction.DRAW_PAUSE;
+                var rejection = start(updated, pause ? DRAW_ACTIVE : DRAW_PAUSED, pause ? DRAW_PAUSED : DRAW_ACTIVE, session);
+                if (rejection != null) return error(rejection.status(), rejection.error());
+                record(updated, session, pause ? Action.DRAW_PAUSE : Action.DRAW_RESUME, null, null, null);
             } else {
                 if (!id.equals(updated.activeGroup)) return error(409, "GROUP_NOT_ACTIVE");
                 if (line.confirmSkip() || !line.inputs().isEmpty()) return error(422, "UNEXPECTED_GROUP_INPUT");
+                if(updated.returns.stream().anyMatch(row->!validReturn(row,true))) return error(422,"INVALID_MATERIAL_RETURN");
                 var rejection = finishDrawing(updated, line.goodQty());
                 if (rejection != null) return error(rejection.status(), rejection.error());
                 updated.activeGroup = null;
@@ -471,6 +652,7 @@ public final class InMemoryDrawingDomain implements DrawingDomain {
         if (!positive(qty) || qty.compareTo(plan.seed.orderQuantity()) > 0) {
             return error(422, "INVALID_QUANTITY");
         }
+        plan.goodQuantity = qty;
         plan.add(plan.output(Bin.PRODUCT), qty);
         finishStage(plan, PACK2_READY);
         return null;
@@ -534,9 +716,57 @@ public final class InMemoryDrawingDomain implements DrawingDomain {
     }
 
     public synchronized Audit audit(Session session, PlanKey key) {
-        if (!validSession(session) || !inScope(session, key) || !plans.containsKey(key)) return new Audit(Map.of(), List.of(), List.of());
+        if (!validSession(session) || !inScope(session, key) || !plans.containsKey(key)) return new Audit(Map.of(), List.of(), List.of(), List.of(), BigDecimal.ZERO,List.of());
         var plan = plans.get(key);
-        return new Audit(Map.copyOf(plan.stock), List.copyOf(plan.records), plan.drawingInputs);
+        // frmProcess7.WorkEnd overrides both selected address codes on the product receipt.
+        var receipts=plan.goodQuantity.signum()>0 ? List.of(new ProductReceipt(plan.output(Bin.PRODUCT),"000000",plan.goodQuantity)) : List.<ProductReceipt>of();
+        return new Audit(Map.copyOf(plan.stock), List.copyOf(plan.records), plan.drawingInputs, plan.returns, plan.goodQuantity,receipts);
+    }
+
+    private static boolean validReturn(MaterialReturn row,boolean finishing) {
+        return row!=null && present(row.warehouse()) && present(row.location()) && present(row.material())
+                && positive(row.thickness()) && positive(row.width()) && positive(row.length())
+                && row.quantity()!=null && (finishing ? positive(row.quantity()) : row.quantity().signum()>=0);
+    }
+
+    private record ReturnEdit(PlanKey key, long version, List<MaterialReturn> lines) {}
+    private final Map<DeleteRequest, ReturnEdit> returnReceipts = new HashMap<>();
+
+    public synchronized Reply<Snapshot> saveReturns(Session actor, PlanKey key, long expectedVersion, String requestId,
+                                                    List<MaterialReturn> lines) {
+        var result = get(actor, key);
+        if (result.status() != 200) return result;
+        if (!present(requestId)) return error(422,"REQUEST_ID_REQUIRED");
+        var plan = plans.get(key);
+        var receipt = new DeleteRequest(actor,requestId);
+        if (lines == null || lines.stream().anyMatch(Objects::isNull)) return error(422,"INVALID_MATERIAL_RETURN");
+        var edit = new ReturnEdit(key,expectedVersion,List.copyOf(lines));
+        var prior = returnReceipts.get(receipt);
+        if (prior != null) return prior.equals(edit) ? ok(plan.snapshot()) : error(409,"REQUEST_ID_REUSED");
+        if (expectedVersion != plan.version) return error(409,"STALE_VERSION");
+        if (plan.productionGroup == null || (plan.state != DRAW_ACTIVE && plan.state != DRAW_PAUSED))
+            return error(409,"INVALID_STATE");
+        if (!actor.terminal().equals(plan.owner)) return error(403,"TERMINAL_MISMATCH");
+        if (lines.stream().anyMatch(row -> !validReturn(row,false))) return error(422,"INVALID_MATERIAL_RETURN");
+        // The stored return sheet belongs to the production group, including a single-order group.
+        for (var member : plans.values()) {
+            if (inScope(actor,member.seed.key()) && plan.productionGroup.equals(member.productionGroup)) {
+                member.returns = edit.lines();
+                member.version++;
+            }
+        }
+        returnReceipts.put(receipt,edit);
+        return ok(plan.snapshot());
+    }
+
+    public synchronized Map<StockKey, BigDecimal> inputBalances(Session session, PlanKey key) {
+        if (!validSession(session) || !inScope(session, key) || !plans.containsKey(key)) return Map.of();
+        var balances = new HashMap<>(plans.get(key).stock);
+        sharedStock.forEach((location, value) -> {
+            if (location.factory().equals(key.factory()) && location.site().equals(key.site()))
+                balances.put(location.stock(), value);
+        });
+        return Map.copyOf(balances);
     }
 
     public synchronized Map<StockKey, BigDecimal> inventory(Session session, PlanKey key) {
@@ -583,7 +813,7 @@ public final class InMemoryDrawingDomain implements DrawingDomain {
     private static Command normalized(Command command) {
         var inputs = normalized(command.inputs());
         return new Command(command.action(), command.expectedVersion(), command.requestId(), command.stock(),
-                normalized(command.quantity()), command.scanToken(), inputs);
+                normalized(command.quantity()), command.scanToken(), inputs, command.returns(),command.goodPlace());
     }
 
     private static List<Input> normalized(List<Input> inputs) {

@@ -5,6 +5,7 @@ export type WorkOrder = {
   planDate: string
   planSequence: number
   orderNumber: string
+  display?: Partial<Record<'customer' | 'deliveryDate' | 'quality' | 'thickness' | 'width' | 'length', string | null>>
   orderLine: number
   itemName: string
   process: string

@@ -1,0 +1,38 @@
+[
+  {
+    "terminal": "DEMO-A",
+    "workCode": "001",
+    "plans": [
+      {
+        "date": "2030-01-01",
+        "sequence": 1
+      },
+      {
+        "date": "2030-01-01",
+        "sequence": 2
+      },
+      {
+        "date": "2030-01-01",
+        "sequence": 3
+      }
+    ]
+  },
+  {
+    "terminal": "DEMO-A2",
+    "workCode": "001",
+    "plans": [
+      {
+        "date": "2030-01-02",
+        "sequence": 1
+      },
+      {
+        "date": "2030-01-02",
+        "sequence": 2
+      },
+      {
+        "date": "2030-01-02",
+        "sequence": 3
+      }
+    ]
+  }
+]

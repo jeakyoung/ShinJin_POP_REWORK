@@ -1,0 +1,43 @@
+{
+  "date": "2026-11-26",
+  "sites": [
+    {
+      "factory": "F1",
+      "plant": "000001",
+      "terminals": [
+        "DEMO-A",
+        "DEMO-A2"
+      ],
+      "warehouse": "017",
+      "unissued": {
+        "20261125/1": 2,
+        "20261125/2": 1
+      },
+      "stock": {
+        "20261125/1": {
+          "lot": "PLAN-008-000001",
+          "position": "P-R1",
+          "quantity": 3
+        }
+      }
+    },
+    {
+      "factory": "F2",
+      "plant": "000002",
+      "terminals": [
+        "DEMO-B"
+      ],
+      "warehouse": "017",
+      "unissued": {
+        "20261125/1": 1
+      },
+      "stock": {
+        "20261125/1": {
+          "lot": "PLAN-008-000002",
+          "position": "P-R1",
+          "quantity": 3
+        }
+      }
+    }
+  ]
+}

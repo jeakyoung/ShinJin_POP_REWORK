@@ -1,0 +1,58 @@
+[
+  {
+    "item": "ITEM-STD",
+    "order": "PACK-DEMO-01",
+    "customer": "합성 거래처 가",
+    "material": "재질 가",
+    "kind": "합성 유형 A",
+    "ordered": "2026-11-25",
+    "materialCode": "A2-Q1",
+    "delivery": "2026-11-28",
+    "destination": "합성 납품처 1",
+    "thickness": 5,
+    "width": 70,
+    "length": 150
+  },
+  {
+    "item": "ITEM-STD-B",
+    "order": "PACK-DEMO-02",
+    "customer": "합성 거래처 나",
+    "material": "재질 가",
+    "kind": "합성 유형 B",
+    "ordered": "2026-11-25",
+    "materialCode": "B-Q1",
+    "delivery": "2026-11-28",
+    "destination": "합성 납품처 2",
+    "thickness": 6,
+    "width": 80,
+    "length": 160
+  },
+  {
+    "item": "ITEM-STD-C",
+    "order": "PACK-DEMO-03",
+    "customer": "합성 거래처 다",
+    "material": "재질 나",
+    "kind": "합성 유형 A",
+    "ordered": "2026-11-24",
+    "materialCode": "B-Q2",
+    "delivery": "2026-11-28",
+    "destination": "합성 납품처 3",
+    "thickness": 7,
+    "width": 90,
+    "length": 170
+  },
+  {
+    "item": "ITEM-STD-S1",
+    "order": "PACK-DEMO-04",
+    "customer": "합성 거래처 라",
+    "material": "재질 가",
+    "kind": "합성 유형 B",
+    "ordered": "2026-11-23",
+    "materialCode": "B-Q1",
+    "delivery": "2026-11-28",
+    "destination": "합성 납품처 4",
+    "thickness": 6,
+    "width": 80,
+    "length": 160
+  }
+]
