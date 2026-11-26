@@ -21,9 +21,16 @@ final class DrawingReturnPlaces {
     record Warehouse(String code, String name, List<Choice> locations) {}
     record Result(String material, String quality, String warehouse, String inputItem,
                   BigDecimal thickness, BigDecimal width, BigDecimal length) {}
-    record Site(List<Warehouse> warehouses, List<Result> results) {}
+    record ScrapMaster(String quality,String material,String warehouse,String location,int thickness,int width,int length) {}
+    record Site(List<Warehouse> warehouses,List<Result> results,List<ScrapMaster> scrapMasters) {}
+    List<ScrapMaster> scrapMasters(Session actor,String quality) {
+        var rows=site(actor).scrapMasters();
+        return rows==null?List.of():rows.stream().filter(row->row.quality().equals(quality) && "013".equals(row.warehouse())
+                && row.thickness()>=0 && row.thickness()<=1 && row.width()>=0 && row.width()<=1
+                && row.length()>=0 && row.length()<=1).toList();
+    }
     record Source(Map<String, Site> sites) {}
-    private static final Site EMPTY = new Site(List.of(), List.of());
+    private static final Site EMPTY = new Site(List.of(), List.of(),List.of());
     private final Source source;
     private final TerminalSettingsDemoController settings;
 
@@ -55,6 +62,14 @@ final class DrawingReturnPlaces {
         return site(actor).results().stream().filter(r -> r.quality().equals(quality)
                 && r.warehouse().equals(warehouse) && r.inputItem().equals(item) && sameDimensions(r,spec))
                 .map(Result::material).reduce((first, last) -> last).orElse("");
+    }
+
+    boolean isScrapMaster(Session actor,String grade,MaterialReturn line) {
+        return "013".equals(line.warehouse()) && scrapMasters(actor,grade).stream().anyMatch(r->
+                r.material().equals(line.material()) && (line.location()==null || line.location().isBlank() || r.location().equals(line.location())) && r.thickness()==1 && r.width()==1 && r.length()==1
+                        && BigDecimal.ONE.equals(line.thickness()==null?null:line.thickness().stripTrailingZeros())
+                        && BigDecimal.ONE.equals(line.width()==null?null:line.width().stripTrailingZeros())
+                        && BigDecimal.ONE.equals(line.length()==null?null:line.length().stripTrailingZeros()));
     }
 
     boolean matchesResolvedMaterial(Session actor, String quality, MaterialReturn line) {

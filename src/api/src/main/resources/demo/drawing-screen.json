@@ -10,7 +10,8 @@
     "width": 240,
     "length": 600,
     "returnWarehouse": "010",
-    "returnLocation": "R-A01"
+    "returnLocation": "R-A01",
+    "qualityCode": "DEMO-STEEL"
   },
   "F1/000001/20261125/2": {
     "orderNumber": "202611S00001",

@@ -428,6 +428,10 @@ export default function DrawingWork({ terminalId, workerId, onSessionExpired }: 
     return ()=>controller.abort()
   },[detail?.activeGroupId,detail?.version,onSessionExpired])
 
+  const observedPlans=useRef(new Map<string,Detail>())
+  useEffect(()=>{
+    if(selected && detail) observedPlans.current.set(selected.key,detail)
+  },[selected,detail])
   const checkedRows=listed.filter(row=>!unchecked.includes(row.key))
   const grouped=!!detail?.activeGroupId
   const selectedGroup=grouped && workGroup?.id===detail?.activeGroupId ? workGroup : undefined
@@ -473,7 +477,7 @@ export default function DrawingWork({ terminalId, workerId, onSessionExpired }: 
     await run(async signal=>{
       const rows=await Promise.all(checkedRows.map(async option=>({
         option, snapshot: option.key===selected?.key && detail ? detail
-          : selectedGroup?.members.find(member=>member.key===option.key)?.snapshot ?? await request<Detail>(url(option.key),signal),
+          : selectedGroup?.members.find(member=>member.key===option.key)?.snapshot ?? observedPlans.current.get(option.key) ?? await request<Detail>(url(option.key),signal),
         goodQty:Number(option.key===selected?.key ? qty : amounts.current.get(option.key))
       })))
       const first=rows[0], unit=first.snapshot.productionGroupNo
@@ -492,13 +496,15 @@ export default function DrawingWork({ terminalId, workerId, onSessionExpired }: 
       const action='DRAW_FINISH', requestId=crypto.randomUUID()
       const members=rows.map(({option,snapshot,goodQty})=>({key:option.key,expectedVersion:snapshot.version,goodQty,
         goodPlace:placeCodes(goodDrafts[option.key] ?? snapshot.goodPlace ?? option.goodPlaces?.initial)}))
+      const basis={focus:selected?.key,inputs:shownInputs,returns:returnLines.map(returnValue),
+        products:listed.map(row=>({key:row.key,quantity:Number(row.key===selected?.key?qty:amounts.current.get(row.key)??0)}))}
       if(first.snapshot.activeGroupId) {
-        pending={action,body:JSON.stringify({action,requestId,groupId:first.snapshot.activeGroupId,members})}
+        pending={action,body:JSON.stringify({action,requestId,groupId:first.snapshot.activeGroupId,members,basis})}
       } else {
         target=first.option
         selectedKey.current=target.key;setSelected(target);setDetail(first.snapshot);setQty(String(first.goodQty))
         pending={action,body:JSON.stringify({action,requestId,expectedVersion:first.snapshot.version,
-          goodQty:first.goodQty,goodPlace:members[0].goodPlace,returns:lines})}
+          goodQty:first.goodQty,goodPlace:members[0].goodPlace,returns:lines,basis})}
       }
     })
     if(pending) {

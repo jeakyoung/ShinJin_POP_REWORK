@@ -27,8 +27,16 @@ public interface DrawingDomain {
                           BigDecimal width, BigDecimal length, BigDecimal quantity) {}
     record GoodPlace(String warehouse, String warehouseName, String location, String locationName,
                      String workStatus, String etc) {}
+    record ProductWeight(PlanKey plan,BigDecimal quantity) {}
+    record WeightBasis(PlanKey focus,List<Input> inputs,List<ProductWeight> products,List<MaterialReturn> returns) {
+        public WeightBasis { inputs=List.copyOf(inputs);products=List.copyOf(products);returns=List.copyOf(returns); }
+    }
     record Command(Action action, long expectedVersion, String requestId, StockKey stock,
-                   BigDecimal quantity, String scanToken, List<Input> inputs, List<MaterialReturn> returns, GoodPlace goodPlace) {
+                   BigDecimal quantity, String scanToken, List<Input> inputs, List<MaterialReturn> returns, GoodPlace goodPlace,WeightBasis basis) {
+        public Command(Action action,long version,String id,StockKey stock,BigDecimal quantity,String token,List<Input> inputs,
+                       List<MaterialReturn> returns,GoodPlace place) {
+            this(action,version,id,stock,quantity,token,inputs,returns,place,null);
+        }
         public Command(Action action, long expectedVersion, String requestId, StockKey stock,
                        BigDecimal quantity, String scanToken, List<Input> inputs, List<MaterialReturn> returns) {
             this(action, expectedVersion, requestId, stock, quantity, scanToken, inputs, returns, null);

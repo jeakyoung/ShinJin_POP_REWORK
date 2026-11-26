@@ -162,8 +162,10 @@ public class DrawingController {
                     boolean bypassedPack1, String shipPlanId, ShipmentView shipment, String activeGroupId, String productionGroupNo,GoodPlace goodPlace) {}
     record ScanBody(Decision decision) {}
     record ScanView(boolean accepted, String scanToken, List<Material> materials, List<StockView> stockDetails) {}
+    record WeightLine(String key,BigDecimal quantity) {}
+    record ScreenWeights(String focus,List<Material> inputs,List<WeightLine> products,List<MaterialReturn> returns) {}
     record CommandBody(Action action, Long expectedVersion, String requestId, String lot, BigDecimal qty,
-                       BigDecimal goodQty, String scanToken, List<Material> inputs, List<MaterialReturn> returns,DrawingGoodPlaces.Codes goodPlace) {}
+                       BigDecimal goodQty, String scanToken, List<Material> inputs, List<MaterialReturn> returns,DrawingGoodPlaces.Codes goodPlace,ScreenWeights basis) {}
 
     record GroupCandidateView(Material material, List<String> eligiblePlans) {}
     record GroupMemberView(String key, PlanView snapshot, GroupResult result, List<Material> drawingInputs, Material autoRemnant) {}
@@ -242,11 +244,13 @@ public class DrawingController {
         if (lines.isEmpty()) return true;
         var actor = session(request);
         var choices = returnPlaces.choices(actor, request);
-        return lines.stream().allMatch(line -> line != null && DrawingReturnPlaces.contains(choices,line.warehouse(),line.location())
+        return lines.stream().allMatch(line -> line != null && (DrawingReturnPlaces.contains(choices,line.warehouse(),line.location())
+                || ("013".equals(line.warehouse()) && (line.location()==null || line.location().isBlank())
+                        && choices.stream().anyMatch(w->w.code().equals(line.warehouse()))))
                 && permitted.stream().anyMatch(row ->
                     (java.util.Objects.equals(row.returnWarehouse(),line.warehouse()) && java.util.Objects.equals(row.returnLocation(),line.location())
                         && java.util.Objects.equals(row.returnMaterial(),line.material()))
-                    || returnPlaces.matchesResolvedMaterial(actor,row.material(),line)));
+                    || returnPlaces.isScrapMaster(actor,row.qualityCode(),line) || returnPlaces.matchesResolvedMaterial(actor,row.material(),line)));
     }
 
     record ReturnEdit(String key, Long expectedVersion, String requestId, List<MaterialReturn> returns) {}
@@ -287,7 +291,7 @@ public class DrawingController {
     }
 
     record GridMember(String key,Long expectedVersion,String scanToken,List<Material> inputs,BigDecimal goodQty,DrawingGoodPlaces.Codes goodPlace) {}
-    record GridCommand(String groupId,GroupAction action,String requestId,List<GridMember> members,List<MaterialReturn> returns) {}
+    record GridCommand(String groupId,GroupAction action,String requestId,List<GridMember> members,List<MaterialReturn> returns,ScreenWeights basis) {}
     @PostMapping("/work-grid/commands")
     ResponseEntity<?> gridCommand(HttpServletRequest request,@RequestBody GridCommand body) {
         var actor=session(request);
@@ -306,7 +310,9 @@ public class DrawingController {
         if(body.groupId()==null || body.action()==GroupAction.DRAW_START || body.action()==null)return error(422,"INVALID_GROUP_MEMBERS");
         var lines=body.members().stream().map(row->new GroupLine(parse(row.key()),row.expectedVersion(),List.of(),row.goodQty(),false,
                 good(actor,parse(row.key()),row.goodPlace(),request))).toList();
-        return groupResponse(domain.executeGrid(actor,body.groupId(),new GroupCommand(body.action(),body.requestId(),lines)));
+        var basis=weightBasis(actor,body.basis(),lines.stream().map(line->new ProductWeight(line.key(),line.goodQty())).toList());
+        return groupResponse(domain.executeGrid(actor,body.groupId(),new GroupCommand(body.action(),body.requestId(),lines,basis),
+                ()->basis==null?List.of():scrap(actor,basis)));
     }
 
     @GetMapping("/groups/{id}")
@@ -466,6 +472,8 @@ public class DrawingController {
                     .map(entry -> material(entry.getKey(), entry.getValue())).toList(),
                     "stockDetails", stockViews(session, key, details.drawingInputs()),
                     "records", details.records(), "drawingInputs", materials(details.drawingInputs()), "returns", details.returns(), "goodQuantity",details.goodQuantity(),
+                    "returnBalances",domain.returnBalances(session,key),"automaticReturns",domain.automaticReturns(session,key).stream().map(row->
+                        Map.of("lot","X"+row.material(),"direction",1,"row",row)).toList(),
                     "productReceipts",details.productReceipts().stream().map(row->Map.of("material",material(row.stock(),row.quantity()),"location",row.location())).toList()));
         }
         return ResponseEntity.ok(view(result.value()));
@@ -502,9 +510,58 @@ public class DrawingController {
         if (body.returns() != null && !validDestinations(body.returns(),row == null ? List.of() : List.of(row),request))
             return error(422, "INVALID_RETURN_DESTINATION");
         var amount = body.action() == Action.DRAW_FINISH ? body.goodQty() : body.qty();
+        var basis=weightBasis(session,body.basis(),List.of(new ProductWeight(key,amount)));
         var result = domain.execute(session, key, new Command(body.action(), body.expectedVersion(),
-                body.requestId(), stock, amount, body.scanToken(), inputs, body.returns(),goodPlaces.resolve(session,key,scope.value(),body.goodPlace(),request)));
+                body.requestId(), stock, amount, body.scanToken(), inputs, body.returns(),goodPlaces.resolve(session,key,scope.value(),body.goodPlace(),request),basis),
+                (issued,good)->scrap(session,basis!=null?basis:new WeightBasis(key,issued,List.of(new ProductWeight(key,good)),
+                        body.returns()==null?List.of():body.returns())));
         return result.status() == 200 ? ResponseEntity.ok(view(result.value())) : error(result.status(), result.error());
+    }
+
+    private WeightBasis weightBasis(Session actor,ScreenWeights form,List<ProductWeight> finished) {
+        if(form==null)return null;
+        if(form.focus()==null || form.products()==null || form.inputs()==null || form.returns()==null)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
+        var focus=parse(form.focus());
+        if(focus==null || domain.get(actor,focus).status()!=200)throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+        var products=new java.util.LinkedHashMap<PlanKey,BigDecimal>();
+        for(var p:form.products()){
+            if(p==null||p.key()==null)throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
+            var key=parse(p.key()); var seed=key==null?null:listedSeeds.get(key);
+            if(key==null || seed==null || !sameSite(actor,key) || p.quantity()==null || p.quantity().signum()<0
+                    || p.quantity().compareTo(seed.orderQuantity())>0 || products.putIfAbsent(key,p.quantity())!=null)
+                throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY);
+        }
+        if(!products.containsKey(focus) || finished.stream().anyMatch(p->!products.containsKey(p.plan()) || p.quantity()==null
+                || products.get(p.plan()).compareTo(p.quantity())!=0))throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY);
+        var issued=inputs(form.inputs());
+        var stock=domain.inputBalances(actor,focus);
+        if(issued.stream().anyMatch(i->i.stock()==null||!stock.containsKey(i.stock())||i.quantity()==null||i.quantity().signum()<0)
+                || form.returns().stream().anyMatch(r->r==null||r.thickness()==null||r.width()==null||r.length()==null||r.quantity()==null))
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY);
+        return new WeightBasis(focus,issued,products.entrySet().stream().map(e->new ProductWeight(e.getKey(),e.getValue())).toList(),form.returns());
+    }
+
+    private List<MaterialReturn> scrap(Session actor,WeightBasis basis) {
+        var key=basis.focus(); var spec=display.get(format(key)); var inputs=basis.inputs();
+        if(spec==null) return List.of();
+        var masters=returnPlaces.scrapMasters(actor,spec.qualityCode());
+        if(masters.isEmpty()) return List.of();
+        var pieces=stockViews(actor,key,inputs);
+        var issued=new java.util.ArrayList<DrawingScrap.Piece>();
+        for(int i=0;i<inputs.size();i++){
+            var p=pieces.get(i);
+            if(p.width()==null || p.thickness()==null || p.length()==null)
+                throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,"MISSING_INPUT_DIMENSIONS");
+            issued.add(new DrawingScrap.Piece(p.thickness(),p.width(),p.length(),inputs.get(i).quantity()));
+        }
+        return DrawingScrap.receipts(masters,spec.qualityCode(),issued,
+                basis.products().stream().map(p->{
+                    var row=display.get(format(p.plan()));
+                    if(row==null && p.quantity().signum()!=0)throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,"MISSING_PLAN_DIMENSIONS");
+                    return row==null?new DrawingScrap.Piece(BigDecimal.ZERO,BigDecimal.ZERO,BigDecimal.ZERO,BigDecimal.ZERO)
+                            :new DrawingScrap.Piece(row.thickness(),row.width(),row.length(),p.quantity());
+                }).toList(),basis.returns());
     }
 
     private static List<Material> materials(List<Input> inputs) {

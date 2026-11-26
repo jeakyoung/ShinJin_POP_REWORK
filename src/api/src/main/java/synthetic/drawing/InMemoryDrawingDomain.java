@@ -40,7 +40,8 @@ public final class InMemoryDrawingDomain implements DrawingDomain {
         public GroupLine { inputs = inputs == null ? List.of() : List.copyOf(inputs); }
     }
     public enum GroupAction { DRAW_START, DRAW_PAUSE, DRAW_RESUME, DRAW_FINISH }
-    public record GroupCommand(GroupAction action, String requestId, List<GroupLine> members) {
+    public record GroupCommand(GroupAction action,String requestId,List<GroupLine> members,WeightBasis basis) {
+        public GroupCommand(GroupAction action,String requestId,List<GroupLine> members){this(action,requestId,members,null);}
         public GroupCommand { members = members == null ? List.of() : List.copyOf(members); }
     }
     private record SharedKey(String factory, String site, StockKey stock) {
@@ -53,6 +54,37 @@ public final class InMemoryDrawingDomain implements DrawingDomain {
     public record ProductReceipt(StockKey stock, String location, BigDecimal quantity) {}
     public record Audit(Map<StockKey, BigDecimal> inventory, List<StageRecord> records, List<Input> drawingInputs,
                         List<MaterialReturn> returns, BigDecimal goodQuantity, List<ProductReceipt> productReceipts) {}
+
+    public record ReturnPlace(String factory,String site,String warehouse,String location,String material,String lot) {}
+    public record ReturnBalance(ReturnPlace place,BigDecimal quantity) {}
+    private final Map<ReturnPlace,BigDecimal> returnStock = new HashMap<>();
+    private final Map<String,List<MaterialReturn>> postedReturnSheets = new HashMap<>();
+
+    private void replaceReturnSheet(Plan plan,List<MaterialReturn> next) {
+        var previous=postedReturnSheets.getOrDefault(plan.productionGroup,List.of());
+        if(previous.equals(next)) return;
+        adjustReturnStock(plan.seed.key(),previous,-1,false);
+        adjustReturnStock(plan.seed.key(),next,1,false);
+        postedReturnSheets.put(plan.productionGroup,List.copyOf(next));
+    }
+
+    private void adjustReturnStock(PlanKey plan,List<MaterialReturn> rows,int sign,boolean automatic) {
+        for(var row:rows) {
+            var place=new ReturnPlace(plan.factory(),plan.site(),row.warehouse(),row.location(),row.material(),automatic?"X"+row.material():null);
+            var next=returnStock.getOrDefault(place,BigDecimal.ZERO).add(sign==1?row.quantity():row.quantity().negate());
+            if(next.signum()==0) returnStock.remove(place); else returnStock.put(place,next);
+        }
+    }
+
+    public synchronized List<ReturnBalance> returnBalances(Session actor, PlanKey key) {
+        if(!validSession(actor)||!inScope(actor,key))return List.of();
+        return returnStock.entrySet().stream().filter(e->key.factory().equals(e.getKey().factory()) && key.site().equals(e.getKey().site()))
+                .map(e->new ReturnBalance(e.getKey(),e.getValue())).toList();
+    }
+
+    public synchronized List<MaterialReturn> automaticReturns(Session actor,PlanKey key) {
+        return validSession(actor)&&inScope(actor,key)&&plans.containsKey(key)?plans.get(key).automaticReturns:List.of();
+    }
 
     private static final class Plan {
         final Seed seed;
@@ -72,6 +104,7 @@ public final class InMemoryDrawingDomain implements DrawingDomain {
         GroupResult groupResult;
         List<Input> drawingInputs = List.of();
         List<MaterialReturn> returns = List.of();
+        List<MaterialReturn> automaticReturns = List.of();
         BigDecimal goodQuantity = BigDecimal.ZERO;
 
         Plan(Seed seed) {
@@ -96,6 +129,7 @@ public final class InMemoryDrawingDomain implements DrawingDomain {
             groupResult = source.groupResult;
             drawingInputs = source.drawingInputs;
             returns = source.returns;
+            automaticReturns = source.automaticReturns;
             goodPlace = source.goodPlace;
             goodQuantity = source.goodQuantity;
         }
@@ -216,6 +250,12 @@ public final class InMemoryDrawingDomain implements DrawingDomain {
                 plan.bypass = false;
                 plan.owner = null;
                 plan.activeGroup = null;
+                boolean groupInUse=plans.values().stream().anyMatch(other->other!=plan && !keys.contains(other.seed.key())
+                        && java.util.Objects.equals(other.productionGroup,plan.productionGroup));
+                if(!groupInUse && plan.productionGroup!=null){
+                    replaceReturnSheet(plan,List.of());
+                    postedReturnSheets.remove(plan.productionGroup);
+                }
                 plan.productionGroup = null;
                 plan.goodPlace = null;
                 plan.returns = List.of();
@@ -276,6 +316,11 @@ public final class InMemoryDrawingDomain implements DrawingDomain {
 
     @Override
     public synchronized Reply<Snapshot> execute(Session session, PlanKey key, Command command) {
+        return execute(session,key,command,(inputs,quantity)->List.of());
+    }
+
+    public synchronized Reply<Snapshot> execute(Session session,PlanKey key,Command command,
+            java.util.function.BiFunction<List<Input>,BigDecimal,List<MaterialReturn>> automatic) {
         if (!validSession(session)) return error(401, "INVALID_SESSION");
         if (!inScope(session, key)) return error(403, "PLAN_OUT_OF_SCOPE");
         Plan plan = plans.get(key);
@@ -345,7 +390,13 @@ public final class InMemoryDrawingDomain implements DrawingDomain {
             if (command.action() != Action.DRAW_START && command.action() != Action.DRAW_FINISH) return error(422,"UNEXPECTED_GOOD_PLACE");
             plan.goodPlace = command.goodPlace();
         }
-        if (command.action() == Action.DRAW_START || command.action() == Action.DRAW_FINISH) plan.returns = command.returns();
+        if (command.action() == Action.DRAW_START || command.action() == Action.DRAW_FINISH) {
+            plan.returns = command.returns();
+            if(command.action()==Action.DRAW_FINISH)
+                plan.automaticReturns=List.copyOf(automatic.apply(plan.drawingInputs,plan.goodQuantity));
+            replaceReturnSheet(plan,plan.returns);
+            adjustReturnStock(key,plan.automaticReturns,1,true);
+        }
         record(plan, session, command.action(), null, null, null);
         Snapshot snapshot = plan.snapshot();
         plan.receipts.put(request, new Receipt(command, snapshot));
@@ -481,6 +532,7 @@ public final class InMemoryDrawingDomain implements DrawingDomain {
         if(result.status()!=200) { groups.remove(id);return result; }
         var saved=List.copyOf(returns);
         for(var key:keys) plans.get(key).returns=saved;
+        replaceReturnSheet(plans.get(keys.iterator().next()),saved);
         nativeStarts.put(receiptKey,new NativeStart(List.copyOf(rows),saved,result.value()));
         return result;
     }
@@ -500,14 +552,15 @@ public final class InMemoryDrawingDomain implements DrawingDomain {
     }
 
     public synchronized Reply<GroupView> executeGroup(Session session, String id, GroupCommand command) {
-        return executeGroup(session,id,command,false);
+        return executeGroup(session,id,command,false,()->List.of());
     }
 
-    public synchronized Reply<GroupView> executeGrid(Session session,String id,GroupCommand command) {
-        return executeGroup(session,id,command,true);
+    public synchronized Reply<GroupView> executeGrid(Session session,String id,GroupCommand command,
+            java.util.function.Supplier<List<MaterialReturn>> automatic) {
+        return executeGroup(session,id,command,true,automatic);
     }
 
-    private Reply<GroupView> executeGroup(Session session,String id,GroupCommand command,boolean checkedGrid) {
+    private Reply<GroupView> executeGroup(Session session,String id,GroupCommand command,boolean checkedGrid,java.util.function.Supplier<List<MaterialReturn>> finishReceipts) {
         if (!validSession(session)) return error(401, "INVALID_SESSION");
         var group = groups.get(id);
         if (group == null) return error(404, "GROUP_NOT_FOUND");
@@ -526,7 +579,7 @@ public final class InMemoryDrawingDomain implements DrawingDomain {
         command = new GroupCommand(command.action(), command.requestId(), group.members().stream().filter(lines::containsKey).map(key -> {
             var line = lines.get(key);
             return new GroupLine(key, line.expectedVersion(), normalized(line.inputs()), normalized(line.goodQty()), line.confirmSkip(),line.goodPlace());
-        }).toList());
+        }).toList(),command.basis());
         var request = new GroupRequest(id, new RequestKey(session.terminal(), command.requestId()));
         var receipt = groupReceipts.get(request);
         if (receipt != null) {
@@ -596,6 +649,12 @@ public final class InMemoryDrawingDomain implements DrawingDomain {
                         updated.groupResult.movementId(), updated.groupResult.movementLine());
             }
             updatedPlans.put(line.key(), updated);
+        }
+        if(checkedGrid && command.action()==GroupAction.DRAW_FINISH) {
+            var first=command.members().get(0).key();
+            var plan=updatedPlans.get(first);
+            plan.automaticReturns=List.copyOf(finishReceipts.get());
+            adjustReturnStock(first,plan.automaticReturns,1,true);
         }
         var result = groupView(group, updatedPlans, updatedStock);
         sharedStock = Map.copyOf(updatedStock);
@@ -737,9 +796,9 @@ public final class InMemoryDrawingDomain implements DrawingDomain {
     }
 
     private static boolean validReturn(MaterialReturn row,boolean finishing) {
-        return row!=null && present(row.warehouse()) && present(row.location()) && present(row.material())
+        return row!=null && present(row.warehouse()) && ("013".equals(row.warehouse()) || present(row.location())) && present(row.material())
                 && positive(row.thickness()) && positive(row.width()) && positive(row.length())
-                && row.quantity()!=null && (finishing ? positive(row.quantity()) : row.quantity().signum()>=0);
+                && row.quantity()!=null && (finishing && !"013".equals(row.warehouse()) ? row.quantity().compareTo(BigDecimal.ONE)>=0 : row.quantity().signum()>=0);
     }
 
     private record ReturnEdit(PlanKey key, long version, List<MaterialReturn> lines) {}
@@ -769,6 +828,7 @@ public final class InMemoryDrawingDomain implements DrawingDomain {
                 member.version++;
             }
         }
+        replaceReturnSheet(plan,edit.lines());
         returnReceipts.put(receipt,edit);
         return ok(plan.snapshot());
     }
@@ -827,7 +887,7 @@ public final class InMemoryDrawingDomain implements DrawingDomain {
     private static Command normalized(Command command) {
         var inputs = normalized(command.inputs());
         return new Command(command.action(), command.expectedVersion(), command.requestId(), command.stock(),
-                normalized(command.quantity()), command.scanToken(), inputs, command.returns(),command.goodPlace());
+                normalized(command.quantity()), command.scanToken(), inputs, command.returns(),command.goodPlace(),command.basis());
     }
 
     private static List<Input> normalized(List<Input> inputs) {
