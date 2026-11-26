@@ -12,14 +12,14 @@ const messages:Record<string,string>={
   FINISHED_WORK_ORDER:'작업완료된 건이 있으므로 자재투입 불가능합니다.',
   ISSUE_WAREHOUSE_REQUIRED:'투입창고가 설정되지 않았습니다. 환경설정을 확인하십시오.',
 }
-type Props={order?:string;rows:GroupPick[];code?:string;onRows:(rows:GroupPick[])=>void;onClose:()=>void;onExpired:()=>void}
-export default function GroupMaterialScan({order,rows,code,onRows,onClose,onExpired}:Props){
+type Props={focus?:string;order?:string;rows:GroupPick[];code?:string;onRows:(rows:GroupPick[])=>void;onClose:()=>void;onExpired:()=>void}
+export default function GroupMaterialScan({focus,order,rows,code,onRows,onClose,onExpired}:Props){
   const [ready,setReady]=useState(false)
   const [choices,setChoices]=useState<Stock[]>([])
   const [message,setMessage]=useState('')
   const found=useRef<Stock[]>([])
   const live=useRef<AbortController|null>(null)
-  const suffix=order?'?order='+encodeURIComponent(order):''
+  const suffix='?'+new URLSearchParams({...order && {order},...focus && {focus}})
   const headers:Record<string,string>=code?{'X-Pop-Work-Code':code}:{}
 
   async function read(response:Response){

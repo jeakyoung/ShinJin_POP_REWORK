@@ -24,9 +24,16 @@ public final class ProcessGroupController {
     public record Entry(String plan, Stage stage, BigDecimal good, BigDecimal bad,UUID groupId) {}
     public record ReturnRow(String id, String warehouse, String location, BigDecimal thickness, BigDecimal width, BigDecimal length, BigDecimal quantity, String item) {}
     public record CompletedReturns(List<String> plans, List<ReturnRow> rows) {}
-    public record ActiveInput(UUID groupId, boolean paused, int quantity) {}
+    public record ActiveInput(UUID groupId, boolean paused, int quantity, String startTime) {}
     public record CompletedInput(UUID groupId, List<String> plans, String lot, int quantity,List<GroupMaterialStock.Pick> scanned) {}
     public record View(Station setting, int revision, List<String> ready, List<String> started, List<Entry> results, GroupReturnCatalog.Material material, List<ReturnRow> returns, List<CompletedReturns> completedReturns, ActiveInput activeInput, List<CompletedInput> completedInputs, Map<String,BigDecimal> badTotals,List<GroupMaterialStock.Pick> scanned) {
+        public Map<String,List<String>> getFocusGroups(){
+            var rows=getOrders();
+            var groups=new LinkedHashMap<String,List<String>>();
+            for (var focused:rows)
+                groups.put(focused.plan(),rows.stream().filter(focused::matches).map(GroupPlanOrders.Row::plan).toList());
+            return groups;
+        }
         public List<GroupPlanOrders.Row> getOrders(){return GroupPlanOrders.rows(this);}
     }
     public record Command(Integer revision, String action, List<Line> lines, List<ReturnRow> returns, List<String> returnIds, UUID groupId, BigDecimal inputQuantity,List<GroupMaterialStock.Addition> inputs,List<String> orderScans) {}
@@ -126,6 +133,15 @@ public final class ProcessGroupController {
         return warehouses;
     }
 
+    private GroupReturnCatalog.Material focusedMaterial(View parent, HttpServletRequest request) {
+        var plan=request.getParameter("focus");
+        if (plan==null || parent.material()==null) return parent.material();
+        if (!parent.started().contains(plan) && !parent.ready().contains(plan)
+                && !scannedOrder(parent,request.getParameter("order")).plan().equals(plan))
+            throw error(HttpStatus.CONFLICT,"INVALID_SELECTION");
+        return parent.material().forPlan(plan);
+    }
+
     public record Place(String code,String name) {}
     public record Picker(List<Place> issue,List<Place> auxiliary,String initial,String quality,BigDecimal thickness,BigDecimal width) {}
     @GetMapping("/input-material")
@@ -133,7 +149,7 @@ public final class ProcessGroupController {
         var scope=scope(request,null);
         var parent=view(scope,request);
         var stores=issueWarehouses(parent,scope,request);
-        var spec=parent.material();
+        var spec=focusedMaterial(parent,request);
         return new Picker(stores.stream().map(w->new Place(w,w)).toList(),List.of(),stores.get(0),
                 spec==null?"":spec.grade(),spec==null?null:spec.thickness(),spec==null?null:spec.width());
     }
@@ -145,7 +161,7 @@ public final class ProcessGroupController {
         var first=stages.isEmpty()?"":Objects.toString(stages.get(0).processCode(),"");
         String code=requestedCode==null?first:requestedCode;
         if(!code.equals(first) && !actor.workCodes().containsValue(code))throw error(HttpStatus.FORBIDDEN,"WORK_CODE_SCOPE");
-        return stock.lookup(scope.terminal(),actor.terminal().factory(),scope.plant(),parent.setting().center(),stores,code,parent.material(),raw);
+        return stock.lookup(scope.terminal(),actor.terminal().factory(),scope.plant(),parent.setting().center(),stores,code,focusedMaterial(parent,request),raw);
     }
 
     @PostMapping("/input-material")
@@ -196,7 +212,7 @@ public final class ProcessGroupController {
             if (input.paused() == stop) throw error(HttpStatus.CONFLICT, "WRONG_GROUP_STATE");
             var next = new View(setting, before.revision() + 1, before.ready(), before.started(), before.results(),
                     before.material(), before.returns(), before.completedReturns(),
-                    new ActiveInput(input.groupId(), stop, input.quantity()), before.completedInputs(), before.badTotals(),before.scanned());
+                    new ActiveInput(input.groupId(), stop, input.quantity(), input.startTime()), before.completedInputs(), before.badTotals(),before.scanned());
             ledgers.put(scope, next);
             return next;
         }
@@ -238,13 +254,17 @@ public final class ProcessGroupController {
                 }
             }
             if (!before.started().isEmpty() || !ready.containsAll(selected)) throw error(HttpStatus.CONFLICT, "NOT_READY");
+            var chosen=before.getOrders().stream().filter(row -> selected.contains(row.plan())).toList();
+            var focus=request.getParameter("focus");
+            if ((focus!=null && !selected.contains(focus)) || chosen.stream().anyMatch(row -> !row.matches(chosen.get(0))))
+                throw error(HttpStatus.CONFLICT,"INVALID_SELECTION");
             returns = validateReturns(before,command,false);
             int quantity = inputQuantity(command.inputQuantity(), setting.inputQty(), setting.inputQty(), 0);
-            input = new ActiveInput(UUID.randomUUID(), false, quantity);
+            input = new ActiveInput(UUID.randomUUID(), false, quantity, java.time.Instant.now().toString());
             ready.removeAll(selected);
             started = List.copyOf(selected);
         } else if ("FINISH".equals(command.action())) {
-            if (!selected.equals(new HashSet<>(before.started()))) throw error(HttpStatus.CONFLICT, "STARTED_LIST_REQUIRED");
+            if ((request.getParameter("focus")!=null && !selected.contains(request.getParameter("focus"))) || !selected.equals(new HashSet<>(before.started()))) throw error(HttpStatus.CONFLICT, "STARTED_LIST_REQUIRED");
             // Older demo clients send only the full started list and its observed revision.
             if (command.inputQuantity() != null || command.groupId() != null) requireGroup(before, command);
             if (input == null || input.paused()) throw error(HttpStatus.CONFLICT, "GROUP_NOT_RUNNING");

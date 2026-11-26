@@ -22,6 +22,11 @@ const planId = (key: PlanKey) => key.date + '/' + key.sequence
 const lotLabel = (lot: BasketView['materials'][number]['lot']) => [lot.item, lot.lot, lot.warehouse, lot.position].join(' / ')
 const issueFromPick = ({stock,quantity}:Pick):Issue => ({lot:{item:stock.material,lot:stock.lot,warehouse:stock.warehouse,position:stock.location},quantity:String(quantity)})
 
+function openGroupKeys(view:BasketView) {
+  const groups=new Set(view.groups.filter(group=>group.terminal===view.actor.terminal).map(group=>group.id))
+  return view.work.filter(work=>work.groupId && groups.has(work.groupId) && work.phase!=='COMPLETED').map(work=>planId(work.plan.key))
+}
+
 function readPending(key: string): Command | undefined {
   try {
     const raw = sessionStorage.getItem(key)
@@ -74,6 +79,7 @@ export default function WorkBasket({ actor,processSlot,workCode,onSessionExpired
   const [materialTarget, setMaterialTarget] = useState<{ id: string; key: PlanKey }>()
   const [materialReload,setMaterialReload]=useState(0)
   const [notice, setNotice] = useState('')
+  const scanAfterFinish=useRef(false)
   const [busy, setBusy] = useState(false)
   useLayoutEffect(()=>{
     const index=pendingLengthFocus.current
@@ -95,8 +101,7 @@ export default function WorkBasket({ actor,processSlot,workCode,onSessionExpired
     void loadBasket(process).then(next => {
       if (active) {
         setView(next)
-        const groups=new Set(next.groups.filter(g=>g.terminal===next.actor.terminal).map(g=>g.id))
-        const keys=next.work.filter(w=>w.groupId && groups.has(w.groupId) && w.phase!=='COMPLETED').map(w=>planId(w.plan.key))
+        const keys=openGroupKeys(next)
         setVisible(keys);setFocused(keys[0]??'')
         const last=next.work.find(w=>planId(w.plan.key)===keys.at(-1))
         if(last)setScanOrder(last.plan.order)
@@ -204,7 +209,8 @@ export default function WorkBasket({ actor,processSlot,workCode,onSessionExpired
           setPickedReturns([])
         }
         setNotice('삭제 되었습니다.')
-      } else if (command.action === 'SET_RETURN_QUANTITY' || command.action==='ADD_MANUAL_ISSUE' || command.action==='SAVE_RETURN_GRID') setNotice('')
+      } else if(command.action==='FINISH_BASKET' && process.slot)setNotice('')
+      else if (command.action === 'SET_RETURN_QUANTITY' || command.action==='ADD_MANUAL_ISSUE' || command.action==='SAVE_RETURN_GRID') setNotice('')
       else setNotice('처리 완료 · 버전 ' + result.revision)
       const parent=clearing && !result.groupId && process.slot?await refreshBasketParent(scanOrder,scanDetail,process):undefined
       const next=parent?.view??await loadBasket(process)
@@ -214,6 +220,10 @@ export default function WorkBasket({ actor,processSlot,workCode,onSessionExpired
           setVisible(ids);setFocused(ids[0]??'')
         }
         setView(next)
+        if(command.action==='FINISH_BASKET' && process.slot){
+          scanAfterFinish.current=true
+          setNotice('작업완료 되었습니다.')
+        }
         if(command.action==='SAVE_RETURN_GRID'){
           const updated=next.groups.find(g=>g.id===command.groupId)
           setPickedReturns([]);setHeldReturns(undefined);setReturnFocus(0)
@@ -229,8 +239,7 @@ export default function WorkBasket({ actor,processSlot,workCode,onSessionExpired
       if (error instanceof BasketApiError && error.status === 401) {
         onSessionExpired()
       } else {
-        const staleMaterial=clearFailed && error.message==='STALE_REVISION'
-        setNotice(staleMaterial?'다른 작업에서 자재가 변경되었습니다. 다시 조회한 목록을 확인하십시오.':
+        setNotice(error instanceof BasketApiError && error.message==='STALE_REVISION'?'다른 작업에서 자재가 변경되었습니다. 다시 조회한 목록을 확인하십시오.':
           error instanceof BasketApiError && error.message==='ISSUE_SEQUENCE_CONFLICT'?'TPR601M 0 INSERT ERROR':String(error))
         if (error instanceof BasketApiError && [400, 403, 404, 409, 422].includes(error.status)) {
           clearPending(command)
@@ -360,7 +369,7 @@ export default function WorkBasket({ actor,processSlot,workCode,onSessionExpired
       })
     }
   }
-  const returnsLive=!!group?.startedAt && (row?.phase==='STARTED' || row?.phase==='PAUSED')
+  const returnsLive=!!group?.startedAt && (row?.phase==='STARTED' || row?.phase==='PAUSED' || row?.phase==='COMPLETED')
   const liveReturnGrid=returnsLive && !returnDrafts
   function nativeReturns():ReturnLine[]{
     if(liveReturnGrid && detailsBound)return group!.productionReturns.map(r=>({...r.line,material:r.line.material,sequence:r.sequence,
@@ -464,6 +473,17 @@ export default function WorkBasket({ actor,processSlot,workCode,onSessionExpired
     scanPending.current=false
     setModal(undefined)
   }
+  function closeNotice(){
+    setNotice('')
+    if(!scanAfterFinish.current || !view)return
+    scanAfterFinish.current=false
+    const keys=openGroupKeys(view)
+    setVisible(keys);setFocused(keys[0]??'');setChecked([])
+    excludedPlans.current.clear()
+    setDetailsBound(false);setIssues([]);setReturns([]);setDimensions({});setAmounts({})
+    setScanOrder('');setScanDetail('')
+    void openScanner()
+  }
   const applyScan=async()=>{
     if(process.slot){
       if(list.length){setScan('');setNotice('스캔된 데이터가 존재합니다.\n확인하십시오.');return}
@@ -548,7 +568,10 @@ export default function WorkBasket({ actor,processSlot,workCode,onSessionExpired
       <Tool code={paused?'RESTART':'STOP'} label={paused?'재시작':'작업중단'} color="yellow" disabled={locked||(!running&&!paused)} onClick={()=>setConfirmation({text:paused?'재시작 하시겠습니까?':'작업중단 하시겠습니까?',yes:()=>void submit(paused?'RESUME_BASKET':'PAUSE_BASKET')})}/>
       <Tool code="END" label="작업 완료" color="orange" disabled={locked||!running} onClick={()=>setConfirmation({text:'작업완료 하시겠습니까?',yes:()=>void submit('FINISH_BASKET')})}/>
       <Tool code="PLAN" label="생산계획" onClick={()=>setModal('plan')}/>
-      <Tool code="DELETE" label="일괄삭제" color="orange" disabled={locked||!list.length} onClick={()=>setConfirmation({text:'작업지시 번호를 일괄삭제 하시겠습니까?',yes:()=>void submit('DELETE_UNFINISHED')})}/>
+      <Tool code="DELETE" label="일괄삭제" color="orange" disabled={locked||!list.length} onClick={()=>{
+        if(anyComplete){setNotice('작업완료된 건이 존재합니다. 확인하십시오.');return}
+        setConfirmation({text:'작업지시 번호를 일괄 삭제 하시겠습니까?',yes:()=>void submit('DELETE_UNFINISHED')})
+      }}/>
       <Tool code="PRINT" label="프린트" color="green"/></header>
     <div className="prod-middle"><div className="prod-tables"><div className="prod-scroll"><table aria-label="조회 목록과 작업 선택"><colgroup>{[50,105,90,60,60,75,60,60,60,60,60,70,70,100,100].map((width,i)=><col key={i} style={{width}}/>)}</colgroup><thead><Head headers={['선택','작업그룹번호','재질명','두께','폭','길이','수주','생산','잔량','불량','배치','시작시간','선택삭제','창고명','로케이션명']}/></thead>
       <tbody>{list.map((r,index)=>{const id=planId(r.plan.key),g=view.groups.find(v=>v.id===r.groupId);return <tr key={id} aria-current={row===r} onClick={()=>{focusPlan(id);checkRow(r)}}>
@@ -604,8 +627,8 @@ export default function WorkBasket({ actor,processSlot,workCode,onSessionExpired
     {modal==='plan' && <ProcessPlans workCode={workCode} initial="choose" actor={JSON.stringify([actor.terminal,actor.worker])} parentPlans={list.map(r=>r.plan.key)}
       parentQualities={list.map(r=>r.plan.columns?.quality??'')} onClose={()=>setModal(undefined)} onAttached={()=>{}} onSessionExpired={onSessionExpired} source="frmProcess3"/>}
     {confirmation && <Pop label="확인" kind="rev-prompt" onClose={()=>setConfirmation(undefined)}><p>{confirmation.text}</p><footer><button type="button" onClick={()=>{setConfirmation(undefined);confirmation.yes()}}>예</button><button type="button" onClick={()=>setConfirmation(undefined)}>아니오</button></footer></Pop>}
-    {notice && !materialTarget && <Dialog name="작업 안내" width={683} height={376} close={()=>setNotice('')}>
-      <div className="wp-message"><p>{notice}</p><button type="button" onClick={()=>setNotice('')}>확인</button></div></Dialog>}
+    {notice && !materialTarget && <Dialog name="작업 안내" width={683} height={376} close={closeNotice}>
+      <div className="wp-message"><p>{notice}</p><button type="button" onClick={closeNotice}>확인</button></div></Dialog>}
     {pending && <button type="button" className="prod-status" disabled={busy||!view.canWrite} onClick={()=>void submit()}>같은 요청 재시도</button>}
     {materialTarget && <BasketMaterialDialog process={process} groupId={materialTarget.id} revision={materialReload} canWrite={view.canWrite} locked={busy} message={notice} onClose={()=>{setNotice('');setMaterialTarget(undefined)}}
       onSessionExpired={onSessionExpired} onClear={(action,revision)=>void submit(action,{...materialTarget,revision})}/>}

@@ -18,10 +18,13 @@ ROOT = Path(__file__).resolve().parents[2]
 DATA = ROOT / "src/api/src/main/resources/demo"
 
 
-def fixture(directory,return_add=False,shared_clear=False):
+def fixture(directory,return_add=False,shared_clear=False,completed=False):
     sites = json.loads((DATA / "basket-stock-picker.json").read_text(encoding="utf-8"))
     columns = json.loads((DATA / "basket-plan-columns.json").read_text(encoding="utf-8"))
     menu=json.loads((ROOT/"tools/demo-dataset/process-003-write.json").read_text(encoding="utf-8"))
+    if completed:
+        for terminal in menu["terminals"]:
+            terminal["workers"].append(dict(id="QA-SECOND",name="검증 작업자",department="검증"))
     for terminal in ("DEMO-A","DEMO-A2"):
         menu["stations"][terminal]["slots"]=[1,2]
         menu["menuProcesses"][terminal]["slots"]["2"]="002"
@@ -196,11 +199,12 @@ def main():
     parser.add_argument("--return-add",action="store_true",help="Exercise the native return-row and preset length sequence")
     parser.add_argument("--shared-clear",action="store_true",help="Exercise ComBasketAdd with two orders in the same group")
     parser.add_argument("--subform-focus",action="store_true",help="Exercise nested location and return-preset cancellation on a physical keyboard")
+    parser.add_argument("--completed",action="store_true",help="Verify final material quantities, scanner re-entry and two workers with overlapping edits")
     args=parser.parse_args()
     if args.capture:args.capture.mkdir(exist_ok=True,parents=True)
     with tempfile.TemporaryDirectory() as tmp:
         directory=Path(tmp)
-        fixture(directory,args.return_add,args.shared_clear)
+        fixture(directory,args.return_add,args.shared_clear,args.completed)
         with socket.socket() as sock:
             sock.bind(("127.0.0.1",0));port=sock.getsockname()[1]
         base="http://127.0.0.1:"+str(port)
@@ -226,7 +230,8 @@ def main():
                     from return_add import verify_return_add
                     from shared_clear import verify_shared_clear
                     from subform_focus import verify_focus
-                    run=verify_focus if args.subform_focus else verify_shared_clear if args.shared_clear else verify_return_add if args.return_add else verify_reentry if args.reentry else verify
+                    from completed import verify_completed
+                    run=verify_completed if args.completed else verify_focus if args.subform_focus else verify_shared_clear if args.shared_clear else verify_return_add if args.return_add else verify_reentry if args.reentry else verify
                     run(browser,base,"DEMO-A","2030-01-01","1",(1280,800),args.capture)
                     run(browser,base,"DEMO-A2","2030-01-02","2",(1024,768),args.capture)
                     browser.close()
