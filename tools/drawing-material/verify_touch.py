@@ -55,7 +55,7 @@ def verify(page, base):
     else:
         expect(quantity).to_have_text("2")
     button("투입자재 추가").tap()
-    picker = page.get_by_role("dialog", name="투입자재 선택")
+    picker = page.get_by_role("dialog", name="투입자재 위치 선택")
     expect(picker).to_be_visible()
     button("닫기", picker).tap()
     assert page.request.get(base + key).json()["version"] == initial

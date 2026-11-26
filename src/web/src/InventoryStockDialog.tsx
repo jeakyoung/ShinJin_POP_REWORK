@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Balance, InventoryView } from './inventoryApi'
 import { InventoryDialog, InventoryMessage, InventoryPad, Lookup } from './InventoryDialogs'
 import { locationName, stockKey } from './inventoryApi'
@@ -29,6 +29,10 @@ export default function InventoryStockDialog({ view, onApply, onClose }: {
   const [pad,setPad] = useState<string>()
   const [message,setMessage] = useState('')
   const scanInput = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    if (scanMode === 'location' && !message) scanInput.current?.focus()
+  }, [scanMode, message])
+
   const qualities = quality === '014' || quality === '015' ? ['014','015','019'] : quality ? [quality] : []
   const itemFor = (row: Balance) => catalog.items.find(spec => spec.code === row.lot.item)
   const candidates = view.balances.filter(row => {

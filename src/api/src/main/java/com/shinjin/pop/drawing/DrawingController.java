@@ -82,6 +82,11 @@ public class DrawingController {
 
     private final Map<String, DisplayFields> display;
     private final List<StockFields> stockFields;
+    record ManualAnswer(String plan,String division,String warehouse,BigDecimal thickness,BigDecimal width,String lot) {}
+    record ManualQuery(String role,String warehouse,BigDecimal thickness,BigDecimal width,String raw,String code) {}
+    record ManualScope(Session actor,PlanKey key,List<StockFields> stock,List<String> issue,List<String> auxiliary) {}
+    private final List<ManualAnswer> manualAnswers;
+    private final Map<List<String>,String> fixedIssue = new java.util.concurrent.ConcurrentHashMap<>();
     private final Map<PlanKey,Seed> listedSeeds = new java.util.concurrent.ConcurrentHashMap<>();
 
     DrawingController(InMemoryDrawingDomain domain, DrawingReturnPlaces returnPlaces, DrawingGoodPlaces goodPlaces,
@@ -90,6 +95,10 @@ public class DrawingController {
             org.springframework.core.io.Resource dataset,
             @org.springframework.beans.factory.annotation.Value("${shinjin.demo.drawing-stock:classpath:demo/drawing-stock.json}")
             org.springframework.core.io.Resource stockDataset) throws java.io.IOException {
+        try (var input = new org.springframework.core.io.ClassPathResource("demo/drawing-manual-answers.json").getInputStream()) {
+            manualAnswers = tools.jackson.databind.json.JsonMapper.builder().build().readValue(input,
+                    new tools.jackson.core.type.TypeReference<List<ManualAnswer>>() {});
+        }
         this.domain = domain;
         this.returnPlaces = returnPlaces;
         this.goodPlaces = goodPlaces;
@@ -349,19 +358,93 @@ public class DrawingController {
                     "quality", spec == null ? "" : spec.material(), "thickness", spec == null ? "" : spec.thickness().toString(),
                     "width", spec == null ? "" : spec.width().toString()));
         }
+        return ResponseEntity.ok(scanStocks(actor,key,scoped,warehouses,java.util.Set.of(lot),spec));
+    }
+
+    private List<ScanStock> scanStocks(Session actor, PlanKey key, List<StockFields> scoped, List<String> warehouses,
+            java.util.Set<String> lots, DisplayFields spec) {
         var balances = domain.inputBalances(actor, key);
         var seed = listedSeeds.get(key);
-        var rows = scoped.stream().filter(s -> seed != null && s.item().equals(seed.item()) && warehouses.contains(s.warehouse())
-                && s.lot().equals(lot)).map(s -> {
+        return scoped.stream().filter(s -> seed != null && s.item().equals(seed.item()) && warehouses.contains(s.warehouse())
+                && lots.contains(s.lot())).map(s -> {
             var available = balances.getOrDefault(new StockKey(s.lot(), BINS.get(s.warehouse()), s.item(), s.location()), BigDecimal.ZERO);
             return new ScanStock(s.warehouse(), s.location() == null ? "" : s.location(), s.lot(), s.item(),
                     s.thickness(), s.width(), s.length(), available, spec == null ? "" : spec.material());
         }).filter(row -> row.available().signum() > 0).toList();
-        return ResponseEntity.ok(rows);
     }
 
     record ScanStock(String warehouse, String location, String lot, String material, BigDecimal thickness,
                      BigDecimal width, BigDecimal length, BigDecimal available, String quality) {}
+
+    private ManualScope manualScope(HttpServletRequest request,String plan) {
+        var actor=session(request);
+        var key=parse(plan);
+        if(key==null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
+        var detail=domain.get(actor,key);
+        if(detail.status()!=200) throw new ResponseStatusException(HttpStatus.valueOf(detail.status()));
+        var rows=stockFields.stream().filter(s->s.factory().equals(key.factory()) && s.site().equals(key.site())).toList();
+        var roles=terminalSettings.pinnedWarehouseRoles(request);
+        var issue=roles.map(v->v.getOrDefault("issue",List.of())).orElseGet(()->rows.stream().map(StockFields::warehouse).distinct().toList());
+        if(issue.isEmpty()) throw new ResponseStatusException(HttpStatus.CONFLICT);
+        return new ManualScope(actor,key,rows,issue,roles.map(v->v.getOrDefault("auxiliary",List.of())).orElse(List.of()));
+    }
+
+    private List<Map<String,String>> placeList(List<String> codes) {
+        return codes.stream().map(code->Map.of("code",code,"name",code)).toList();
+    }
+
+    @GetMapping("/manual-material")
+    Object manualMaterial(HttpServletRequest request,@org.springframework.web.bind.annotation.RequestParam String plan) {
+        var s=manualScope(request,plan); var spec=display.get(plan);
+        var initial=fixedIssue.getOrDefault(List.of(s.actor().terminal(),s.key().factory()),s.issue().get(0));
+        return Map.of("issue",placeList(s.issue()),"auxiliary",placeList(s.auxiliary()),"initial",s.issue().contains(initial)?initial:"",
+                "quality",spec==null?"":spec.material(),"thickness",spec==null?"":spec.thickness().toString(),"width",spec==null?"":spec.width().toString());
+    }
+
+    private void validateManualPlace(ManualScope s,String role,String code) {
+        var allowed="issue".equals(role)?s.issue():"auxiliary".equals(role)?s.auxiliary():List.<String>of();
+        if(code==null || !allowed.contains(code)) throw new ResponseStatusException(HttpStatus.FORBIDDEN);
+    }
+
+    @org.springframework.web.bind.annotation.PutMapping("/manual-material/fixed")
+    Object manualFixed(HttpServletRequest request,@org.springframework.web.bind.annotation.RequestParam String plan,@RequestBody ManualQuery query) {
+        var s=manualScope(request,plan);
+        validateManualPlace(s,query.role(),query.code());
+        fixedIssue.put(List.of(s.actor().terminal(),s.key().factory()),query.code());
+        return Map.of("code",query.code());
+    }
+
+    @PostMapping("/manual-material/stock")
+    Object manualStock(HttpServletRequest request,@org.springframework.web.bind.annotation.RequestParam String plan,@RequestBody ManualQuery query) {
+        var s=manualScope(request,plan);
+        if(query.warehouse()==null || query.warehouse().isEmpty())return List.of();
+        validateManualPlace(s,query.role(),query.warehouse());
+        return manualRows(s,plan,"SELECT",query.warehouse(),query.thickness(),query.width());
+    }
+
+    private List<ScanStock> manualRows(ManualScope s,String plan,String division,String warehouse,BigDecimal thickness,BigDecimal width) {
+        var lots=manualAnswers.stream().filter(a->a.plan().equals(plan) && a.division().equals(division) && a.warehouse().equals(warehouse)
+                && thickness!=null && a.thickness().compareTo(thickness)==0 && width!=null && a.width().compareTo(width)==0)
+                .map(ManualAnswer::lot).collect(java.util.stream.Collectors.toSet());
+        return scanStocks(s.actor(),s.key(),s.stock(),List.of(warehouse),lots,display.get(plan));
+    }
+
+    @PostMapping("/manual-material/remnants")
+    Object manualRemnants(HttpServletRequest request,@org.springframework.web.bind.annotation.RequestParam String plan) {
+        var s=manualScope(request,plan); var spec=display.get(plan);
+        var codes=java.util.Set.of("007","014","015","019","024","025","026","029","034","035","038","039");
+        boolean eligible=spec!=null && spec.qualityCode()!=null && codes.contains(spec.qualityCode());
+        var warehouse=s.key().site().equals("000001")?"010":"210";
+        return Map.of("eligible",eligible,"rows",eligible?manualRows(s,plan,"SELECT2",warehouse,BigDecimal.valueOf(3),BigDecimal.valueOf(3)):List.of());
+    }
+
+    @PostMapping("/manual-material/location")
+    Object manualLocation(HttpServletRequest request,@org.springframework.web.bind.annotation.RequestParam String plan,@RequestBody ManualQuery query) {
+        var s=manualScope(request,plan);
+        if(!s.issue().contains(query.warehouse()))return List.of();
+        return placeList(s.stock().stream().filter(f->f.warehouse().equals(query.warehouse()) && f.location()!=null && f.location().equals(query.raw()))
+                .map(StockFields::location).distinct().toList());
+    }
 
     @GetMapping("/active")
     List<String> active(HttpServletRequest request) {

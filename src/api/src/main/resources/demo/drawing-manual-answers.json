@@ -1,0 +1,138 @@
+[
+  {
+    "plan": "F1/000001/20261125/1",
+    "division": "SELECT",
+    "warehouse": "010",
+    "thickness": 14,
+    "width": 245,
+    "lot": "REM-A"
+  },
+  {
+    "plan": "F1/000001/20261125/1",
+    "division": "SELECT",
+    "warehouse": "010",
+    "thickness": 12,
+    "width": 240,
+    "lot": "REM-A"
+  },
+  {
+    "plan": "F1/000001/20261125/1",
+    "division": "SELECT",
+    "warehouse": "018",
+    "thickness": 14,
+    "width": 245,
+    "lot": "P1-A"
+  },
+  {
+    "plan": "F1/000001/20261125/1",
+    "division": "SELECT",
+    "warehouse": "018",
+    "thickness": 12,
+    "width": 240,
+    "lot": "P1-A"
+  },
+  {
+    "plan": "F1/000001/20261125/1",
+    "division": "SELECT",
+    "warehouse": "012",
+    "thickness": 14,
+    "width": 245,
+    "lot": "SCAN-008"
+  },
+  {
+    "plan": "F1/000001/20261125/1",
+    "division": "SELECT",
+    "warehouse": "012",
+    "thickness": 12,
+    "width": 240,
+    "lot": "SCAN-008"
+  },
+  {
+    "plan": "F1/000001/20261125/2",
+    "division": "SELECT",
+    "warehouse": "010",
+    "thickness": 16,
+    "width": 300,
+    "lot": "REM-B"
+  },
+  {
+    "plan": "F1/000001/20261125/2",
+    "division": "SELECT",
+    "warehouse": "010",
+    "thickness": 7,
+    "width": 7,
+    "lot": "REM-B"
+  },
+  {
+    "plan": "F1/000001/20261125/2",
+    "division": "SELECT2",
+    "warehouse": "010",
+    "thickness": 3,
+    "width": 3,
+    "lot": "REM-B"
+  },
+  {
+    "plan": "F1/000001/20261125/2",
+    "division": "SELECT",
+    "warehouse": "018",
+    "thickness": 16,
+    "width": 300,
+    "lot": "P1-B"
+  },
+  {
+    "plan": "F1/000001/20261125/2",
+    "division": "SELECT",
+    "warehouse": "018",
+    "thickness": 7,
+    "width": 7,
+    "lot": "P1-B"
+  },
+  {
+    "plan": "F1/000001/20261125/4",
+    "division": "SELECT",
+    "warehouse": "010",
+    "thickness": 8,
+    "width": 140,
+    "lot": "REM-D"
+  },
+  {
+    "plan": "F1/000001/20261125/4",
+    "division": "SELECT",
+    "warehouse": "018",
+    "thickness": 8,
+    "width": 140,
+    "lot": "P1-D"
+  },
+  {
+    "plan": "F2/000002/20261125/1",
+    "division": "SELECT",
+    "warehouse": "010",
+    "thickness": 3,
+    "width": 3,
+    "lot": "REM-E"
+  },
+  {
+    "plan": "F2/000002/20261125/1",
+    "division": "SELECT",
+    "warehouse": "010",
+    "thickness": 10,
+    "width": 200,
+    "lot": "REM-E"
+  },
+  {
+    "plan": "F2/000002/20261125/1",
+    "division": "SELECT",
+    "warehouse": "018",
+    "thickness": 3,
+    "width": 3,
+    "lot": "P1-E"
+  },
+  {
+    "plan": "F2/000002/20261125/1",
+    "division": "SELECT",
+    "warehouse": "018",
+    "thickness": 10,
+    "width": 200,
+    "lot": "P1-E"
+  }
+]
