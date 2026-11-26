@@ -195,6 +195,7 @@ def main():
     parser.add_argument("--reentry",action="store_true",help="Exercise parent deletion and returning from the production menu")
     parser.add_argument("--return-add",action="store_true",help="Exercise the native return-row and preset length sequence")
     parser.add_argument("--shared-clear",action="store_true",help="Exercise ComBasketAdd with two orders in the same group")
+    parser.add_argument("--subform-focus",action="store_true",help="Exercise nested location and return-preset cancellation on a physical keyboard")
     args=parser.parse_args()
     if args.capture:args.capture.mkdir(exist_ok=True,parents=True)
     with tempfile.TemporaryDirectory() as tmp:
@@ -224,7 +225,8 @@ def main():
                     from reentry import verify_reentry
                     from return_add import verify_return_add
                     from shared_clear import verify_shared_clear
-                    run=verify_shared_clear if args.shared_clear else verify_return_add if args.return_add else verify_reentry if args.reentry else verify
+                    from subform_focus import verify_focus
+                    run=verify_focus if args.subform_focus else verify_shared_clear if args.shared_clear else verify_return_add if args.return_add else verify_reentry if args.reentry else verify
                     run(browser,base,"DEMO-A","2030-01-01","1",(1280,800),args.capture)
                     run(browser,base,"DEMO-A2","2030-01-02","2",(1024,768),args.capture)
                     browser.close()

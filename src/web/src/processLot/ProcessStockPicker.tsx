@@ -82,7 +82,7 @@ export default function ProcessStockPicker({date,sequence,slot,source,scanned,on
     // The caller mounts one picker per authenticated plan and mode.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   },[path,suffix,manual])
-  useEffect(()=>{if(scan)inline.current?.focus()},[scan])
+  useEffect(()=>{if(scan&&!locScan)inline.current?.focus()},[scan,locScan])
   function choose(role: Role,code: string) {
     setLookup(undefined);setScan(false)
     void execute(async signal=>{
@@ -150,7 +150,7 @@ export default function ProcessStockPicker({date,sequence,slot,source,scanned,on
         disabled={!manual||busy} onClick={()=>{setMetric(m);setScan(false)}}>{spec[m]}</button></label>)}</small>
       {location&&<span className="pl-location-name">{location.name}</span>}
       <button type="button" className="pl-loc-button" aria-label="위치 바코드 스캔" disabled={busy}
-        onClick={()=>{setLocScan(true);setScan(false)}}/></h3>
+        onClick={()=>setLocScan(true)}/></h3>
         <div className="pl-table-scroll"><table className="pl-left"><colgroup>{[155,70,60,60,60,70,90].map((width,i)=><col key={i} style={{width}}/>)}</colgroup><thead><tr>{['소분류명','재질명','두께','폭','길이','재고수량','추가'].map(h=><th key={h}>{h}</th>)}</tr></thead>
         <tbody>{choices.map(s=><tr key={key(s)} aria-selected={focused===key(s)} onClick={()=>{setFocused(key(s));setScan(false)}}>{[s.name,s.quality,s.thickness,s.width,s.length,s.available].map((v,i)=><td key={i}>{v}</td>)}
         <td><button type="button" aria-label={s.warehouse+' '+s.location+' 추가'} onClick={()=>add(s)}>✔</button></td></tr>)}</tbody></table></div></section>

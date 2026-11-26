@@ -63,6 +63,7 @@ export default function WorkBasket({ actor,processSlot,workCode,onSessionExpired
   const [returnFocus,setReturnFocus]=useState(0)
   const [returnAmount,setReturnAmount]=useState<{index:number;rows:ReturnLine[];revision:number}>()
   const boardRef=useRef<HTMLElement>(null)
+  const pendingLengthFocus=useRef<number|null>(null)
   const [detailsBound,setDetailsBound]=useState(!processSlot)
   const [materialFocus,setMaterialFocus]=useState(0)
   const [dimensions,setDimensions]=useState<Record<string,string>>({})
@@ -74,6 +75,12 @@ export default function WorkBasket({ actor,processSlot,workCode,onSessionExpired
   const [materialReload,setMaterialReload]=useState(0)
   const [notice, setNotice] = useState('')
   const [busy, setBusy] = useState(false)
+  useLayoutEffect(()=>{
+    const index=pendingLengthFocus.current
+    if(index===null || busy || returnPad || notice)return
+    const cell=boardRef.current?.querySelector<HTMLButtonElement>('[aria-label="반납길이 '+(index+1)+'행"]')
+    if(cell && !cell.disabled){cell.focus({preventScroll:true});pendingLengthFocus.current=null}
+  },[busy,returnPad,notice,view])
 
   const lifetime = useRef({ active: false })
   const initialScan = useRef<ReturnType<typeof setTimeout>|undefined>(undefined)
@@ -210,6 +217,7 @@ export default function WorkBasket({ actor,processSlot,workCode,onSessionExpired
         if(command.action==='SAVE_RETURN_GRID'){
           const updated=next.groups.find(g=>g.id===command.groupId)
           setPickedReturns([]);setHeldReturns(undefined);setReturnFocus(0)
+          if(pendingLengthFocus.current!==null)pendingLengthFocus.current=0
           setReturnDrafts(updated?.startedAt?undefined:updated?.productionReturns.map(r=>({...r.line,material:r.material,sequence:r.sequence,length:String(r.line.length),quantity:String(r.line.quantity)})))
         }
       }
@@ -337,6 +345,7 @@ export default function WorkBasket({ actor,processSlot,workCode,onSessionExpired
   }
   function focusPlan(id:string){
     returnContext.current++
+    pendingLengthFocus.current=null
     setDetailsBound(true);setDimensions({});setManual(undefined);setIssues([]);setPickedIssues([]);setMaterialFocus(0)
     setReturns([]);setPickedReturns([]);setHeldReturns(undefined);setReturnDrafts(undefined);setReturnFocus(0)
     setFocused(id)
@@ -411,17 +420,18 @@ export default function WorkBasket({ actor,processSlot,workCode,onSessionExpired
     if(!pad || !row)return
     const line=pad.rows[pad.index]
     if(!line)return
+    pendingLengthFocus.current=pad.index
     const length=Number(value??line.length)
     const rows=[...pad.rows]
     rows[pad.index]={...line,length:String(length)}
     storeReturnRows(rows)
-    requestAnimationFrame(()=>boardRef.current?.querySelector<HTMLButtonElement>('[aria-label="반납길이 '+(pad.index+1)+'행"]')?.focus({preventScroll:true}))
     if(!length || line.material?.thickness===0 || line.material?.width===0)return
     const mount=lifetime.current
     const context=returnContext.current
     setBusy(true)
     try{
-      const result=await lookupBasketReturns(row.plan.key,{...pad.input,position:line.lot.position,length,row:line.material},process)
+      const existing=group?.productionReturns.find(r=>r.sequence===line.sequence && lotLabel(r.line.lot)===lotLabel(line.lot))
+      const result=await lookupBasketReturns(row.plan.key,{...pad.input,position:line.lot.position,length,row:line.material??existing?.material},process)
       if(!mount.active || context!==returnContext.current)return
       const material=result.at(-1)
       if(material)rows[pad.index]={...rows[pad.index],lot:material.lot,material}

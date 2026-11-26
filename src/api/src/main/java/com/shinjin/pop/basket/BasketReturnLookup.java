@@ -63,7 +63,8 @@ final class BasketReturnLookup {
                     || r.thickness()==null || r.width()==null || !basket.recognizesReturn(request,v,focus,r))
                 throw error(HttpStatus.UNPROCESSABLE_ENTITY,"RETURN_ROW_CONTEXT");
             t=r.thickness();w=r.width();
-            if(r.qualityCode()!=null){grade=r.qualityCode();name=r.qualityName();}
+            if(r.qualityCode()!=null)grade=r.qualityCode();
+            name=r.qualityName();
         }
         List<DisplayLot> result=new ArrayList<>();
         for(var a:answers){
@@ -78,7 +79,9 @@ final class BasketReturnLookup {
                 if(resolve && a.lengths().stream().anyMatch(n->in.length().compareTo(BigDecimal.valueOf(n))==0))
                     for(String code:a.materialCodes())item=code; // the native loop retains the last returned material
                 String lot=resolve && in.row()!=null?in.row().lot().lot():"";
-                var d=new DisplayLot(new Lot(item,lot,a.warehouse(),p.code()),a.warehouseName(),p.name(),name,t,w,resolve?in.length():BigDecimal.ZERO,grade);
+                var prior=resolve?in.row():null;
+                var d=new DisplayLot(new Lot(item,lot,a.warehouse(),p.code()),prior==null?a.warehouseName():prior.warehouseName(),
+                        prior==null?p.name():prior.locationName(),name,t,w,resolve?in.length():BigDecimal.ZERO,prior==null?grade:prior.qualityCode());
                 result.add(d);
                 basket.rememberReturn(request,v.actor(),focus.plan().key(),d);
             }
