@@ -1,0 +1,11 @@
+@media (min-width:801px) {
+  main.pop-shell:has(> :is(.rf-shell,.final-production,.repair-history,.supplies-form)) {
+    height:100dvh; padding:0; display:flex; flex-direction:column; overflow:hidden;
+  }
+  .pop-shell:has(> :is(.rf-shell,.final-production,.repair-history,.supplies-form)) > .authenticated-bar {margin-bottom:0;flex:none;}
+  .pop-shell > :is(.rf-shell,.final-production,.repair-history,.supplies-form) {
+    margin:0; flex:1; min-height:0; display:flex; flex-direction:column; overflow:hidden;
+  }
+  .pop-shell :is(.repair-history,.supplies-form,.final-production) > [role=status]:empty {margin:0;padding:0;height:0;}
+  .pop-shell :is(.supplies-grid,.repair-grid,.final-production-grid) {scrollbar-gutter:stable;}
+}

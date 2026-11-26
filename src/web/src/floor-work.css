@@ -1,0 +1,24 @@
+.floor-work fieldset { min-inline-size: 0; margin-block: .6rem; padding: .75rem; border: 1px solid #aebcc8; }
+.floor-work legend { font-weight: 700; padding-inline: .35rem; }
+.floor-work :is(button, select, input:not([type=checkbox]), summary) { min-height: 48px; }
+.floor-work :is(button, select, summary) { touch-action: manipulation; }
+.floor-work label:has(input[type=checkbox]) { display: inline-flex; align-items: center; min-height: 48px; gap: .45rem; padding-inline: .35rem; }
+.floor-work .floor-confirm { max-width: min(30rem, 90vw); padding: 1.4rem; }
+.floor-work .floor-confirm::backdrop { background: rgb(14 30 45 / 55%); }
+.floor-work .floor-confirm button { min-width: 6rem; margin-inline-end: .5rem; }
+.floor-work .floor-table { max-width: 100%; overflow-x: auto; }
+.floor-work .floor-photo-choices { display: flex; flex-wrap: wrap; gap: .5rem; }
+.floor-work .floor-photo-choices button { display: grid; justify-items: center; }
+.floor-work .floor-photo-choices [aria-pressed=true] { outline: 3px solid currentColor; }
+.floor-work .floor-stage > button, .floor-work .floor-stage > .floor-confirm + button { min-height: 64px; min-width: 85px; }
+.floor-work .floor-stage > p:first-of-type { font-weight: 700; }
+.floor-work .floor-stage .table-scroll { max-width: 100%; overflow-x: auto; }
+.floor-work .floor-table th { white-space: nowrap; }
+.floor-work .floor-table td { padding: .45rem .65rem; }
+@media (max-width: 680px) {
+  .floor-work :is(fieldset, select, input) { max-width: 100%; box-sizing: border-box; }
+  .floor-work .floor-stage > button { margin-block: .25rem; }
+}
+.floor-work .floor-photo-view { width: min(94vw, 80rem); max-height: 94dvh; padding: .5rem; }
+.floor-work .floor-photo-view img { display: block; width: 100%; height: min(73dvh, 658px); object-fit: contain; }
+.floor-work .floor-photo-view button { width: 100%; min-height: 64px; }

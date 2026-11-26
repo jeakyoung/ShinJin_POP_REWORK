@@ -1,0 +1,52 @@
+{
+  "terminals": {
+    "DEMO-A": [
+      "EQ-A1",
+      "EQ-A2"
+    ],
+    "DEMO-B": [
+      "EQ-B1"
+    ],
+    "DEMO-A2": []
+  },
+  "machines": [
+    {
+      "id": "EQ-A1",
+      "name": "합성 설비 가"
+    },
+    {
+      "id": "EQ-A2",
+      "name": "합성 설비 나"
+    },
+    {
+      "id": "EQ-B1",
+      "name": "검증 설비 다"
+    }
+  ],
+  "callReasons": [
+    {
+      "id": "R-A",
+      "name": "합성 진동"
+    },
+    {
+      "id": "R-B",
+      "name": "합성 정지"
+    }
+  ],
+  "actions": [
+    {
+      "id": "A-A",
+      "name": "합성 점검"
+    },
+    {
+      "id": "A-B",
+      "name": "합성 교체"
+    }
+  ],
+  "scanEmployees": [
+    {
+      "id": "LAB-TECH",
+      "name": "시험 조치자"
+    }
+  ]
+}

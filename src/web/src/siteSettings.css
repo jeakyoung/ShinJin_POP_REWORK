@@ -1,0 +1,17 @@
+.site-fields { margin: min(32px,4dvh) var(--edge) min(28px,3dvh); display: grid; gap: 10px; }
+.site-fields button { background: white; color: black; display: flex; align-items: center; text-align: left;
+  height: min(60px,8dvh); padding: 0; border: 1px solid #888; border-radius: 0; }
+.site-fields strong { width: min(132px,22vw); padding: 8px 23px; border-right: 2px solid #ccc; }
+.site-fields span { padding: 4px 12px; }
+.site-fields [aria-pressed=true] span { background: #c0c0ff; }
+.site-tables { display: grid; flex: 1; grid-template-columns: minmax(0,1fr) minmax(0,1fr);
+  gap: min(20px,3vw); margin: 0 var(--edge) min(50px,6dvh); min-height: 72px; }
+.site-tables .eq-grid { border: none; }
+.site-tables .eq-grid th:first-child:not(:only-child) { width: 22%; }
+.eq-dialog.popid-dialog { width: 798px; height: 868px; }
+.popid-dialog .eq-info { margin-left: calc(var(--edge) + 10px); }
+.popid-dialog .popid-instruction { flex: 0 0 63px; margin: 6px 0 0; text-align:center; color:red; font-size: clamp(16px,2vw,21px); }
+.popid-dialog > .eq-grid th:first-child { width: 14.5%; }
+.popid-dialog > .eq-grid th:nth-child(2) { width: 13%; }
+.popid-dialog > .eq-grid th:nth-child(3) { width: 29%; }
+.settings-dialog .pop-touch-options button:empty { display: none; }

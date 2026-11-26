@@ -42,3 +42,150 @@ fieldset { min-width: 0; width: 100%; border: 0; margin: 0; padding: 0; display:
 
 .work-order-action label { flex: 0 1 12rem; }
 .work-order-transitions { margin: 0.75rem 0; align-items: center; }
+
+.pop-shell {
+  --pop-ink: #122c60;
+  --pop-menu: #9fb6de;
+  --pop-frame: #202941;
+  --pop-touch: 48px;
+  width: min(100%, 1584px);
+  margin: 0 auto;
+  padding: 0 clamp(8px, 1.3vw, 22px) 24px;
+  font-family: "Noto Sans KR", "Malgun Gothic", sans-serif;
+}
+.pop-shell > header { margin: 0 0 12px; min-height: 86px; padding: 12px 20px; background: var(--pop-frame); color: white; display:flex; align-items:center; flex-wrap:wrap; gap: 16px; }
+.pop-shell > header .system-name { color: #c7d8f4; font-size: 1.1rem; margin: 0; }
+.pop-shell > header h1 { margin:0; font-size:clamp(1.6rem,3vw,2.5rem); }
+.pop-shell > section { border-radius:4px; }
+.pop-shell .pop-nav { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,9rem),1fr)); gap:5px; }
+.pop-shell .pop-nav button { height:100%; min-height:var(--pop-touch); font-weight:700; }
+.pop-shell .pop-nav button[aria-pressed=false] { background:var(--pop-menu); color:var(--pop-ink); }
+.pop-shell .pop-nav button[aria-pressed=true] { background:var(--pop-ink); color:white; }
+.pop-shell :is(button, select, input:not([type="checkbox"], [type="radio"]), summary) { min-height:var(--pop-touch); }
+.pop-shell summary { align-content:center; cursor:pointer; }
+.pop-shell :is([aria-labelledby=results-title],[aria-labelledby=orders-title],[aria-labelledby=order-detail-title]) th { background:#e1e9f7; color:var(--pop-ink); }
+.pop-field { display:flex; align-items:flex-end; gap:4px; flex:1 1 14rem; min-width:0; }
+.pop-field label { min-width:0; }
+.pop-keypad { width:min(95vw,40rem); max-height:90vh; overflow:auto; border:2px solid var(--pop-frame); border-radius:6px; }
+.pop-keypad::backdrop { background:#18203699; }
+.pop-keypad output { display:block; padding:8px; min-height:42px; overflow-wrap:anywhere; background:#eef2f8; }
+.pop-keys,.pop-key-actions { display:grid; gap:4px; margin-top:8px; grid-template-columns:repeat(auto-fit,minmax(48px,1fr)); }
+.pop-keys.decimal { grid-template-columns:repeat(3,1fr); }
+.pop-key-actions { grid-template-columns:repeat(auto-fit,minmax(80px,1fr)); }
+
+.pop-shell:has(> .workplace-menu) { padding-inline: 0; background: #202941; }
+.pop-shell:has(> .workplace-menu) > header { margin-bottom: 0; }
+.pop-shell > .workplace-menu {
+  min-height: calc(100dvh - 86px); margin-bottom: 0; padding: 0 0 70px; border: 0; border-radius: 0; background: #202941;
+}
+.workplace-menu .session-header { margin: 0; padding: 12px 30px; }
+.workplace-menu .session-header :is(h2,p) { color: #d6e1fa; }
+.pop-categories { display: grid; grid-template-columns: repeat(5, minmax(0, 256px)); background: #1a2239; }
+.pop-categories button {
+  height: 100px; padding: 0; border-radius: 0; border-bottom: 5px solid transparent;
+  background: transparent; color: #6f6f6f; font-size: clamp(1.1rem, 4.14vw, 53px); font-weight: 400;
+}
+.pop-categories button:nth-child(1) { --accent: #357ce1; }
+.pop-categories button:nth-child(2) { --accent: darkorange; }
+.pop-categories button:nth-child(3) { --accent: #b146c2; }
+.pop-categories button:nth-child(4) { --accent: seagreen; }
+.pop-categories button:nth-child(5) { --accent: crimson; }
+.pop-categories button[aria-pressed=true] { color: var(--accent); border-bottom-color: var(--accent); }
+.pop-menu-tiles {
+  display: grid; grid-template-columns: repeat(auto-fill, 130px); justify-content: start;
+  gap: 33px 51px; padding: 29px 0 30px 30px; background: #202941;
+}
+/* Preserve each production slot, including disabled slots. The original eighth
+   tile starts at x=1297. A touch pan keeps it reachable on 1280px terminals. */
+.production-menu {
+  grid-template-columns: repeat(8, 130px);
+  grid-template-rows: repeat(2, 130px); overflow-x: auto;
+  scrollbar-width: thin; scrollbar-color: #59657c #202941;
+}
+.production-menu [data-slot="history"] { grid-column: 1; grid-row: 2; }
+@media (min-width: 1276px) {
+  .pop-menu-tiles [data-view=transferQuick] { grid-area: 2 / 1; }
+}
+.pop-menu-tiles button {
+  position: relative;
+  width: 130px;
+  height: 130px;
+  padding: 0 2px;
+  border-radius: 0;
+  background: var(--pop-menu);
+  color: var(--pop-ink);
+  font-size: 1.1rem;
+  font-weight: 700;
+  line-height: 1.1;
+  word-break: keep-all;
+}
+.pop-menu-tiles img {
+  position: absolute;
+  top: 20px;
+  left: 20px;
+  width: 90px;
+  height: 80px;
+  object-fit: fill;
+}
+.pop-menu-tiles button:disabled { opacity: 1; background: #8e8e8e; color: #2f2f2f; text-shadow: 1px 1px #c6c6c6; }
+.pop-menu-tiles span { position: absolute; inset: 103px 2px auto; height: 27px; display: grid; place-items: center; overflow: hidden; }
+@media (max-width: 480px) {
+  .pop-menu-tiles { column-gap: 6px; padding-inline: 0; }
+}
+.pop-shell .pop-menu-back { margin-inline-start:auto; min-height:var(--pop-touch); background:white; color:var(--pop-ink); }
+
+/* frmMain.panel1 uses a 1280 × 86 control layout. Percent positions keep its title
+   on the blue panel at other terminal widths while the MDI workspace fills the window. */
+.pop-shell:has(> .authenticated-bar) { width: 100%; max-width: none; padding: 0; }
+.pop-shell > .authenticated-bar {
+  position: sticky; top: 0; z-index: 5; display: block; height: 86px; min-height: 86px;
+  padding: 0; margin: 0; background-size: 100% 100%; background-repeat: no-repeat;
+}
+.bar-company img, .bar-company strong, .bar-worker, .authenticated-bar h1,
+.workplace-clock, .bar-actions { position: absolute; }
+.bar-company img { left: 2.03125%; width: 8.359375%; height: 51px; top: 19px; object-fit: scale-down; background: #202941; }
+.bar-company strong { left: 9.609375%; top: 24px; height: 34px; display: flex; align-items: center;
+  color: #c8dcff; font-size: clamp(16px,1.72vw,22px); white-space: nowrap; }
+.bar-worker { left: 25%; top: 5px; width: 11.25%; font-size: 21px; font-weight: 700; color: white; }
+.bar-worker span, .bar-worker strong { display: block; height: 34px; line-height: 34px; overflow: hidden; white-space: nowrap; }
+.bar-worker strong { color: #00d3ff; margin-top: 6px; font-size: 13px; font-weight: 600; }
+.authenticated-bar, .pop-categories, .pop-menu-tiles {
+  font-family: "Microsoft Sans Serif", Gulim, sans-serif;
+}
+.pop-menu-tiles span { font-family: "Microsoft Sans Serif", Gulim, sans-serif; font-size: 19px; font-weight: 400; }
+.bar-company strong, .bar-worker span { font-weight: 600; }
+.pop-shell > .authenticated-bar h1 {
+  top: 7px; left: 36.5625%; width: 24.375%; height: 54px; display: grid; place-items: center;
+  margin: 0; color: #aecaf9; text-align: center; white-space: nowrap; font-size: clamp(24px,2.969vw,38px);
+  line-height: 1.05; font-weight: 400; word-break: keep-all;
+}
+.workplace-clock { left: 66.015625%; width: 15%; top: 23px; height: 40px; display: grid;
+  place-items: center; text-align: center; color: white; font-size: clamp(14px,1.48vw,19px);
+  line-height: 1.05; font-variant-numeric: tabular-nums; }
+.bar-actions { display: flex; left: 81.71875%; top: 7px; gap: 6px; }
+.bar-actions button { background: #0d162d; border-radius: 0; padding: 0; }
+.bar-actions img { display: block; width: clamp(48px,5.46875vw,70px); height: 70px; object-fit: contain; }
+.logout-confirm { border: 1px solid #536988; padding: 20px; }
+.logout-confirm::backdrop { background: rgb(0 0 0 / 45%); }
+.logout-confirm form { justify-content: flex-end; margin-top: 16px; }
+@media (max-width: 760px) {
+  .pop-shell > .authenticated-bar { display: grid; grid-template-columns: 1fr auto; height: auto; padding: 4px 8px; }
+  .bar-company { display: flex; align-items: center; gap: 2px; }
+  .bar-company img, .bar-company strong, .bar-worker, .bar-actions,
+  .pop-shell > .authenticated-bar h1, .workplace-clock { position: static; width: auto; height: auto; }
+  .bar-company img { width: 44px; height: 28px; }
+  .bar-company strong, .bar-worker { font-size: 14px; }
+  .bar-worker { grid-column: 1; grid-row: 2; display: flex; gap: 5px; }
+  .bar-worker span, .bar-worker strong { height: auto; line-height: 1.3; margin: 0; }
+  .bar-actions { grid-column: 2; grid-row: 1 / 3; align-self: center; }
+  .bar-actions img { width: 48px; height: 48px; }
+  .pop-shell > .authenticated-bar h1 { grid-column: 1 / -1; grid-row: 3; font-size: 24px; min-height: 30px; }
+  .workplace-clock { grid-column: 1 / -1; grid-row: 4; font-size: 15px; }
+}
+
+/* Keep the original 130px RFID tile and its single bottom caption. */
+.pop-menu-tiles [data-view="rfidMove"] span { white-space: nowrap; letter-spacing: -1.6px; }
+
+@media (min-width: 761px) and (max-width: 1259px) {
+  .bar-worker strong { white-space: normal; word-break: keep-all; overflow-wrap: anywhere; line-height: 17px; align-content: center; }
+}

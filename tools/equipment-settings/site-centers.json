@@ -1,0 +1,134 @@
+{
+  "sampleDate": "2026-11-25",
+  "terminals": [
+    {
+      "id": "DEMO-A",
+      "name": "POP A",
+      "factory": "샘플 1공장",
+      "workCenter": "절단 작업장",
+      "workers": [
+        {
+          "id": "DEMO-W01",
+          "name": "샘플 작업자 A",
+          "department": "생산 1팀"
+        },
+        {
+          "id": "DEMO-W02",
+          "name": "샘플 작업자 B",
+          "department": "생산 1팀"
+        }
+      ]
+    },
+    {
+      "id": "DEMO-B",
+      "name": "POP B",
+      "factory": "샘플 2공장",
+      "workCenter": "포장 작업장",
+      "workers": [
+        {
+          "id": "DEMO-W03",
+          "name": "샘플 작업자 C",
+          "department": "생산 2팀"
+        }
+      ]
+    },
+    {
+      "id": "DEMO-A2",
+      "name": "POP A2",
+      "factory": "샘플 1공장",
+      "workCenter": "포장 작업장",
+      "workers": [
+        {
+          "id": "DEMO-W04",
+          "name": "샘플 작업자 D",
+          "department": "생산 1팀"
+        }
+      ]
+    }
+  ],
+  "work": [
+    {
+      "terminalId": "DEMO-A",
+      "workerId": "DEMO-W01",
+      "date": "2026-11-25",
+      "entry": {
+        "id": "DEMO-H01",
+        "orderNumber": "DEMO-ORDER-01",
+        "itemName": "샘플 강판 A",
+        "processName": "절단",
+        "plannedQuantity": 12,
+        "actualQuantity": 11.5,
+        "movement": "입고",
+        "warehouse": "샘플 창고 A",
+        "startedAt": "09:10",
+        "finishedAt": "09:48"
+      }
+    },
+    {
+      "terminalId": "DEMO-A",
+      "workerId": "DEMO-W02",
+      "date": "2026-11-25",
+      "entry": {
+        "id": "DEMO-H02",
+        "orderNumber": "DEMO-ORDER-02",
+        "itemName": "샘플 강판 B",
+        "processName": "절단",
+        "plannedQuantity": 10,
+        "actualQuantity": 10,
+        "movement": "입고",
+        "warehouse": "샘플 창고 A",
+        "startedAt": "10:15",
+        "finishedAt": "10:55"
+      }
+    },
+    {
+      "terminalId": "DEMO-B",
+      "workerId": "DEMO-W03",
+      "date": "2026-11-25",
+      "entry": {
+        "id": "DEMO-H03",
+        "orderNumber": "DEMO-ORDER-03",
+        "itemName": "샘플 제품 C",
+        "processName": "포장",
+        "plannedQuantity": 8,
+        "actualQuantity": 8,
+        "movement": "입고",
+        "warehouse": "샘플 창고 B",
+        "startedAt": "14:10",
+        "finishedAt": "14:42"
+      }
+    }
+  ],
+  "stations": {
+    "DEMO-A": {
+      "center": "005",
+      "profile": "test-DEMO-A",
+      "slots": [
+        2
+      ],
+      "stages": [],
+      "inputLot": "LOT-DEMO-A",
+      "inputQty": 4
+    },
+    "DEMO-A2": {
+      "center": "005",
+      "profile": "test-DEMO-A2",
+      "slots": [
+        2
+      ],
+      "stages": [],
+      "inputLot": "LOT-DEMO-A2",
+      "inputQty": 4
+    },
+    "DEMO-B": {
+      "center": "006",
+      "profile": "test-DEMO-B",
+      "slots": [
+        6
+      ],
+      "stages": [],
+      "inputLot": "LOT-DEMO-B",
+      "inputQty": 4
+    }
+  }
+}

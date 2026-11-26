@@ -2,13 +2,19 @@ package com.shinjin.pop.history;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.List;
+import java.io.*;
+import java.nio.file.*;
+import java.util.*;
+import tools.jackson.databind.json.JsonMapper;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Profile;
 
 import org.springframework.stereotype.Component;
 
+@Profile("demo")
 @Component
 public class WorkHistoryFixtures {
-    static final LocalDate SAMPLE_DATE = LocalDate.of(2026, 11, 25);
 
     public record Worker(String id, String name, String department) {}
 
@@ -18,29 +24,79 @@ public class WorkHistoryFixtures {
     public record Entry(
             String id, String orderNumber, String itemName, String processName,
             BigDecimal plannedQuantity, BigDecimal actualQuantity, String movement,
-            String warehouse, String startedAt, String finishedAt) {}
+            String warehouse, String startedAt, String finishedAt, String customer, String itemKind,
+            String material, String partNo, BigDecimal thickness, BigDecimal width, BigDecimal length,
+            String productionGroup, String checked) {}
 
     record Work(String terminalId, String workerId, LocalDate date, Entry entry) {}
 
-    private final List<Terminal> terminals = List.of(
-            new Terminal("DEMO-A", "POP A", "샘플 1공장", "절단 작업장", List.of(
-                    new Worker("DEMO-W01", "샘플 작업자 A", "생산 1팀"),
-                    new Worker("DEMO-W02", "샘플 작업자 B", "생산 1팀"))),
-            new Terminal("DEMO-B", "POP B", "샘플 2공장", "포장 작업장", List.of(
-                    new Worker("DEMO-W03", "샘플 작업자 C", "생산 2팀"))),
-            new Terminal("DEMO-A2", "POP A2", "\uc0d8\ud50c 1\uacf5\uc7a5", "\ud3ec\uc7a5 \uc791\uc5c5\uc7a5", List.of(
-                    new Worker("DEMO-W04", "\uc0d8\ud50c \uc791\uc5c5\uc790 D", "\uc0dd\uc0b0 1\ud300"))));
+    @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+    public record Stage(String process, String warehouse, String processCode, String warehouseCode) {
+        public Stage(String process, String warehouse) { this(process, warehouse, null, null); }
+    }
+    public record Station(String profile, String center, List<Integer> slots, List<Stage> stages, String inputLot, int inputQty) {
+        public boolean groupCenter() { return "005".equals(center) || "105".equals(center); }
+        public boolean packMenu() { return slots.contains(6); }
+        public boolean packAuto() {
+            return slots.size() == 1 && ("006".equals(center) || "106".equals(center) || packMenu()) && !groupCenter();
+        }
+        public String initialView() {
+            if (groupCenter() || slots.size() != 1) return "home";
+            if (packAuto()) return "packing";
+            return "003".equals(center) || "103".equals(center) ? "basket" : "orders";
+        }
+    }
+    private record Dataset(LocalDate sampleDate, List<Terminal> terminals, List<Work> work, Map<String, Station> stations, Map<String, MenuProcesses> menuProcesses) {}
+    public record MenuProcesses(Map<Integer,String> slots, Map<String,String> settings) {}
 
-    private final List<Work> work = List.of(
-            new Work("DEMO-A", "DEMO-W01", SAMPLE_DATE, new Entry(
-                    "DEMO-H01", "DEMO-ORDER-01", "샘플 강판 A", "절단",
-                    new BigDecimal("12"), new BigDecimal("11.5"), "입고", "샘플 창고 A", "09:10", "09:48")),
-            new Work("DEMO-A", "DEMO-W02", SAMPLE_DATE, new Entry(
-                    "DEMO-H02", "DEMO-ORDER-02", "샘플 강판 B", "절단",
-                    new BigDecimal("10"), new BigDecimal("10"), "입고", "샘플 창고 A", "10:15", "10:55")),
-            new Work("DEMO-B", "DEMO-W03", SAMPLE_DATE, new Entry(
-                    "DEMO-H03", "DEMO-ORDER-03", "샘플 제품 C", "포장",
-                    new BigDecimal("8"), new BigDecimal("8"), "입고", "샘플 창고 B", "14:10", "14:42")));
+    private final List<Terminal> terminals;
+    private final List<Work> work;
+    private final LocalDate sampleDate;
+    private final Map<String, Station> stations;
+
+    private final Map<String,MenuProcesses> menuProcesses;
+    public MenuProcesses menuProcesses(String terminal) { return menuProcesses.getOrDefault(terminal,new MenuProcesses(Map.of(),Map.of())); }
+
+    public WorkHistoryFixtures() { this(""); }
+
+    @Autowired
+    public WorkHistoryFixtures(@Value("${shinjin.demo.dataset:}") String path) {
+        try (InputStream in = path.isEmpty() ? WorkHistoryFixtures.class.getResourceAsStream("/work-history-default.json")
+                : Files.newInputStream(Path.of(path))) {
+            if (in == null) throw new IOException("Bundled dataset missing");
+            var data = JsonMapper.builder().build().readValue(in, Dataset.class);
+            menuProcesses = data.menuProcesses() == null ? Map.of() : Map.copyOf(data.menuProcesses());
+            sampleDate = Objects.requireNonNull(data.sampleDate());
+            terminals = data.terminals().stream().map(t -> new Terminal(t.id(), t.name(), t.factory(),
+                    t.workCenter(), List.copyOf(t.workers()))).toList();
+            work = List.copyOf(data.work());
+            stations = data.stations() == null ? Map.of() : Map.copyOf(data.stations());
+            var assignments = new HashMap<String, Set<String>>();
+            for (Terminal t : terminals) {
+                var ids = new HashSet<String>();
+                require(text(t.id()) && text(t.name()) && text(t.factory()) && text(t.workCenter())
+                        && assignments.putIfAbsent(t.id(), ids) == null);
+                for (Worker w : t.workers()) require(text(w.id()) && text(w.name()) && text(w.department()) && ids.add(w.id()));
+            }
+            for (Work row : work) require(row.date() != null && row.entry() != null && text(row.entry().id())
+                    && assignments.getOrDefault(row.terminalId(), Set.of()).contains(row.workerId())
+                    && row.entry().plannedQuantity() != null && row.entry().actualQuantity() != null);
+            stations.forEach((id, st) -> {
+                require(assignments.containsKey(id) && text(st.profile()) && text(st.center()) && st.slots() != null
+                        && st.slots().stream().allMatch(n -> n != null && n >= 1 && n <= 6)
+                        && new HashSet<>(st.slots()).size() == st.slots().size() && st.stages() != null
+                        && st.stages().stream().allMatch(stage -> text(stage.process()) && text(stage.warehouse()))
+                        && (st.stages().isEmpty() || (text(st.inputLot()) && st.inputQty() > 0)));
+            });
+        } catch (IOException | RuntimeException ex) {
+            throw new IllegalStateException("Cannot load demo dataset. Check file, JSON fields and assignments.");
+        }
+    }
+
+    private static boolean text(String value) { return value != null && !value.isBlank(); }
+    private static void require(boolean valid) { if (!valid) throw new IllegalArgumentException("Invalid dataset"); }
+    public Station station(String terminalId) { return stations.get(terminalId); }
+    LocalDate sampleDate() { return sampleDate; }
 
     List<Terminal> terminals() {
         return terminals;

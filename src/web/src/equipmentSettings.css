@@ -1,0 +1,55 @@
+.settings-tiles .equipment-unset { color: yellow; }
+.eq-dialog { --edge: min(30px,3vw); margin: auto; padding: 0; border: 0; color: #151515; background: #f2f2f2;
+  width: 800px; height: 900px; max-width: 100vw; max-height: 100dvh; overflow: auto; }
+.eq-dialog.eq-group { width: 870px; height: 868px; }
+.eq-dialog.eq-process { width: 1080px; }
+.eq-dialog[open] { display: flex; flex-direction: column; }
+.eq-dialog::backdrop { background: #1721379c; }
+.eq-dialog header { display: flex; align-items: center; flex: 0 0 min(100px,12dvh); margin: 0; padding: 0 var(--edge); gap: 12px; background: #0a2c70; color: white; }
+.eq-dialog header > img { width: min(100px,12vw); max-height: 9dvh; }
+.eq-dialog header h2 { font-size: clamp(22px,4vw,38px); margin: 0; font-weight: 400; color: white; }
+.eq-dialog header button { margin-left: auto; padding: 0; background: transparent; }
+.eq-dialog header button img { display: block; width: min(68px,9vw); height: auto; }
+.eq-info { margin: 6px var(--edge) 0; display: flex; align-items: center; gap: 12px; min-height: min(60px,8dvh);
+  border: 1px solid #aaa; background: white; font-size: 20px; }
+.eq-info:first-of-type { margin-top: 14px; }
+.eq-machine .eq-info { margin-left: calc(var(--edge) + 10px); }
+.eq-info strong { padding: 8px 14px; border-right: 2px solid #ccc; }
+.eq-group-tools { display: flex; align-items: flex-start; justify-content: flex-end; gap: 6px; margin: 10px 9% 0 3%; min-height: 58px; }
+.eq-group-tools span { flex: 1; text-align: center; color: red; font-size: clamp(15px,2vw,21px); }
+.eq-dialog .equipment-tool { background: transparent; padding: 0; border: 0; }
+.equipment-tool img { display: block; width: min(57px,6vw); }
+.eq-grid { background: white; border: 1px solid #d4d4d4; min-height: 65px; min-width: 0; overflow: auto; }
+.eq-dialog > .eq-grid { flex: 1; margin: 5px var(--edge) min(38px,4dvh); }
+.eq-grid th,.eq-grid td,.eq-wh td,.eq-wh th { padding: 3px; text-align: center; border: 1px solid #d4d4d4; }
+.eq-grid th { height: min(60px,8dvh); position: sticky; top: 0; color: #101010; background: #70dff2; z-index: 1; }
+.eq-grid td { height: 70px; }
+.eq-grid th { font-weight: 500; }
+.eq-grid input[type=checkbox] { width: 24px; height: 24px; min-height: 0; vertical-align: middle; }
+.eq-grid td button,.eq-wh td button { background: transparent; color: inherit; width: 100%; border: 0; border-radius: 0; }
+.eq-grid td button span { display: block; }
+.eq-grid tr[aria-current=true] { background: #cee5fa; }
+.eq-dialog footer { display: flex; gap: 20px; margin: 0 var(--edge) min(15px,2dvh); }
+.eq-dialog footer button { flex: 1; height: min(70px,9dvh); border-radius: 0; color: white; background: #102c69; }
+.eq-dialog footer button:last-child { background: #8e8e8e; }
+.eq-dialog p[role=status] { margin: 0 var(--edge) 5px; }
+.eq-process-body { flex: 1; min-height: 130px; display: grid; grid-template-columns: minmax(0,1fr) auto minmax(0,1fr);
+  gap: min(12px,1vw); margin: min(21px,3dvh) var(--edge); }
+.eq-step-tools { display: flex; flex-direction: column; align-self: center; gap: 6px; }
+.eq-step-tools button:nth-child(3) { margin-top: min(65px,6dvh); }
+.eq-wh { padding: 0; width: min(500px,94vw); height: min(500px,55dvh); overflow: auto; border: 1px solid #777; }
+.eq-wh th { background: #037e6d; color: white; height: 50px; }
+.eq-wh td { height: 50px; }
+@supports (position-area: bottom) { .eq-wh { position-area: bottom span-left; position-try-fallbacks: flip-block; margin: 0; } }
+
+.eq-dialog > .eq-grid table { table-layout: fixed; width: calc(100% - 47px); }
+.eq-machine .eq-grid th:nth-child(1),.eq-machine .eq-grid th:nth-child(3) { width: 14.49%; }
+.eq-machine .eq-grid th:nth-child(2) { width: 10.87%; }
+.eq-machine .eq-grid th:nth-child(4),.eq-machine .eq-grid th:nth-child(6) { width: 18.84%; }
+.eq-group .eq-grid th:nth-child(1),.eq-group .eq-grid th:nth-child(2) { width: 11.8%; }
+.eq-group .eq-grid th:nth-child(3) { width: 14.15%; }
+.eq-group .eq-grid th:nth-child(4),.eq-group .eq-grid th:nth-child(5) { width: 16.38%; }
+.eq-process-body > .eq-grid:first-child th:first-child { width: 22.35%; }
+.eq-process-body > .eq-grid:last-child th:first-child { width: 18.72%; }
+.eq-process-body > .eq-grid:last-child th:nth-child(2),.eq-process-body > .eq-grid:last-child th:nth-child(3) { width: 20.77%; }
+.eq-step-tools { transform: translateY(-18px); }

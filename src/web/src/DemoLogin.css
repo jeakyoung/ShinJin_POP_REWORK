@@ -1,0 +1,62 @@
+﻿/* The terminal login owns the viewport. Nested settings dialogs retain their own layouts. */
+.pop-shell:has(> .login-panel) { width: 100%; max-width: none; margin: 0; padding: 0; }
+.pop-shell:has(> .login-panel) > header { display: none; }
+.pop-shell > .login-panel {
+  min-height: 100dvh; margin: 0; padding: 0; border: none; border-radius: 0;
+  display: grid; grid-template-rows: auto minmax(min-content,1fr) auto;
+  background: url('./login-assets/background.png') center / 100% 100% no-repeat;
+  font-family: "Noto Sans KR","Malgun Gothic",sans-serif;
+}
+.login-bar {
+  height: clamp(64px,11dvh,120px); margin: 0; padding-inline: clamp(16px,4vw,80px);
+  display: flex; align-items: center; gap: clamp(16px,2vw,38px); background: #102c69; color: white;
+}
+.login-lock { height: 69%; width: auto; object-fit: contain; }
+.login-bar h1 { margin: 0; color: white; font-size: clamp(28px,3.5dvh,48px); font-weight: 500; }
+.login-settings { align-self: stretch; margin-left: auto; width: clamp(64px,9dvh,100px); padding: 8px; background: transparent; }
+.login-settings img { width: 100%; height: 100%; object-fit: contain; }
+.login-body {
+  width: 82%; margin: auto; padding-block: clamp(12px,2.5dvh,32px);
+  display: grid; align-content: center; gap: clamp(14px,2.9dvh,38px);
+}
+.login-brand { display: flex; align-items: center; justify-content: center; gap: clamp(12px,2.4vw,48px); }
+.login-logo { max-width: 38%; width: auto; height: clamp(78px,20dvh,240px); object-fit: contain; }
+.login-wordmark { color: white; font: 400 clamp(42px,10dvh,118px)/1 Arial,sans-serif; white-space: nowrap; }
+.login-company { margin: 6px 0 0; color: #283c64; font-weight: 600; font-size: clamp(16px,2.6dvh,32px); }
+.login-manual {
+  display: grid; grid-template-columns: minmax(0,2.4fr) minmax(0,1fr);
+  grid-template-rows: auto auto; gap: clamp(8px,1.3dvh,20px) clamp(12px,1.8vw,32px);
+}
+.login-manual .pop-field { min-width: 0; position: relative; }
+.login-manual label { gap: 2px; font-size: clamp(19px,2.7dvh,32px); font-weight: 700; color: white; }
+.login-manual label input {
+  box-sizing: border-box; width: 100%; height: clamp(56px,8.4dvh,100px);
+  border: 1px solid #888; border-radius: 0; font-size: clamp(22px,3.4dvh,40px); padding-right: 6rem;
+}
+.login-manual .pop-field > button { position: absolute; right: 4px; bottom: 4px; min-height: 44px; }
+.login-manual .pop-field:not(:focus-within):not(:hover) > button { opacity: 0; pointer-events: none; }
+.login-submit { grid-area: 1 / 2 / 3 / 3; align-self: stretch; margin-top: clamp(25px,3.6dvh,44px); }
+.login-panel :is(.login-submit,.login-scan) { background: #102c69; color: white; border-radius: 0; font-size: clamp(20px,3dvh,36px); font-weight: 700; }
+.login-scan { min-height: clamp(58px,9dvh,110px); }
+.login-panel > footer { padding: 6px 12px max(10px,1.5dvh); text-align: center; color: white; font-size: clamp(14px,2dvh,24px); font-weight: 700; }
+.login-error { margin: 0; text-align: center; color: #66162a; }
+.login-panel .scan-login {
+  position: fixed; inset: 0; margin: auto; width: 88vw; height: fit-content; aspect-ratio: auto;
+  background: linear-gradient(90deg,#ff8080,#ffe0c0);
+}
+.login-panel .scan-login form {
+  display: grid; grid-template-columns: minmax(0,3fr) minmax(0,1fr);
+  align-items: stretch; padding: clamp(16px,4vw,80px); gap: clamp(12px,1.8vw,36px);
+}
+.login-panel .scan-login :is(label,input,button) { position: static; width: auto; height: auto; }
+.login-panel .scan-login label {
+  grid-column: 1 / -1; white-space: normal; overflow: visible; font: 700 clamp(23px,4dvh,48px)/1.3 "Noto Sans KR",sans-serif;
+}
+.login-panel .scan-login :is(input,button) { min-height: clamp(64px,12dvh,150px); font-size: clamp(22px,3.4dvh,40px); }
+@media (max-width: 650px) {
+  .login-body { width: 92%; }
+  .login-manual { grid-template-columns: minmax(0,2fr) minmax(0,1fr); }
+  .login-company { font-size: 14px; }
+  .login-wordmark { font-size: clamp(32px,10vw,56px); }
+  .login-panel .scan-login { width: 96vw; }
+}

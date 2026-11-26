@@ -1,0 +1,46 @@
+.prelogin-settings,.prelogin-info,.scan-login { padding:0; border:0; max-width:100vw; max-height:100dvh; color:#101010; font-family:"Malgun Gothic",sans-serif; }
+.prelogin-settings { width:min(1000px,100vw); background:#082e78; }
+.prelogin-settings nav { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); }
+.prelogin-settings nav button { position:relative; aspect-ratio:4/5; background:#082e78; color:white; border:0; border-radius:0; padding:0; }
+.prelogin-settings nav button:nth-child(even) { background:#052565; }
+.prelogin-settings nav button:disabled { opacity:1; }
+.prelogin-settings nav button:disabled span { color:#021028; }
+.prelogin-settings nav img { position:absolute; left:12.5%; top:8%; width:75%; height:60%; }
+.prelogin-settings nav span { position:absolute; left:2.5%; top:74%; width:95%; font:400 clamp(12px,2.6vw,26px)/1.15 "Malgun Gothic",sans-serif; }
+.prelogin-settings nav .unset { color:yellow; }
+.prelogin-settings::backdrop,.prelogin-info::backdrop,.scan-login::backdrop { background:transparent; }
+.scan-login { position:fixed; margin:0; right:auto; bottom:auto;
+  left:clamp(0px,var(--scan-left),max(0px,calc(100vw - 729px)));
+  top:clamp(0px,var(--scan-top),max(0px,calc(100dvh - min(278px,38.14vw))));
+  width:min(729px,100vw); aspect-ratio:729/278; background:linear-gradient(90deg,#ff8080,#ffe0c0); }
+.scan-login label { white-space:nowrap; position:absolute; left:2.74%; top:23.74%; width:67.63%; height:50%; overflow:hidden; color:white; display:flex; align-items:center; font:700 min(5.7vw,40px)/1.2 "Noto Sans KR",sans-serif; }
+.scan-login input { position:absolute; left:4.25%; top:26.98%; width:61.73%; height:43.89%; padding:0 8px; box-sizing:border-box; border:1px solid #aaa; border-radius:0; background:white; color:black; font-size:min(5vw,29px); }
+.scan-login form { display:contents; }
+.scan-login button { position:absolute; left:70.78%; top:26.62%; width:27.57%; height:43.89%; background:#0c2c6d; color:white; border:1px solid white; border-radius:0; font-size:min(4vw,23px); font-weight:700; }
+.prelogin-info { width:min(800px,100vw); height:min(900px,100dvh); background:#f3f3f3; }
+.prelogin-info header { position:absolute; inset:0 0 auto; height:11.11%; margin:0; display:flex; align-items:center; background:#082e78; }
+.prelogin-info header > img { margin-left:3.75%; width:12.5%; height:80%; }
+.prelogin-info h2 { position:absolute; left:17.75%; top:15%; line-height:1.4; margin:0; font-size:min(5vw,37px); color:white; font-weight:500; }
+.prelogin-info header button { position:absolute; right:3.75%; top:17%; width:8.5%; height:68%; padding:0; background:transparent; }
+.prelogin-info header button img { width:100%; height:100%; }
+.pre-info-body { position:absolute; left:3.75%; top:14.89%; width:92.5%; height:68%; background:white; }
+.pre-info-body p { position:absolute; top:2.4%; left:6.75%; margin:0; color:red; font-weight:bold; }
+.pre-info-body table { position:absolute; left:6.22%; width:87.84%; background:white; border-collapse:collapse; border-block:3px double #ccc; }
+.pre-ftp { top:9.5%; height:30%; }.pre-db { top:50.4%; height:20%; }.pre-version { top:81.4%; height:10%; }
+.pre-info-body th,.pre-info-body td { background:white; color:#282828; text-align:left; border:1px solid #ccc; border-left:0; padding:0 3%; font-weight:400; }
+.pre-info-body th[rowspan],.pre-version th { width:15.6%; text-align:center; }.pre-info-body th:not([rowspan]):not(:first-child),.pre-info-body tr:not(:first-child) th { width:25%; }
+.pre-info-body td { font-weight:bold; font-size:min(3vw,20px); border-right:0; }.pre-ftp td,.pre-version td { color:black; }.pre-info-body .unset { color:red; }
+.login-panel .prelogin-info footer { position:absolute; inset:auto 3.75% 1.66%; width:auto; height:7.78%; }
+.prelogin-info footer button { font:700 16px "Malgun Gothic",sans-serif; width:100%; height:100%; color:white; background:#0c2c6d; border-radius:0; }
+
+.prelogin-terminal { display:flex; align-items:center; justify-content:space-between; gap:16px; min-height:56px; padding:4px 12px; background:#052565; color:white; font-size:20px; }
+.prelogin-terminal button,.prelogin-picker-actions button { min-height:48px; min-width:120px; padding:4px 16px; background:#0c2c6d; color:white; border:1px solid white; border-radius:0; font:inherit; }
+.prelogin-picker { width:min(500px,96vw); max-height:96dvh; border:1px solid #052565; padding:0; background:white; color:#101010; font:20px "Malgun Gothic",sans-serif; }
+.prelogin-picker h2 { margin:0; padding:10px 16px; background:#082e78; color:white; font-size:26px; }
+.prelogin-picker p { margin:10px 16px; }
+.prelogin-picker label { display:flex; align-items:center; min-height:56px; gap:12px; padding:0 16px; border-top:1px solid #ccc; }
+.prelogin-picker label:has(:checked) { background:#d9e8ff; }
+.prelogin-picker-actions { display:flex; justify-content:flex-end; gap:8px; padding:8px; background:#f3f3f3; }
+
+.prelogin-info header button { height: min(68px,8.85dvh); }
+.prelogin-info header button img { display: block; max-height: 100%; }

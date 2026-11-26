@@ -1,0 +1,299 @@
+.pop-shell:has(> .history-screen) {
+  padding-inline: 0;
+  padding-bottom: 0;
+  min-height: 100dvh;
+  background: #202941;
+}
+.pop-shell:has(> .history-screen) > .authenticated-bar {
+  margin-bottom: 0;
+}
+.pop-shell > .history-screen {
+  margin: 2px 3px 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  color: white;
+  background: #202941;
+  font-family: 'Noto Sans KR Regular', 'Malgun Gothic', sans-serif;
+}
+.history-viewport {
+  overflow-x: auto;
+}
+.history-form {
+  position: relative;
+  min-width: 1274px;
+  height: max(330px, calc(100dvh - 161px));
+  display: flex;
+  flex-direction: column;
+}
+.history-filters {
+  position: relative;
+  height: 80px;
+  flex: none;
+  background: #1d253d;
+  color: white;
+}
+.history-filters > :is(span, output, button) {
+  position: absolute;
+  top: 15px;
+  height: 50px;
+  margin: 0;
+  border-radius: 0;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  font-family: 'Noto Sans KR Thin', 'Malgun Gothic', sans-serif;
+  font-size: 18.4px;
+  font-weight: normal;
+}
+.history-filters > span {
+  width: 125px;
+  background: darkblue;
+}
+.history-date-label {
+  left: 10px;
+}
+.history-filters .history-date {
+  left: 135px;
+  width: 175px;
+  border: 1px solid #b7aea2;
+  background: moccasin;
+  color: black;
+}
+.history-date span {
+  position: absolute;
+  right: 4px;
+  color: #6f6656;
+  font-size: 12px;
+}
+.history-dept-label {
+  left: 340px;
+}
+.history-worker-label {
+  left: 670px;
+}
+.history-filters output {
+  width: 175px;
+  color: black;
+  background: lightgray;
+}
+.history-dept {
+  left: 465px;
+}
+.history-worker {
+  left: 795px;
+}
+.history-filters .history-search {
+  top: 10px;
+  left: 1158px;
+  width: 110px;
+  height: 60px;
+  background: #2647a4;
+  color: white;
+  border: 1px solid #3156af;
+  border-radius: 2px;
+  font-size: 27px;
+  font-weight: bold;
+}
+.history-grid {
+  flex: 1;
+  min-height: 0;
+  overflow-y: scroll;
+  overflow-x: hidden;
+  background: #202941;
+}
+.history-grid table {
+  width: 1270px;
+  table-layout: fixed;
+  border-spacing: 0;
+  border-collapse: separate;
+  color: white;
+  text-align: center;
+}
+.history-grid thead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.history-grid :is(th, td) {
+  border: 0;
+  border-right: 1px solid #181f34;
+  border-bottom: 1px solid #181f34;
+  padding: 0 2px;
+  box-sizing: border-box;
+  text-align: center;
+  font-weight: normal;
+  overflow: hidden;
+}
+.history-grid th {
+  height: 54px;
+  padding: 0;
+  background: linear-gradient(#274185, #253d7f);
+  font-size: 16px;
+}
+.history-grid th button {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  padding: 0 2px;
+  border: 0;
+  border-radius: 0;
+  font: inherit;
+  white-space: normal;
+  color: white;
+  background: transparent;
+}
+.pop-shell .history-grid th button {
+  min-height: 30px;
+}
+.history-grid td {
+  height: 31px;
+  background: #202941;
+  font-size: 16px;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+.history-grid tbody[data-focus='true'] td,
+.history-grid tbody[data-group='true'] td {
+  background: dimgray;
+}
+.history-grid tbody[data-group='true'][data-movement='불량'] td {
+  background: darkred;
+}
+.history-grid tbody[data-group='true'][data-movement='투입'] td {
+  background: indigo;
+}
+.history-grid tbody[data-group='true'][data-movement='반납'] td {
+  background: black;
+}
+.history-grid td[data-field='orderNumber'] {
+  color: orange;
+}
+.history-grid td.history-plan-qty {
+  color: #00c000;
+}
+.history-grid tbody[data-movement='생산'] td[data-field='movement'] {
+  color: lightgreen;
+}
+.history-grid tbody[data-movement='불량'] td[data-field='movement'] {
+  color: red;
+}
+.history-grid tbody[data-movement='투입'] td[data-field='movement'] {
+  color: deepskyblue;
+}
+.history-grid tbody[data-movement='반납'] td[data-field='movement'] {
+  color: orange;
+}
+.history-form > [role='alert'] {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  margin: 0;
+  padding: 6px 12px;
+  color: white;
+  background: #202941;
+}
+.history-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+dialog.history-calendar[open] {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  padding: 8px 10px;
+  width: min(463px, 100vw);
+  height: min(611px, 98dvh);
+  max-height: 98dvh;
+  max-width: 100vw;
+  border: 1px solid #91a3bd;
+  border-radius: 0;
+  background: #506f9c;
+  color: white;
+  display: flex;
+  flex-direction: column;
+  font-family: 'Noto Sans KR Thin', 'Malgun Gothic', sans-serif;
+}
+.history-calendar::backdrop {
+  background: transparent;
+}
+.pop-shell .history-calendar button {
+  color: white;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  font-weight: normal;
+  padding: 0;
+  min-height: 0;
+  font-size: clamp(18px, 3.1vh, 32px);
+}
+.history-month {
+  height: 12%;
+  display: grid;
+  grid-template-columns: 1fr 50px 50px;
+}
+.history-month button:first-child {
+  text-align: left;
+  padding-left: 12px;
+}
+.history-week {
+  height: 7%;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  align-items: center;
+  text-align: center;
+  font-size: 20px;
+}
+.history-days {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  grid-template-rows: repeat(6, 1fr);
+}
+.history-days.history-periods {
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+}
+.history-days button[data-muted='true'] {
+  color: #b4c2d5;
+}
+.history-days button[aria-pressed='true'] {
+  outline: 2px solid white;
+  outline-offset: -4px;
+}
+.history-days:not(.history-periods) button[aria-pressed='true'] {
+  color: #506f9c;
+  background: white;
+  border: 4px solid #506f9c;
+}
+.history-calendar .history-today {
+  height: 10%;
+}
+
+.history-grid th {
+  font-family: 'Noto Sans KR Thin', 'Malgun Gothic', sans-serif;
+}
+.history-grid th:is([data-key='plannedQuantity'], [data-key='actualQuantity']) button {
+  padding-inline: 12px;
+  overflow-wrap: anywhere;
+  word-break: break-all;
+}
+.history-grid::-webkit-scrollbar {
+  width: 44px;
+  background: linear-gradient(to bottom, #274185 64px, #efefef 64px);
+}
+.history-grid::-webkit-scrollbar-track {
+  margin-top: 64px;
+  background: #efefef;
+}
+.history-grid::-webkit-scrollbar-thumb {
+  background: #aaa;
+  border: 2px solid #efefef;
+}

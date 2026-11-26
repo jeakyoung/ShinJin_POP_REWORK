@@ -24,7 +24,7 @@ public class WorkHistoryController {
 
     @GetMapping("/api/pop/context")
     public Context context() {
-        return new Context(WorkHistoryFixtures.SAMPLE_DATE, fixtures.terminals());
+        return new Context(fixtures.sampleDate(), fixtures.terminals());
     }
 
     @GetMapping("/api/pop/work-history")

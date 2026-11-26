@@ -1,0 +1,92 @@
+.mc-module nav { display:flex; gap:6px; }
+.mc-module nav > button { width:200px; height:70px; background:darkblue; color:white; font-size:18pt; border-radius:0; }
+.mc-open,.mc-issues .mc-unresolved td:nth-child(6) { color:red; }
+.mc-panel { position:relative; min-width:1280px; height:564px; padding:0; overflow:auto; background:#1d253d; color:white; }
+.mc-panel-actions { position:absolute; top:76px; left:963px; display:flex; gap:13px; }
+.mc-panel-actions > div { width:146px; height:158px; text-align:center; background:#202941; }
+.mc-panel-actions span { display:block; height:42px; font-size:24px; }
+.mc-panel-actions button { background:transparent; padding:0; width:104px; height:104px; }
+.mc-panel-actions img { width:100%; height:100%; }
+.mc-issues { position:absolute; top:246px; left:12px; width:1256px; height:306px; overflow:auto; }
+.mc-module table,.mc-dialog table { width:100%; border-collapse:collapse; }
+.mc-module :is(th,td),.mc-dialog :is(th,td) { padding:4px; text-align:center; height:48px; border:1px solid #181f34; }
+.mc-module th,.mc-dialog th { background:#274185; color:white; }
+.mc-issues td { background:#202941; }
+.mc-issues [aria-selected=true] td { background:#00781c; color:white; }
+.mc-panel > footer > button { position:absolute; top:7px; left:329px; width:146px; height:50px; padding:0; background:#2647a4; color:white; font-size:18pt; }
+.mc-panel > footer > button:last-child { left:1168px; width:100px; }
+.mc-dialog { padding:20px; margin:auto; color:black; background:white; }
+.mc-dialog.mc-reasons { padding:0; width:690px; height:689px; }
+.mc-reasons header { height:62px; display:flex; align-items:center; background:#082e78; color:white; padding-left:16px; font-size:28px; }
+.mc-reasons > div { margin:3px; height:504px; overflow:auto; }
+.mc-reasons footer { display:flex; align-items:center; justify-content:space-between; margin:26px 34px; }
+.mc-reasons footer button { position:static; border-radius:0; width:261px; height:70px; }
+.mc-dialog.mc-scan { width:729px; height:278px; padding:0; }
+.mc-scan label { display:block; padding:16px; font-size:28px; }
+.mc-scan input { display:block; width:65%; height:86px; }
+.mc-scan button { position:absolute; left:516px; top:74px; width:201px; height:122px; }
+
+.mc-title {position:absolute;left:14px;top:12px;color:#00cbff;font-size:20.25pt;font-weight:400}
+.mc-dialog.mc-reasons {box-sizing:content-box;overflow:hidden;background:#262e47;border:0}
+.mc-reasons header {height:62px;background:#141c30;color:#ced5e8;padding-left:37px;font-weight:700}
+.mc-reasons > div {background:#1a2239}
+.mc-reasons td {color:#fff;background:#202941}
+.mc-reasons input {width:30px;height:30px;accent-color:#868ea2}
+.mc-reasons footer {position:absolute;inset:595px auto auto 37px;width:619px;display:flex;margin:0}
+.mc-reasons footer button,.mc-reasons footer button:last-child {position:static;width:261px;height:70px;font-size:20.25pt;font-weight:bold;color:white;background:#0a3f9b}
+.mc-reasons footer button:last-child {background:#3e4763}
+.mc-dialog.mc-scan {background:linear-gradient(90deg,#ff8080,#ffe0c0);border:0;overflow:hidden;box-sizing:content-box}
+.mc-scan label {position:absolute;left:20px;top:66px;width:493px;height:139px;display:flex;align-items:center;padding:0;font-size:33.75pt;font-weight:700;color:white}
+.mc-scan input {position:absolute;left:11px;top:9px;width:1px;height:1px;opacity:0}
+.mc-scan button {border-radius:0;background:#0c2c6d;color:white;font-size:20.25pt}
+
+.mc-panel-actions > div {background-size:100% 100%;background-repeat:no-repeat}
+.mc-dialog header {margin:0}
+.mc-reasons > div {overflow-y:scroll}
+.mc-reasons footer {height:70px}
+.mc-scan form {display:block}
+.mc-scan label {line-height:1.08;letter-spacing:0}
+.mc-scan input {pointer-events:none}
+
+.mc-dialog.mc-message {width:683px;height:376px;box-sizing:content-box;padding:0;overflow:hidden}
+.mc-message p {height:259px;margin:0;display:grid;place-items:center;font-weight:bold;font-size:21.75pt;color:black}
+.mc-message button {position:absolute;top:276px;left:120px;width:212px;height:80px;font-size:18pt;background:#224895;border-radius:0}
+.mc-message button:last-child {left:356px}
+.mc-message button:only-of-type {left:234px}
+
+.mc-module {position:relative;min-width:1280px;height:100%;min-height:640px}
+.mc-module nav {position:absolute;bottom:0;left:0;right:0;height:70px;padding-left:15px;gap:15px}
+.mc-panel {position:absolute;left:0;right:0;bottom:70px;height:570px}
+.mc-status-face {position:absolute;top:76px;width:305px;height:158px;color:white;background-size:100% 100%}
+.mc-status-face > span {position:absolute;font:9.75pt "Noto Sans KR",sans-serif;line-height:19px}
+.mc-status-face > span[style*="top: 0px"] {font-size:12pt;line-height:30px}
+.mc-clock {position:absolute;left:931px;top:18px;color:white;font-size:15pt}
+.mc-message button:last-of-type:not(:only-of-type) {background:#8e8e8e}
+.mc-reasons > header {box-sizing:border-box}
+
+.mc-issues table,.mc-reasons table {table-layout:fixed}
+.mc-issues th,.mc-reasons th,.mc-reasons td {height:50px;box-sizing:border-box}
+.mc-issues th {white-space:pre-line}
+.mc-issues td {height:55px;box-sizing:border-box}
+.mc-issues input {width:26px;height:26px;accent-color:#868ea2}
+.mc-reasons th:first-child {width:14.7%}
+.mc-reasons th:nth-child(2) {width:27.5%}
+
+.mc-panel {margin:0;border:0;border-radius:0}
+.mc-issues {overflow-y:scroll}
+.mc-dialog::backdrop {background:transparent}
+.mc-dialog.mc-message {height:406px}
+.mc-message::before {content:"System Message";display:block;height:30px;line-height:30px;background:#f5f5f5;color:#222;font:12px/30px "Segoe UI",sans-serif;padding-left:6px}
+.mc-message button {top:306px}
+
+.mc-module {font-family:"Noto Sans KR","Malgun Gothic",sans-serif}
+.mc-panel {background:linear-gradient(to bottom,#263253 64px,#1a2239 64px)}
+.mc-panel-actions span {font-size:12pt;line-height:30px}
+.mc-panel > footer > button {white-space:nowrap;font-weight:bold;letter-spacing:-.02em}
+.mc-issues :is(th,td) {overflow:hidden;text-overflow:ellipsis}
+
+.workplace-equipment-dock { position: fixed; inset: auto 0 0; height: 70px; z-index: 4; pointer-events: none; }
+.workplace-equipment-dock .mc-module { height: 70px; min-height: 0; min-width: 0; }
+.workplace-equipment-dock nav { pointer-events: none; overflow-x: auto; }
+.workplace-equipment-dock nav > button, .workplace-equipment-dock .mc-panel { pointer-events: auto; }
+.workplace-equipment-dock:has(nav > button) { background: #202941; }

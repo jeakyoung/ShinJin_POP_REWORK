@@ -1,0 +1,19 @@
+.common-scan-dialog {
+  position:fixed;inset:auto;margin:0;width:880px;height:300px;max-width:100vw;max-height:100vh;
+  border:0;border-radius:0;padding:0;background:#4464c1;overflow:auto;
+}
+.common-scan-dialog::backdrop {background:transparent}
+.common-scan-dialog input,.common-scan-dialog span {
+  position:absolute;left:12px;top:10px;width:856px;height:188px;margin:0;padding:0;
+  border:0;border-radius:0;outline:none;background:#4464c1;color:#d8d8d8;
+  font:50pt "Noto Sans KR","Malgun Gothic",sans-serif;
+}
+.common-scan-dialog span {left:29px;width:839px;display:flex;align-items:center;pointer-events:none}
+.common-scan-dialog[data-mode=order] input {left:11px}
+.common-scan-dialog[data-mode=order] span {left:22px;width:845px}
+.common-scan-dialog:is([data-mode=order],[data-mode=material]) :is(input,span) {top:8px}
+.common-scan-dialog button {
+  position:absolute;left:12px;top:208px;width:856px;height:82px;border:0;border-radius:0;
+  color:#0a0a0a;background:#a1c3ff;font:bold 20pt "Noto Sans KR","Malgun Gothic",sans-serif;
+}
+.common-scan-dialog:is([data-mode=order],[data-mode=material]) button {top:206px}

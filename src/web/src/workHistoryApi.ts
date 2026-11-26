@@ -28,6 +28,15 @@ export type WorkEntry = {
   warehouse: string
   startedAt: string
   finishedAt: string
+  checked?: string | null
+  customer?: string | null
+  itemKind?: string | null
+  material?: string | null
+  partNo?: string | null
+  thickness?: number | null
+  width?: number | null
+  length?: number | null
+  productionGroup?: string | null
 }
 
 async function get<T>(path: string, signal: AbortSignal): Promise<T> {
@@ -40,7 +49,7 @@ export function loadContext(signal: AbortSignal) {
   return get<PopContext>('/api/pop/context', signal)
 }
 
-export type Identity = { terminal: Omit<Terminal, 'workers'>; worker: Worker }
+export type Identity = { terminal: Omit<Terminal, 'workers'>; worker: Worker; groupWork?: boolean; packingMenu?: boolean; workCenterCode?: string; processSlots?: number[]; workCodes?: Record<number,string>; workNames?: Record<number,string>; initialView?: 'home' | 'orders' | 'basket' | 'drawing' | 'packing' }
 
 export async function loadSession(signal: AbortSignal): Promise<Identity | undefined> {
   const response = await fetch('/api/pop/session', { signal })

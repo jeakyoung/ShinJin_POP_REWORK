@@ -1,0 +1,113 @@
+/* Dimensions are relative to the original client area at 96 DPI. */
+.settings-home .settings-tiles { grid-template-columns: repeat(5,minmax(0,1fr)); }
+.settings-home .settings-tiles > * { aspect-ratio: 4/5; display: block; position: relative; padding: 0; border: none;
+  color: white; border-radius: 0; background: #082e78; font: 400 clamp(12px,2.67vw,26.67px)/1.15 "Noto Sans KR", sans-serif; }
+.settings-home .settings-tiles > :nth-child(even) { background: #052565; }
+.settings-home .settings-tiles > .equipment-unset,.settings-home .settings-tiles > [aria-disabled=true] { color: yellow; }
+.settings-home .settings-tiles > button:disabled { opacity: 1; }
+.settings-home .settings-tiles img { position: absolute; left: 12.5%; top: 8%; width: 75%; height: 60%; object-fit: fill; }
+.settings-home .settings-tiles > * > span { position: absolute; left: 2.5%; top: 74%; width: 95%; text-align: center; }
+.eq-dialog,.settings-dialog:is(.settings-material,.settings-slot,.settings-warehouse) { background: #f3f3f3; font-family: "Noto Sans KR",sans-serif; }
+.eq-dialog header,.settings-dialog:not(.printer-dialog) h2 { height: min(100px,12dvh); flex-basis: min(100px,12dvh); min-height: 0; position: relative;
+  color: white; background: #082e78; padding: 0; margin: 0; }
+.eq-dialog header > img,.settings-dialog:not(.printer-dialog) h2 > img { position: absolute; left: var(--edge,30px); top: 8%; width: min(100px,12vw); height: 80%; }
+.eq-dialog header h2 { position: absolute; top: 12%; left: min(140px,18vw); margin: 0; font: 500 clamp(21px,4vw,37px)/1.5 "Noto Sans KR",sans-serif; }
+.eq-dialog header button,.settings-dialog:not(.printer-dialog) h2 button { position: absolute; right: var(--edge,30px); top: 17%; width: min(68px,9vw); height: 68%; padding: 0; }
+.eq-dialog header button img,.settings-dialog:not(.printer-dialog) h2 button img { width: 100%; height: 100%; }
+.eq-dialog.eq-process header button { right: 2.59%; top: 20%; }
+.eq-dialog.eq-group header button { right: 3.33%; top: 16%; }
+.eq-dialog.eq-group > .eq-info { margin: 13px 3.22% 0 3.45%; }
+.eq-dialog.eq-group .eq-group-tools { height: min(73px,9dvh); min-height: 0; flex-shrink: 0; margin: 0; position: relative; }
+.eq-group-tools span { position: absolute; left: 22.4%; top: 4px; font: 700 clamp(14px,2vw,21px)/1.45 "Noto Sans KR",sans-serif; }
+.eq-group-tools .equipment-tool { position: absolute; top: 14px; left: 77%; }
+.eq-group-tools .equipment-tool:last-child { left: 84.25%; }
+.eq-dialog.eq-group > .eq-grid { margin: 0 3.22% 0 3.45%; }
+.eq-dialog.eq-group footer { margin: min(43px,5dvh) 3.33% min(15px,2dvh) 3.45%; gap: 2.35%; }
+.eq-dialog.eq-process footer { margin-right: 2.59%; gap: 2.15%; }
+.eq-process .eq-process-body { margin-bottom: min(20px,3dvh); margin-right: 2.59%; grid-template-columns: minmax(0,1fr) auto minmax(0,1fr); }
+.eq-step-tools { align-self: start; margin-top: min(171px,19dvh); transform: none; }
+.eq-step-tools button:nth-child(3) { margin-top: min(67px,7.45dvh); }
+.eq-dialog .eq-info { font-size: 21px; font-weight: 700; }
+.eq-dialog .eq-info strong { font-weight: 600; }
+.popid-dialog .eq-info { margin-top: 13px; }
+.eq-dialog.popid-dialog .popid-instruction { flex: 0 0 min(73px,9dvh); margin: 0; text-align: left; padding: 3px 0 0 24.44%; font-weight: 600; }
+.eq-dialog.popid-dialog > .eq-grid { margin: 0 3.5% 0 3.76%; }
+.eq-dialog.popid-dialog footer { margin: min(43px,5dvh) 3.5% min(15px,2dvh) 3.76%; }
+.eq-grid td,.settings-dialog:not(.printer-dialog) td { font: 400 12pt/1.25 "Noto Sans KR",sans-serif; height: 70px; padding: 0 3px; }
+.eq-grid th,.settings-dialog:not(.printer-dialog) th { font: 400 14.25pt/1.25 "Noto Sans KR",sans-serif; color: black;
+  background: #71ebff url('/terminal-settings/grid-header.png') repeat-x; background-size: auto 100%; height: 60px; text-align: center; padding: 0 3px; }
+.eq-wh th { background: #037e6d; height: 50px; }
+.eq-wh td { height: 50px; }
+.eq-dialog input[type=checkbox],.settings-material input[type=checkbox] { appearance: none; display: inline-grid; vertical-align: middle; place-content: center;
+  width: 50px; height: 50px; padding: 4px; border: 0; border-radius: 0; cursor: pointer; background: transparent; color: red; }
+.eq-dialog input[type=checkbox]::before,.settings-material input[type=checkbox]::before {
+  content: ''; width: 36px; height: 36px; border: 3px solid currentColor; border-radius: 4px; }
+.eq-dialog input[type=checkbox]:checked,.settings-material input[type=checkbox]:checked { color: blue; }
+.eq-dialog input[type=checkbox]:checked::before,.settings-material input[type=checkbox]:checked::before {
+  content: '✓'; background: blue; border-color: blue; color: white; font: bold 33px/34px sans-serif; text-align: center; }
+.eq-dialog footer button,.settings-dialog:not(.printer-dialog) footer button { color: white; background: #0c2c6d; border: 2px outset #182f5b;
+  font: 700 clamp(15px,2vw,21px)/1.25 "Noto Sans KR",sans-serif; border-radius: 0; }
+.eq-dialog footer button:last-child,.settings-dialog:not(.printer-dialog) footer button:last-child { background: #8e8e8e; border: 1px solid #646464; }
+.settings-dialog:is(.settings-slot,.settings-warehouse,.settings-material) { --edge: min(30px,3vw); width: 800px; height: 900px; max-width: 100vw; max-height: 100dvh; }
+.settings-dialog.settings-material { width: 798px; height: 868px; }
+.settings-dialog:not(.printer-dialog) h2 { display: flex; align-items: flex-start; padding: min(12px,2vw) 0 0 min(140px,18vw); font: 500 clamp(21px,4vw,37px)/1.5 "Noto Sans KR",sans-serif; }
+.settings-dialog:not(.printer-dialog) fieldset { display: block; margin: min(43px,5dvh) 3.5% 0 3.76%; padding: 0; flex: 1; min-height: 55px; width: auto;
+  border: 1px solid #d5d5d5; overflow: auto; background: white; }
+.settings-dialog.settings-slot fieldset { margin-top: min(223px,24.8dvh); }
+.settings-dialog.settings-warehouse fieldset { margin-top: min(28px,3.1dvh); }
+.settings-dialog:not(.printer-dialog) fieldset table { width: calc(100% - 47px); table-layout: fixed; }
+.settings-dialog:not(.printer-dialog) fieldset th,.settings-dialog:not(.printer-dialog) fieldset td { text-align: center; border: 1px solid #d5d5d5; }
+.settings-dialog.settings-material th:not(:last-child) { width: 20%; }
+.settings-dialog:not(.printer-dialog) fieldset :is(td,th) > button { width: 100%; min-height: 48px; color: inherit; background: transparent; }
+.settings-dialog:not(.printer-dialog) fieldset tr[aria-current=true] { background: #cee5fa; }
+.settings-dialog:not(.printer-dialog) footer { flex: none; display: flex; margin: min(43px,5dvh) 3.5% min(15px,2dvh) 3.76%; gap: min(20px,2.5vw); }
+.settings-dialog.settings-slot footer { margin-top: min(47px,5.23dvh); }
+.settings-dialog.settings-warehouse td { height: 90px; }
+.settings-dialog.settings-warehouse footer { margin-top: min(21px,2.34dvh); }
+.settings-dialog:not(.printer-dialog) footer button { height: min(70px,9dvh); flex: 1; }
+.settings-message-scope dialog.transfer-message { position: fixed; width: min(685px,100vw); height: min(408px,100dvh); padding: 0; border: 1px solid #a0a0a0; background: white; color: #222; }
+.settings-message-scope dialog::backdrop { background: #17213750; }
+.settings-message-scope dialog::before { content: 'System Message'; display: block; height: 30px; padding: 6px 9px; box-sizing: border-box; background: #f0f0f0; font: 12px "Segoe UI",sans-serif; color: #555; }
+.settings-message-scope .transfer-message-text { font: 700 clamp(18px,3vw,29px)/1.35 "Noto Sans KR",sans-serif; height: 58%; color: #282828; padding: 8px; white-space: pre-line; text-align: center; border: 1px solid #a0a0a0; display: grid; place-items: center; }
+.settings-message-scope button { position: absolute; bottom: 5%; width: 31%; height: 19.6%; padding: 0; border-radius: 0; border: 1px solid #19356f; background: #224895; color: white; font: 700 18pt "Noto Sans KR",sans-serif; }
+.settings-message-scope .answer-yes { left: 17.7%; }
+.settings-message-scope .answer-no { left: 52.2%; background: #8e8e8e; border-color: #646464; }
+.settings-message-scope .answer-ok { left: 34.3%; }
+
+.eq-dialog header h2,.settings-dialog .settings-caption { transform: translateY(-1px) scaleX(1.18); transform-origin: left center; }
+.eq-dialog footer,.settings-dialog:not(.printer-dialog) footer { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); }
+.eq-dialog footer button,.settings-dialog:not(.printer-dialog) footer button { font-size: 16px; font-weight: 500; }
+.eq-grid th,.settings-dialog:not(.printer-dialog) th { font-size: 16px; }
+.eq-machine > .eq-grid { margin-top: 6px; }
+.eq-process .eq-process-body { grid-template-columns: minmax(0,1fr) min(57px,6vw) minmax(0,1fr); gap: min(11.5px,1vw); }
+.eq-process-body > .eq-grid:first-child table { table-layout: fixed; }
+.eq-process-body > .eq-grid:first-child th:nth-child(2) { width: 38.8%; }
+.settings-dialog:is(.settings-slot,.settings-warehouse) fieldset,.settings-dialog:is(.settings-slot,.settings-warehouse) footer { margin-right: var(--edge); margin-left: var(--edge); }
+.settings-dialog:is(.settings-slot,.settings-warehouse) th:first-child { width: 14%; }
+
+.settings-slot .settings-process-slots { display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); gap: .85%;
+  position: absolute; left: 3.75%; right: 4.1%; top: 15.1%; height: 17.22%; }
+.settings-process-slots button { padding: 0; position: relative; color: #122c60; background: #accbdf; border: none; border-radius: 0; }
+.settings-process-slots button[data-assigned=false] { color: yellow; }
+.settings-process-slots button[aria-pressed=true] { background: #64aad6; }
+.settings-process-slots button[data-unavailable=true] { opacity: 1; background: silver; color: red; }
+.settings-process-slots img { position: absolute; left: 12%; top: 8%; width: 76%; height: 59%; }
+.settings-process-slots span { position: absolute; top: 70%; left: 0; width: 100%; font-size: clamp(12px,2vw,20px); }
+.settings-dialog.settings-slot fieldset table { width: 100%; }
+.settings-dialog.settings-slot fieldset th:first-child { width: 12.7%; }
+.settings-dialog.settings-slot fieldset th:nth-child(2) { width: 22%; }
+
+.settings-dialog:is(.settings-slot,.settings-material) fieldset td {
+  white-space:normal;
+  overflow-wrap:anywhere;
+}
+
+/* The native fixed-height process and material rows paint text inside each cell. */
+.settings-dialog:is(.settings-slot,.settings-material) td { overflow: hidden; text-overflow: ellipsis; }
+.settings-dialog:not(.printer-dialog) h2 button img, .eq-dialog header button img { display: block; }
+.settings-dialog:not(.printer-dialog) :is(th,td) { font-family: "Noto Sans KR", sans-serif; font-size: 16px; }
+
+.eq-dialog header button, .settings-dialog:not(.printer-dialog) h2 button { height: min(68px,8.85dvh); }
+.eq-dialog header button img { max-height: 100%; }
+.eq-process-body td, .eq-process-body td > button { overflow: hidden; text-overflow: ellipsis; }
+.settings-home .settings-tiles > * > span { line-height: 1.35; }

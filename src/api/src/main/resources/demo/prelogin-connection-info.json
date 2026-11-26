@@ -1,0 +1,10 @@
+{
+  "ftpHost": "update.example.invalid",
+  "ftpPort": "21",
+  "imagePath": "/images/",
+  "updatePath": "/updates/",
+  "version": "",
+  "dbHost": "database.example.invalid",
+  "dbPort": "1433",
+  "database": "POP_DEMO"
+}

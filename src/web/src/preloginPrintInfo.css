@@ -1,0 +1,7 @@
+.pre-info-editor .pre-info-body table { table-layout:fixed; }
+.pre-info-editor .pre-info-body input { width:100%; max-width:100%; min-width:0; box-sizing:border-box; height:44px; margin:0; border:1px solid #a1a9b4; border-radius:0; background:white; color:#222; padding:0 6px; font:inherit; }
+.pre-info-editor .pre-info-address { display:grid; grid-template-columns:minmax(0,1fr) auto minmax(60px,22%); align-items:center; }
+.pre-info-editor footer { position:absolute; inset:auto 3.75% 1.66%; height:7.78%; display:flex; gap:6px; }
+.pre-info-editor footer button { flex:1; border:0; }
+.pre-info-editor footer button:last-child { background:#888; }
+.pre-profile-error { position:absolute; bottom:10%; left:4%; width:92%; background:white; color:#9d2424; }

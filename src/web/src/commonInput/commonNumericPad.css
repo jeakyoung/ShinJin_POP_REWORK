@@ -1,0 +1,19 @@
+.common-numeric-pad {
+  padding: 0; border: 0; margin: auto; max-width: 100dvw; max-height: 100dvh; overflow: hidden;
+  color: #111; background: #dfe3eb; border-radius: 0; font-family: "Noto Sans KR", "Malgun Gothic", sans-serif;
+}
+.common-numeric-pad::backdrop { background: transparent; }
+.common-numeric-pad > div { position: relative; container-type: inline-size; }
+.common-numeric-pad output {
+  position: absolute; display: flex; justify-content: flex-end;
+  align-items: center; background: white; font-size: 12cqw; font-weight: bold;
+}
+.common-numeric-pad button {
+  position: absolute; min-height: 0; padding: 0; border-radius: 0; background: white; color: #111;
+  font: bold 8cqw "Noto Sans KR", "Malgun Gothic", sans-serif; touch-action: manipulation;
+}
+.common-numeric-pad button[data-preset=true]:not([data-edit=true]) { font-size: 4.67cqw; }
+.common-numeric-pad button[data-edit=true] { background: #bdbfc9; }
+.common-numeric-pad .cn-apply, .common-numeric-pad .cn-cancel { color: white; }
+.common-numeric-pad .cn-apply { background: #0c2c6d; }
+.common-numeric-pad .cn-cancel { background: #8e8e8e; }

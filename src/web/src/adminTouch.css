@@ -1,0 +1,72 @@
+.pop-touch-form {
+  font-family: "Noto Sans KR", "Malgun Gothic", sans-serif;
+  background: #f2f4f6;
+  color: #192634;
+  padding: clamp(12px, 2vw, 24px);
+  min-width: 0;
+  overflow-x: auto;
+}
+.pop-touch-form h2, .pop-touch-form h3 {
+  background: #14296b;
+  color: white;
+  padding: .55em .8em;
+  margin: .6em 0;
+}
+.pop-touch-form form, .pop-touch-form fieldset {
+  min-width: 0;
+  padding: 12px;
+  background: white;
+  border: 1px solid #a9b4c3;
+}
+.pop-touch-form label {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 4px;
+}
+.pop-touch-form :is(input, select, button) {
+  box-sizing: border-box;
+  max-width: 100%;
+  min-height: 48px;
+  padding: 6px 12px;
+  font: inherit;
+  font-size: max(1rem, 16px);
+  touch-action: manipulation;
+}
+.pop-touch-form :is(input, select):enabled { background: moccasin; color: #192634; }
+.pop-touch-form button {
+  min-width: 48px;
+  margin: 3px;
+  border: 1px solid #647389;
+  border-radius: 4px;
+  background: #e4eaf1;
+  color: #17263b;
+}
+.pop-touch-form button:active:enabled, .pop-touch-form button[aria-pressed="true"] {
+  background: #182e76;
+  color: white;
+}
+.pop-touch-form button:disabled { opacity: .6; }
+.pop-touch-form :is(input, select, button):focus-visible { outline: 3px solid #005cad; outline-offset: 2px; }
+.pop-touch-form th, .pop-touch-form td { padding: 10px 12px; }
+.pop-touch-form thead th { background: #dfe6ee; color: #17263b; }
+.pop-touch-form .table-scroll { overflow-x: auto; }
+.pop-touch-form [role="status"] { padding: 8px; border-inline-start: 4px solid #315691; }
+@media (max-width: 680px) {
+  .pop-touch-form form label { display: flex; }
+  .pop-touch-form label :is(input:not([type="checkbox"]), select) { flex: 1 1 10rem; min-width: 0; }
+}
+.pop-touch-options { display: none; }
+@media (pointer: coarse) {
+  .pop-touch-choice > select { display: none; }
+  .pop-touch-form .pop-touch-options { display: flex; flex-wrap: wrap; gap: 4px; }
+}
+.pop-number-pad { width: min(320px, 88vw); border: 2px solid #192e6c; padding: 14px; border-radius: 6px; }
+.pop-number-pad::backdrop { background: rgb(15 24 45 / 50%); }
+.pop-number-pad h3 { margin: 0 0 6px; }
+.pop-number-pad output { display: block; overflow-wrap: anywhere; background: moccasin; padding: 10px; text-align: right; font-size: 1.4rem; }
+.pop-number-pad .digits, .pop-number-pad .actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin-top: 8px; }
+.pop-number-pad button { min-height: 48px; font-size: 1rem; touch-action: manipulation; }
+.pop-number-pad .actions button:last-child { background: #182e76; color: white; }
+.pop-touch-form [role="group"] { padding: 12px; border-inline-start: 4px solid #182e76; background: #f3f5fa; }

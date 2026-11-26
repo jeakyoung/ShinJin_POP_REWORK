@@ -1,0 +1,54 @@
+.wh-settings { box-sizing:border-box; width:min(800px,100vw); height:min(900px,100dvh); max-height:100dvh; max-width:100vw; padding:0; border:0; background:#f3f3f3; color:#101010; font-family:"Microsoft Sans Serif",Gulim,sans-serif; }
+.wh-settings[open] { display:flex; flex-direction:column; }
+.wh-settings::backdrop { background:#141e36a0; }
+.wh-settings header { margin:0; flex:none; height:min(100px,12dvh); position:relative; display:flex; align-items:center; color:white; background:#0b2e70; }
+.wh-settings header > img { margin-left:30px; width:100px; height:80%; }
+.wh-settings header h2 { color:white; background:transparent; margin:0 0 0 10px; padding:0; font-size:37px; font-weight:500; }
+.wh-settings header button { position:absolute; right:3.75%; top:17%; width:68px; height:68%; padding:0; background:transparent; }
+.wh-settings header button img,.wh-order-tools img { width:100%; height:100%; }
+.wh-settings footer { display:flex; gap:20px; margin:0 30px 15px; }
+.wh-settings footer button { flex:1; height:min(70px,12dvh); border-radius:0; color:white; background:#102c69; }
+.wh-settings footer button:last-child { background:#8e8e8e; }
+.wh-password { width:min(792px,100vw); height:min(414px,100dvh); }
+.wh-password header button { right:23px; }
+.wh-auth-body { position:relative; flex:1; min-height:0; display:flex; flex-direction:column; gap:min(30px,3dvh); justify-content:center; padding:0 22px 0 38px; border:1px solid #ccc; background:#efefef; }
+.wh-auth-body label { position:absolute; top:11.7%; left:4.8%; font-size:38px; line-height:1.25; color:black; font-weight:400; }
+.wh-auth-body input { position:absolute; left:4.8%; top:46%; width:92.4%; box-sizing:border-box; height:min(82px,14dvh); font-size:38px; padding:0 10px; background:white; color:black; border:1px solid #aaa; border-radius:0; }
+.wh-password footer { margin:15px 23px 15px 39px; gap:10px; }
+.wh-grid,.wh-order-grid { flex:1; min-height:0; overflow:auto; border:1px solid #d4d4d4; background:white; }
+.wh-grid { margin:min(28px,3.1dvh) 30px min(21px,2.34dvh); }
+.wh-settings table { border-collapse:collapse; table-layout:fixed; color:black; }
+.wh-grid table { width:685px; }
+.wh-settings th,.wh-settings td { box-sizing:border-box; text-align:center; border:1px solid #d5d5d5; padding:0; }
+.wh-settings th { height:60px; font-size:16px; font-weight:400; background:#71ebff url('/terminal-settings/grid-header.png') repeat-x; background-size:auto 100%; position:sticky; top:0; z-index:1; }
+.wh-settings td { height:90px; }
+.wh-settings th button,.wh-order-grid td button { padding:0; height:100%; width:100%; color:inherit; background:transparent; font:inherit; }
+.wh-grid label { display:grid; place-items:center; width:100%; height:100%; cursor:pointer; }
+.wh-grid input { appearance:none; width:50px; height:50px; margin:0; cursor:pointer; display:grid; place-items:center; }
+.wh-grid input::before { content:""; width:42px; height:42px; border:3px solid red; border-radius:4px; box-sizing:border-box; }
+.wh-grid input:checked::before { content:"✓"; color:white; background:blue; border-color:blue; font:bold 36px/36px sans-serif; text-align:center; }
+.wh-priority { width:min(1235px,100vw); }
+.wh-priority header button { right:17px; }
+.wh-priorities { display:flex; gap:6px; flex:1; min-height:0; margin:min(35px,4dvh) 16px min(21px,2.34dvh) 20px; overflow:auto; }
+.wh-priorities section { margin:0; padding:0; border:0; border-radius:0; background:transparent; flex:1; min-width:210px; display:flex; flex-direction:column; }
+.wh-order-tools { display:flex; gap:6px; align-items:center; margin:0 3px 6px; height:53px; }
+.wh-order-tools h3 { white-space:nowrap; flex:1; margin:0; text-align:center; font-size:36px; font-weight:400; }
+.wh-order-tools button { width:57px; height:53px; padding:0; background:transparent; }
+.wh-order-grid table { width:186px; }
+.wh-order-grid [aria-current=true] { background:#cee5fa; }
+.wh-priority footer { gap:31px; }
+
+.wh-settings tbody td, .wh-order-grid td button { white-space:normal; overflow-wrap:anywhere; }
+@media (max-width:1120px) {
+  .wh-priorities section { min-width:0; }
+  .wh-order-tools { gap:3px; }
+  .wh-order-tools h3 { font-size:clamp(23px,2.65vw,36px); }
+  .wh-order-tools button { width:clamp(44px,4.5vw,57px); flex-shrink:0; }
+  .wh-order-grid table { width:100%; }
+}
+
+.wh-grid td:nth-child(4), .wh-order-grid td:nth-child(2) button {
+  white-space: normal; overflow-wrap: anywhere; word-break: normal;
+}
+.wh-settings header button img, .wh-order-tools img { display: block; }
+.wh-settings :is(td,th), .wh-settings footer button { font-family: "Noto Sans KR", sans-serif; }
