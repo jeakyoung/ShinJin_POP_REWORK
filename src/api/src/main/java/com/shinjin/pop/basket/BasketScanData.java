@@ -14,12 +14,13 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
+import java.util.Comparator;
 
 @Component
 @Profile("demo")
 final class BasketScanData {
     record Source(Map<String,List<String>> goodWarehouses,List<Row> rows) {}
-    record Row(String terminal,String warehouse,String orderNo,String detailCode,String quality,PlanKey key,BigDecimal reQty) {}
+    record Row(String terminal,String warehouse,String orderNo,String detailCode,String quality,PlanKey key,BigDecimal reQty,BigDecimal remainingWork) {}
     record Result(List<PlanKey> keys,String orderNo,String detailCode) {}
 
     private final Source source;
@@ -40,6 +41,28 @@ final class BasketScanData {
 
     boolean configured(String terminal,HttpServletRequest request) {
         return !warehouses(terminal,request).isEmpty();
+    }
+
+    Work masterOrder(String terminal,Work work){
+        var p=work.plan();
+        var numbers=source.rows().stream().filter(r->r.terminal().equals(terminal) && r.key().equals(p.key()))
+                .map(Row::orderNo).distinct().toList();
+        if(numbers.size()!=1)return work;
+        return new Work(new Plan(p.key(),numbers.get(0),p.orderLine(),p.item(),p.columns()),work.phase(),work.groupId(),work.produced());
+    }
+    static final Comparator<BigDecimal> NUMBER=Comparator.nullsFirst(Comparator.naturalOrder());
+    static final Comparator<Work> MASTER_ORDER=Comparator.<Work,BigDecimal>comparing(w->w.plan().columns()==null?null:w.plan().columns().thickness(),NUMBER)
+            .thenComparing(w->w.plan().columns()==null?null:w.plan().columns().width(),NUMBER)
+            .thenComparing(w->w.plan().columns()==null?null:w.plan().columns().length(),NUMBER)
+            .thenComparing(w->w.plan().key().date()).thenComparingInt(w->w.plan().key().sequence());
+
+    List<PlanKey> refreshMaster(String order,String detail,View view){
+        var sourceRows=source.rows().stream().filter(r->r.terminal().equals(view.actor().terminal())).toList();
+        if(sourceRows.stream().noneMatch(r->r.remainingWork()!=null))return null; // older fixture did not supply SELECT2_GV1
+        var keys=sourceRows.stream().filter(r->r.orderNo().equals(order) && (detail.isEmpty()||detail.equals(r.detailCode()))
+                && r.remainingWork()!=null && r.remainingWork().signum()!=0).map(Row::key).collect(java.util.stream.Collectors.toSet());
+        return view.work().stream().filter(w->keys.contains(w.plan().key()))
+                .map(w->w.plan().key()).toList();
     }
 
     Reply<Result> scan(String barcode,View view,HttpServletRequest request) {

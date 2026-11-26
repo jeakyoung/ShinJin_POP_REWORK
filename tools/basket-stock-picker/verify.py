@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parents[2]
 DATA = ROOT / "src/api/src/main/resources/demo"
 
 
-def fixture(directory,return_add=False):
+def fixture(directory,return_add=False,shared_clear=False):
     sites = json.loads((DATA / "basket-stock-picker.json").read_text(encoding="utf-8"))
     columns = json.loads((DATA / "basket-plan-columns.json").read_text(encoding="utf-8"))
     menu=json.loads((ROOT/"tools/demo-dataset/process-003-write.json").read_text(encoding="utf-8"))
@@ -28,6 +28,8 @@ def fixture(directory,return_add=False):
     (directory/"menu.json").write_text(json.dumps(menu),encoding="utf-8")
     for plan in columns:
         plan["columns"]["quality"] = "014" if return_add and plan["terminal"]=="DEMO-A" else "015"
+        if shared_clear and plan["terminal"]=="DEMO-A2" and plan["key"]["sequence"]==2:
+            plan["columns"]["length"]=90
     for site in sites:
         prototype = site["stocks"][0]
         for location, number in [("BIN-02", "QA00000001"), ("BIN-03", "QA00000001"), ("BIN-04", "QA00000002")]:
@@ -192,11 +194,12 @@ def main():
     parser.add_argument("--capture",type=Path)
     parser.add_argument("--reentry",action="store_true",help="Exercise parent deletion and returning from the production menu")
     parser.add_argument("--return-add",action="store_true",help="Exercise the native return-row and preset length sequence")
+    parser.add_argument("--shared-clear",action="store_true",help="Exercise ComBasketAdd with two orders in the same group")
     args=parser.parse_args()
     if args.capture:args.capture.mkdir(exist_ok=True,parents=True)
     with tempfile.TemporaryDirectory() as tmp:
         directory=Path(tmp)
-        fixture(directory,args.return_add)
+        fixture(directory,args.return_add,args.shared_clear)
         with socket.socket() as sock:
             sock.bind(("127.0.0.1",0));port=sock.getsockname()[1]
         base="http://127.0.0.1:"+str(port)
@@ -220,7 +223,8 @@ def main():
                     browser=pw.chromium.launch(channel="chrome")
                     from reentry import verify_reentry
                     from return_add import verify_return_add
-                    run=verify_return_add if args.return_add else verify_reentry if args.reentry else verify
+                    from shared_clear import verify_shared_clear
+                    run=verify_shared_clear if args.shared_clear else verify_return_add if args.return_add else verify_reentry if args.reentry else verify
                     run(browser,base,"DEMO-A","2030-01-01","1",(1280,800),args.capture)
                     run(browser,base,"DEMO-A2","2030-01-02","2",(1024,768),args.capture)
                     browser.close()

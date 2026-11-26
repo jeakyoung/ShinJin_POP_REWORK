@@ -60,6 +60,8 @@ function headers(process?:BasketProcess):Record<string,string> {
   return {'X-Pop-Process-Slot':String(process.slot),'X-Pop-Work-Code':process.workCode??''}
 }
 export const loadBasket = (process?:BasketProcess) => request<BasketView>('',{headers:headers(process)})
+export const refreshBasketParent=(order:string,detail:string,process:BasketProcess)=>request<{view:BasketView;keys:PlanKey[]|null}>(
+  '/parent?'+new URLSearchParams({order,detail}),{headers:headers(process)})
 export type ReturnInput={firstPlan:PlanKey;firstIssue:Lot;focusedIssue:Lot;position?:string;length?:number;row?:DisplayLot|null}
 export const lookupBasketReturns=(key:PlanKey,input:ReturnInput,process:BasketProcess)=>request<DisplayLot[]>(
   '/return-lookup/'+encodeURIComponent(key.date)+'/'+key.sequence,{method:'POST',

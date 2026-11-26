@@ -67,6 +67,16 @@ public final class BasketDemoController {
     public ResponseEntity<?> view(HttpServletRequest request) {
         return response(scopedView(actor(request)));
     }
+    record ParentRefresh(View view,List<PlanKey> keys){}
+    @GetMapping("/parent")
+    ResponseEntity<?> refreshParent(@RequestParam String order,@RequestParam(defaultValue="") String detail,HttpServletRequest request){
+        var owner=actor(request);
+        if(owner.workCode()==null)return failure(403,"WORK_CODE_REQUIRED");
+        var snapshot=scopedView(owner);
+        if(snapshot.status()!=200)return response(snapshot);
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(
+                new ParentRefresh(snapshot.value(),scans.refreshMaster(order,detail,snapshot.value())));
+    }
 
     View pickerView(HttpServletRequest request) {
         var owner=actor(request);
@@ -220,7 +230,8 @@ public final class BasketDemoController {
         var reply=domain.view(actor);
         if(actor.workCode()==null||reply.status()!=200)return reply;
         var allowed=plans(actor.terminal(),actor.workCode());var v=reply.value();
-        var work=v.work().stream().filter(row->allowed.contains(row.plan().key())).toList();
+        var work=v.work().stream().filter(row->allowed.contains(row.plan().key())).map(row->scans.masterOrder(actor.terminal(),row))
+                .sorted(BasketScanData.MASTER_ORDER).toList();
         var ids=work.stream().map(Work::groupId).filter(java.util.Objects::nonNull).collect(java.util.stream.Collectors.toSet());
         var site=picker.site(actor.terminal());
         var materials=v.materials().stream().map(m->new Material(m.lot(),m.available(),site==null?null:

@@ -9,7 +9,7 @@ import BasketReturnGrid from './BasketReturnGrid'
 import './floor-work.css'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { BasketApiError, basketScanner, loadBasket, loadBasketGroup, scanBasketOrder, sendBasketCommand, stockPickerSource, lookupBasketReturns } from './basketApi'
+import { BasketApiError, basketScanner, loadBasket, loadBasketGroup, scanBasketOrder, sendBasketCommand, stockPickerSource, lookupBasketReturns,refreshBasketParent } from './basketApi'
 import ProcessLotRows from './processLot/ProcessLotRows'
 import type {Pick} from './processLot/processStockTypes'
 import CommonNumericPad from './commonInput/CommonNumericPad'
@@ -37,6 +37,8 @@ export default function WorkBasket({ actor,processSlot,workCode,onSessionExpired
   const [view, setView] = useState<BasketView>()
   const [scan, setScan] = useState('')
   const [scanOrder,setScanOrder]=useState('')
+  const [scanDetail,setScanDetail]=useState('')
+  const excludedPlans=useRef(new Set<string>())
   const scanAttempt=useRef(0)
   const scanPending=useRef(false)
   const [visible, setVisible] = useState<string[]>([])
@@ -69,6 +71,7 @@ export default function WorkBasket({ actor,processSlot,workCode,onSessionExpired
   const [pickedIssues,setPickedIssues]=useState<number[]>([])
   const [pickedReturns,setPickedReturns]=useState<number[]>([])
   const [materialTarget, setMaterialTarget] = useState<{ id: string; key: PlanKey }>()
+  const [materialReload,setMaterialReload]=useState(0)
   const [notice, setNotice] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -88,6 +91,8 @@ export default function WorkBasket({ actor,processSlot,workCode,onSessionExpired
         const groups=new Set(next.groups.filter(g=>g.terminal===next.actor.terminal).map(g=>g.id))
         const keys=next.work.filter(w=>w.groupId && groups.has(w.groupId) && w.phase!=='COMPLETED').map(w=>planId(w.plan.key))
         setVisible(keys);setFocused(keys[0]??'')
+        const last=next.work.find(w=>planId(w.plan.key)===keys.at(-1))
+        if(last)setScanOrder(last.plan.order)
         if(!keys.length && process.slot)initialScan.current=setTimeout(()=>{if(active)void openScanner()},500)
       }
     }).catch((error: unknown) => {
@@ -149,14 +154,19 @@ export default function WorkBasket({ actor,processSlot,workCode,onSessionExpired
         const affected = new Set(result.affected.map(planId))
         setChecked(current => current.filter(id => !affected.has(id)))
         setVisible(current=>current.filter(id=>!affected.has(id)))
+        if(command.action==='DELETE_ROW' && visible.some(id=>!affected.has(id)))for(const id of affected)excludedPlans.current.add(id)
+        else excludedPlans.current.clear()
       }
+      if(command.action==='START_BASKET')excludedPlans.current.clear()
       if (clearing) {
         setMaterialTarget(undefined)
         setNotice('')
-        if (result.groupId && view.revision === command.expectedRevision) {
+        if (result.groupId) {
           // ComBasketAdd only clears the two parent grids when the entire group disappears.
           setManual({owner:result.groupId,rows:currentPicks})
           setHeldReturns({rows:displayReturns.map(r=>({...r,quantity:Number(r.quantity),length:Number(r.length)})),sequences:returnSequences})
+        }
+        if (result.groupId && view.revision === command.expectedRevision) {
           try {
             const detail = await loadBasketGroup(result.groupId,process)
             if (!mount.active) return
@@ -189,8 +199,13 @@ export default function WorkBasket({ actor,processSlot,workCode,onSessionExpired
         setNotice('삭제 되었습니다.')
       } else if (command.action === 'SET_RETURN_QUANTITY' || command.action==='ADD_MANUAL_ISSUE' || command.action==='SAVE_RETURN_GRID') setNotice('')
       else setNotice('처리 완료 · 버전 ' + result.revision)
-      const next = await loadBasket(process)
+      const parent=clearing && !result.groupId && process.slot?await refreshBasketParent(scanOrder,scanDetail,process):undefined
+      const next=parent?.view??await loadBasket(process)
       if (mount.active){
+        if(parent?.keys){
+          const ids=parent.keys.map(planId).filter(id=>!excludedPlans.current.has(id))
+          setVisible(ids);setFocused(ids[0]??'')
+        }
         setView(next)
         if(command.action==='SAVE_RETURN_GRID'){
           const updated=next.groups.find(g=>g.id===command.groupId)
@@ -200,14 +215,19 @@ export default function WorkBasket({ actor,processSlot,workCode,onSessionExpired
       }
     } catch (error) {
       if (!mount.active) return
-      setMaterialTarget(undefined)
+      const clearFailed=(command.action==='CLEAR_BASKET_ISSUES'||command.action==='CLEAR_BASKET_RETURNS') &&
+        error instanceof BasketApiError && [400,403,404,409,422].includes(error.status)
+      if(!clearFailed)setMaterialTarget(undefined)
       if (error instanceof BasketApiError && error.status === 401) {
         onSessionExpired()
       } else {
-        setNotice(error instanceof BasketApiError && error.message==='ISSUE_SEQUENCE_CONFLICT'?'TPR601M 0 INSERT ERROR':String(error))
+        const staleMaterial=clearFailed && error.message==='STALE_REVISION'
+        setNotice(staleMaterial?'다른 작업에서 자재가 변경되었습니다. 다시 조회한 목록을 확인하십시오.':
+          error instanceof BasketApiError && error.message==='ISSUE_SEQUENCE_CONFLICT'?'TPR601M 0 INSERT ERROR':String(error))
         if (error instanceof BasketApiError && [400, 403, 404, 409, 422].includes(error.status)) {
           clearPending(command)
-          if (error.status === 409) {
+          if(clearFailed)setMaterialReload(t=>t+1)
+          else if (error.status === 409) {
             try {
               const next = await loadBasket(process)
               if (mount.active) setView(next)
@@ -224,16 +244,35 @@ export default function WorkBasket({ actor,processSlot,workCode,onSessionExpired
   }
 
   if(!view || !sameActor)return <section aria-label="작업 장바구니"><p role="status">{notice||'조회 중'}</p></section>
-  const list=view.work.filter(r=>visible.includes(planId(r.plan.key)))
+  const byKey=new Map(view.work.map(r=>[planId(r.plan.key),r]))
+  const list=visible.flatMap(id=>{const r=byKey.get(id);return r?[r]:[]})
   const row=list.find(r=>planId(r.plan.key)===focused)
-  function mergedCell(index:number,value:(entry:BasketView['work'][number])=>unknown,content:ReactNode) {
+  function mergedCell(index:number,value:(entry:BasketView['work'][number])=>unknown,content:ReactNode,groupColumn=false) {
     const entry=list[index],merge=entry.plan.columns?.mergeKey
-    if(!merge)return <td>{content}</td>
-    const matches=(other:BasketView['work'][number])=>other.plan.columns?.mergeKey===merge && value(other)===value(entry)
+    const matches=(other:BasketView['work'][number])=>!!merge && other.plan.columns?.mergeKey===merge && value(other)===value(entry)
     if(index>0 && matches(list[index-1]))return null
     let span=1
     while(index+span<list.length && matches(list[index+span]))span++
-    return <td rowSpan={span}>{content}</td>
+    return <td rowSpan={span} onClick={event=>{
+      if(span===1 && !groupColumn)return
+      event.stopPropagation()
+      let hit=index
+      const body=event.currentTarget.closest('tbody')
+      if(body && event.detail>0){
+        for(let i=index+1;i<index+span;i++){
+          if(event.clientY<body.rows[i].getBoundingClientRect().top)break
+          hit=i
+        }
+      }else if(span>1 && focused){
+        const current=list.findIndex(r=>planId(r.plan.key)===focused)
+        if(current>=index && current<index+span)hit=current
+      }
+      const target=list[hit]
+      focusPlan(planId(target.plan.key));checkRow(target)
+      if(groupColumn && target.groupId && target.phase==='BASKETED'){
+        setNotice('');setMaterialTarget({id:target.groupId,key:target.plan.key})
+      }
+    }}>{content}</td>
   }
   function checkRow(target:BasketView['work'][number]) {
     const id=planId(target.plan.key)
@@ -256,6 +295,8 @@ export default function WorkBasket({ actor,processSlot,workCode,onSessionExpired
   function removeRow(entry:BasketView['work'][number]){
     if(entry.groupId || entry.phase!=='READY'){void submit('DELETE_ROW',undefined,undefined,entry.plan.key);return}
     const id=planId(entry.plan.key),remaining=list.filter(r=>planId(r.plan.key)!==id)
+    if(remaining.length)excludedPlans.current.add(id)
+    else excludedPlans.current.clear()
     setVisible(remaining.map(r=>planId(r.plan.key)))
     setChecked(current=>current.filter(key=>key!==id))
     if(focused===id)setFocused(remaining.length?planId(remaining[Math.min(list.indexOf(entry),remaining.length-1)].plan.key):'')
@@ -429,7 +470,7 @@ export default function WorkBasket({ actor,processSlot,workCode,onSessionExpired
         if(!focus)return
         const chosen=rows.filter(work=>work===focus || focus.groupId && work.groupId===focus.groupId ||
           focus.plan.columns?.mergeKey && work.plan.columns?.mergeKey===focus.plan.columns.mergeKey)
-        setDetailsBound(true);setVisible(ids);setChecked(chosen.map(work=>planId(work.plan.key)));setFocused(planId(focus.plan.key));setScanOrder(result.orderNo)
+        setDetailsBound(true);setVisible(ids);setChecked(chosen.map(work=>planId(work.plan.key)));setFocused(planId(focus.plan.key));setScanOrder(result.orderNo);setScanDetail(result.detailCode)
         setScan('');setModal(undefined);setNotice('')
       } catch(error){
         if(!mount.active||attempt!==scanAttempt.current)return
@@ -502,7 +543,7 @@ export default function WorkBasket({ actor,processSlot,workCode,onSessionExpired
     <div className="prod-middle"><div className="prod-tables"><div className="prod-scroll"><table aria-label="조회 목록과 작업 선택"><colgroup>{[50,105,90,60,60,75,60,60,60,60,60,70,70,100,100].map((width,i)=><col key={i} style={{width}}/>)}</colgroup><thead><Head headers={['선택','작업그룹번호','재질명','두께','폭','길이','수주','생산','잔량','불량','배치','시작시간','선택삭제','창고명','로케이션명']}/></thead>
       <tbody>{list.map((r,index)=>{const id=planId(r.plan.key),g=view.groups.find(v=>v.id===r.groupId);return <tr key={id} aria-current={row===r} onClick={()=>{focusPlan(id);checkRow(r)}}>
         {mergedCell(index,other=>checked.includes(planId(other.plan.key)),<input aria-label={id+' 선택'} type="checkbox" checked={checked.includes(id)} onChange={()=>{}}/>)}
-        {mergedCell(index,other=>other.groupId,r.groupId && r.phase==='BASKETED'?<button type="button" onClick={()=>setMaterialTarget({id:r.groupId!,key:r.plan.key})}>{r.groupId}</button>:r.groupId)}
+        {mergedCell(index,other=>other.groupId,r.groupId && r.phase==='BASKETED'?<button type="button">{r.groupId}</button>:r.groupId,true)}
         {mergedCell(index,other=>other.plan.columns?.qualityName,r.plan.columns?.qualityName)}
         {mergedCell(index,other=>other.plan.columns?.thickness,r.plan.columns?.thickness)}
         {mergedCell(index,other=>other.plan.columns?.width,r.plan.columns?.width)}
@@ -556,7 +597,7 @@ export default function WorkBasket({ actor,processSlot,workCode,onSessionExpired
     {notice && !materialTarget && <Dialog name="작업 안내" width={683} height={376} close={()=>setNotice('')}>
       <div className="wp-message"><p>{notice}</p><button type="button" onClick={()=>setNotice('')}>확인</button></div></Dialog>}
     {pending && <button type="button" className="prod-status" disabled={busy||!view.canWrite} onClick={()=>void submit()}>같은 요청 재시도</button>}
-    {materialTarget && <BasketMaterialDialog process={process} groupId={materialTarget.id} canWrite={view.canWrite} locked={busy} message={notice} onClose={()=>setMaterialTarget(undefined)}
+    {materialTarget && <BasketMaterialDialog process={process} groupId={materialTarget.id} revision={materialReload} canWrite={view.canWrite} locked={busy} message={notice} onClose={()=>{setNotice('');setMaterialTarget(undefined)}}
       onSessionExpired={onSessionExpired} onClear={(action,revision)=>void submit(action,{...materialTarget,revision})}/>}
   </section>
 }

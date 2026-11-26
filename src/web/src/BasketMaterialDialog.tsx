@@ -6,6 +6,7 @@ import './BasketMaterialDialog.css'
 type Props = {
   process?:BasketProcess
   groupId: string
+  revision:number
   canWrite: boolean
   locked: boolean
   message: string
@@ -18,7 +19,7 @@ function sameLot(a: Lot, b: Lot) {
   return a.item === b.item && a.lot === b.lot && a.warehouse === b.warehouse && a.position === b.position
 }
 
-export default function BasketMaterialDialog({ process,groupId, canWrite, locked, message, onClose, onClear, onSessionExpired }: Props) {
+export default function BasketMaterialDialog({ process,groupId,revision, canWrite, locked, message, onClose, onClear, onSessionExpired }: Props) {
   const dialog = useRef<HTMLDialogElement>(null)
   const prompt = useRef<HTMLDialogElement>(null)
   const [tab, setTab] = useState<'issues' | 'returns'>('issues')
@@ -36,6 +37,7 @@ export default function BasketMaterialDialog({ process,groupId, canWrite, locked
 
   useEffect(() => {
     let active = true
+    setDetail(undefined);setSelected(undefined);setError('')
     void loadBasketGroup(groupId,process).then(data => {
       if (active) setDetail(data)
     }).catch((err: unknown) => {
@@ -44,7 +46,7 @@ export default function BasketMaterialDialog({ process,groupId, canWrite, locked
       else setError('장바구니 자재를 조회할 수 없습니다.')
     })
     return () => { active = false }
-  }, [process,groupId, tab, onSessionExpired])
+  }, [process,groupId,revision,tab,onSessionExpired])
 
   const rows = detail?.group[tab] ?? []
   return <dialog className="basket-material" aria-label="장바구니 자재" ref={dialog} onCancel={event => {
