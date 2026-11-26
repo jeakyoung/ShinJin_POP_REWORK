@@ -6,7 +6,7 @@ import type { DrawingDetail as Detail, DrawingMaterial as Material } from './dra
 
 type Option = { key: string; fgUse2: string; item: string; cutLot: string; orderQuantity: number }
 type Scan = { accepted: boolean; scanToken: string; materials: Material[] }
-type Action = 'PACK1_START' | 'PACK1_FINISH' | 'DRAW_START' | 'DRAW_FINISH' | 'PACK2_START' | 'PACK2_FINISH'
+type Action = 'PACK1_START' | 'PACK1_FINISH' | 'DRAW_START' | 'DRAW_FINISH' | 'PACK2_START' | 'PACK2_FINISH' | 'STANDARD_PACK_START' | 'STANDARD_PACK_FINISH'
 type Input = { action: Action; lot?: string; qty?: number; goodQty?: number; scanToken?: string; inputs?: Material[] }
 type Command = Input & { requestId: string; expectedVersion: number }
 
@@ -162,9 +162,9 @@ export default function DrawingWork({ terminalId, onSessionExpired }: { terminal
         <>
           <p>{states[detail.state]} · 버전 {detail.version}{detail.bypassedPack1 && ' · 1차 포장 생략'}</p>
           {!locallyOwned && <p>진행 단말 {detail.ownerTerminalId}</p>}
-          {detail.state === 'CUT_READY' && selected.fgUse2 !== '001' &&
+          {detail.state === 'CUT_READY' && selected.fgUse2 !== '001' && selected.fgUse2 !== 'PACK' &&
             <button type="button" disabled={disabled} onClick={() => command({ action: 'PACK1_START' })}>1차 포장 시작</button>}
-          {(detail.state === 'CUT_READY' || detail.state === 'DRAW_READY') &&
+          {selected.fgUse2 !== 'PACK' && (detail.state === 'CUT_READY' || detail.state === 'DRAW_READY') &&
             <button type="button" disabled={disabled || confirm} onClick={() => void scanPlan(selected, 'PROBE')}>008 스캔</button>}
           {confirm && (
             <div>
@@ -208,6 +208,18 @@ export default function DrawingWork({ terminalId, onSessionExpired }: { terminal
           {(detail.state === 'PACK2_READY' || detail.state === 'PACK2_ACTIVE') &&
             <button type="button" disabled={disabled || (!!qty && !validQty)}
               onClick={() => command({ action: 'PACK2_FINISH', qty: qty ? Number(qty) : undefined })}>2차 포장 완료</button>}
+          {selected.fgUse2 === 'PACK' && detail.state === 'CUT_READY' &&
+            <button type="button" disabled={disabled} onClick={() => command({ action: 'STANDARD_PACK_START' })}>일반 포장 시작</button>}
+          {detail.state === 'STANDARD_PACK_ACTIVE' && <>
+            <label>일반 포장 수량
+              <input type="number" min="0.001" step="0.001" value={qty} disabled={disabled}
+                onChange={event => setQty(event.target.value)} />
+            </label>
+            <button type="button" disabled={disabled || !validQty}
+              onClick={() => command({ action: 'STANDARD_PACK_FINISH', lot: selected.cutLot, qty: Number(qty) })}>
+              일반 포장 완료
+            </button>
+          </>}
           {detail.shipment && <p>출하 인계 {detail.shipPlanId} · {detail.shipment.material.lot} · {detail.shipment.material.qty}
             {detail.shipment.deferred && ' · 이월'}</p>}
           {retry && <button type="button" disabled={busy} onClick={() => void send(selected, retry)}>같은 요청 다시 보내기</button>}

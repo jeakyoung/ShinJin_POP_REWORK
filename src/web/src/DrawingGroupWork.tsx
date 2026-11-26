@@ -4,12 +4,12 @@ import type { DrawingMaterial, DrawingDetail } from './drawingApi'
 import { SessionExpired } from './workHistoryApi'
 
 type Member = {
-  key: string; snapshot: DrawingDetail; drawingInputs: DrawingMaterial[]
+  key: string; snapshot: DrawingDetail; drawingInputs: DrawingMaterial[]; autoRemnant: DrawingMaterial | null
   result: { drawingDailyId: string; movementId: string; movementLine: number } | null
 }
 type Candidate = { material: DrawingMaterial; eligiblePlans: string[] }
 type Group = { id: string; members: Member[]; candidates: Candidate[] }
-type Line = { key: string; expectedVersion: number; inputs?: DrawingMaterial[]; goodQty?: number }
+type Line = { key: string; expectedVersion: number; inputs?: DrawingMaterial[]; goodQty?: number; confirmSkip?: boolean }
 type Command = { action: 'DRAW_START' | 'DRAW_FINISH'; requestId: string; members: Line[] }
 
 const path = (id: string) => drawingApi + '/groups/' + encodeURIComponent(id)
@@ -17,10 +17,12 @@ const candidateKey = ({ lot, warehouse, item }: DrawingMaterial) => JSON.stringi
 const allocationKey = (plan: string, stock: DrawingMaterial) => plan + '/' + candidateKey(stock)
 const positive = (value: string) => /^(?:\d+)(?:\.\d{1,3})?$/.test(value) && Number(value) > 0 && Number.isFinite(Number(value))
 const groupErrors: Record<string, string> = {
+  GROUP_REMNANT_UNAVAILABLE: '자동 배정할 잔재가 없습니다. 묶음과 재고를 다시 확인하세요.',
+  INVALID_SKIP_INPUT: '생략 승인 계획은 자동 잔재 배정만 사용할 수 있습니다.',
   STALE_VERSION: '다른 요청이 먼저 반영됐습니다. 최신 묶음 상태를 표시합니다.',
   TERMINAL_MISMATCH: '다른 단말에서 이 묶음을 진행 중입니다.',
   INSUFFICIENT_INPUT: '투입 합계가 가용 재고를 초과합니다.',
-  GROUP_NOT_DRAW_READY: '묶음의 모든 계획에서 1차 포장을 완료하세요.',
+  GROUP_NOT_DRAW_READY: '각 계획의 1차 포장을 완료하거나 잔재 후보가 있는 계획의 생략을 확인하세요.',
   INVALID_QUANTITY: '각 계획의 양품 수량을 확인하세요.',
   INVALID_GROUP_CANDIDATE: '선택한 계획의 투입 후보를 다시 확인하세요.',
 }
@@ -32,6 +34,7 @@ export default function DrawingGroupWork({ terminalId, onSessionExpired, onChang
   const [selected, setSelected] = useState('')
   const [group, setGroup] = useState<Group>()
   const [allocations, setAllocations] = useState<Record<string, string>>({})
+  const [skip, setSkip] = useState<Record<string, boolean>>({})
   const [good, setGood] = useState<Record<string, string>>({})
   const [notice, setNotice] = useState('')
   const [busy, setBusy] = useState(false)
@@ -69,6 +72,7 @@ export default function DrawingGroupWork({ terminalId, onSessionExpired, onChang
     setGroup(data)
     setAllocations({})
     setGood({})
+    setSkip({})
   }
 
   function load(id: string) {
@@ -90,7 +94,7 @@ export default function DrawingGroupWork({ terminalId, onSessionExpired, onChang
           setRetry(command)
         } else {
           setRetry(undefined)
-          if (error instanceof DrawingError && ['STALE_VERSION', 'TERMINAL_MISMATCH', 'INSUFFICIENT_INPUT'].includes(error.message)) {
+          if (error instanceof DrawingError && ['STALE_VERSION', 'TERMINAL_MISMATCH', 'INSUFFICIENT_INPUT', 'GROUP_REMNANT_UNAVAILABLE'].includes(error.message)) {
             setGroup(await drawingRequest<Group>(path(selected), signal))
           }
         }
@@ -103,11 +107,16 @@ export default function DrawingGroupWork({ terminalId, onSessionExpired, onChang
     })
   }
 
-  const allReady = group?.members.every(({ snapshot }) => snapshot.state === 'DRAW_READY')
+  const allReady = group?.members.every(({ snapshot, autoRemnant }) =>
+    snapshot.state === 'DRAW_READY' || (snapshot.state === 'CUT_READY' && !!autoRemnant))
+  const hasSkipBranch = group?.members.some(({ snapshot, autoRemnant }) => snapshot.bypassedPack1 || !!autoRemnant)
+  const hasNormalBranch = group?.members.some(({ snapshot, drawingInputs }) =>
+    snapshot.state === 'DRAW_READY' || (!snapshot.bypassedPack1 && drawingInputs.length > 0))
   const allActive = group?.members.every(({ snapshot }) => snapshot.state === 'DRAW_ACTIVE' && snapshot.activeGroupId === group.id)
   const ownedHere = group?.members.every(({ snapshot }) => !snapshot.ownerTerminalId || snapshot.ownerTerminalId === terminalId)
   const startLines = group?.members.map(({ key, snapshot }) => ({
     key, expectedVersion: snapshot.version,
+    confirmSkip: snapshot.state === 'CUT_READY' && !!skip[key],
     inputs: group.candidates.filter((candidate) => candidate.eligiblePlans.includes(key))
       .flatMap(({ material }) => {
         const value = allocations[allocationKey(key, material)]
@@ -115,7 +124,7 @@ export default function DrawingGroupWork({ terminalId, onSessionExpired, onChang
       }),
   }))
   const canStart = allReady && Object.values(allocations).every((value) => !value || positive(value))
-    && startLines?.every((line) => line.inputs.length > 0)
+    && startLines?.every((line) => line.confirmSkip || line.inputs.length > 0)
   const canFinish = allActive && group?.members.every(({ key }) => positive(good[key] ?? ''))
   const locked = busy || !!retry
 
@@ -134,10 +143,20 @@ export default function DrawingGroupWork({ terminalId, onSessionExpired, onChang
       {selected && <button type="button" disabled={locked} onClick={() => load(selected)}>묶음 새로 조회</button>}
       {group && (
         <>
-          <ul>{group.members.map(({ key, snapshot, result, drawingInputs }) => (
+          {hasSkipBranch && hasNormalBranch && <p>1차 포장 완료·생략 혼합 묶음</p>}
+          <ul>{group.members.map(({ key, snapshot, result, drawingInputs, autoRemnant }) => (
             <li key={key}>
               <button type="button" disabled={locked} onClick={() => onPlan(key)}>{key}</button>
               {' · '}{drawingStates[snapshot.state]} · 버전 {snapshot.version}
+              {snapshot.bypassedPack1 && <span> · 1차 포장 생략</span>}
+              {(snapshot.state === 'DRAW_READY' || (!snapshot.bypassedPack1 && drawingInputs.length > 0)) && <span> · 1차 포장 완료</span>}
+              {snapshot.state === 'CUT_READY' && autoRemnant && (
+                <label>
+                  <input type="checkbox" checked={!!skip[key]} disabled={locked || !ownedHere}
+                    onChange={event => setSkip(current => ({ ...current, [key]: event.target.checked }))} />
+                  {key} 1차 생략 확인 · 자동 잔재 {autoRemnant.lot} / {autoRemnant.warehouse} / {autoRemnant.item} · {autoRemnant.qty}
+                </label>
+              )}
               {result && <div>{result.drawingDailyId} ? {result.movementId} / {result.movementLine}</div>}
               {snapshot.ownerTerminalId && ' · ' + snapshot.ownerTerminalId}
               {drawingInputs.length > 0 && (
@@ -150,7 +169,7 @@ export default function DrawingGroupWork({ terminalId, onSessionExpired, onChang
             </li>
           ))}</ul>
           {!allReady && !allActive && group.members.some(({ snapshot }) => snapshot.state === 'CUT_READY' || snapshot.state === 'PACK1_ACTIVE') &&
-            <p>각 계획에서 1차 포장을 완료한 뒤 묶음을 새로 조회하세요.</p>}
+            <p>생략 후보가 없는 계획은 1차 포장을 완료한 뒤 묶음을 새로 조회하세요.</p>}
           {allReady && (
             <>
               <div className="table-scroll">

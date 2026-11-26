@@ -45,11 +45,13 @@ public final class FinalProductionReportController {
             if (snapshot.status() != 200 || snapshot.value().shipment() == null) return response(List.of());
             var shipment = snapshot.value().shipment();
             var completed = drawing.audit(session, key).records().stream()
-                    .filter(record -> record.action() == DrawingDomain.Action.PACK2_FINISH
+                    .filter(record -> (record.action() == DrawingDomain.Action.PACK2_FINISH
+                            || record.action() == DrawingDomain.Action.STANDARD_PACK_FINISH)
                             && shipment.id().equals(record.shipmentId()))
                     .findFirst();
             return response(completed.map(record -> List.of(new Row("", date.format(DateTimeFormatter.BASIC_ISO_DATE)
-                    + "-" + sequence, 1, "\u0032\ucc28 \ud3ec\uc7a5", "", shipment.stock().item(), "",
+                    + "-" + sequence, 1, record.action() == DrawingDomain.Action.STANDARD_PACK_FINISH
+                            ? "\uc77c\ubc18 \ud3ec\uc7a5" : "\u0032\ucc28 \ud3ec\uc7a5", "", shipment.stock().item(), "",
                     null, shipment.quantity(), null, shipment.stock().bin().name(), record.operator(),
                     shipment.startedAt().toString(), shipment.finishedAt().toString()))).orElseGet(List::of));
         }

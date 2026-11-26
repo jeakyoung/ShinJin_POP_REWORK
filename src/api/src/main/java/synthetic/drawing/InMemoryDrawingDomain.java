@@ -26,10 +26,13 @@ public final class InMemoryDrawingDomain implements DrawingDomain {
         public GroupSeed { members = List.copyOf(members); }
     }
     public record GroupResult(String drawingDailyId, String movementId, int movementLine) {}
-    public record GroupMember(PlanKey key, Snapshot snapshot, GroupResult result, List<Input> drawingInputs) {}
+    public record GroupMember(PlanKey key, Snapshot snapshot, GroupResult result, List<Input> drawingInputs, Input autoRemnant) {}
     public record GroupCandidate(StockKey stock, BigDecimal available, List<PlanKey> eligiblePlans) {}
     public record GroupView(String id, List<GroupMember> members, List<GroupCandidate> candidates) {}
-    public record GroupLine(PlanKey key, long expectedVersion, List<Input> inputs, BigDecimal goodQty) {
+    public record GroupLine(PlanKey key, long expectedVersion, List<Input> inputs, BigDecimal goodQty, boolean confirmSkip) {
+        public GroupLine(PlanKey key, long expectedVersion, List<Input> inputs, BigDecimal goodQty) {
+            this(key, expectedVersion, inputs, goodQty, false);
+        }
         public GroupLine { inputs = inputs == null ? List.of() : List.copyOf(inputs); }
     }
     public enum GroupAction { DRAW_START, DRAW_FINISH }
@@ -138,7 +141,7 @@ public final class InMemoryDrawingDomain implements DrawingDomain {
             var first = group.members().get(0);
             for (var member : group.members()) {
                 if (!sameSite(first, member) || !plans.containsKey(member)
-                        || plans.get(member).seed.type() == OrderType.OTHER || !grouped.add(member)) {
+                        || !drawingOrder(plans.get(member)) || !grouped.add(member)) {
                     throw new IllegalArgumentException("Invalid production group member");
                 }
             }
@@ -179,7 +182,7 @@ public final class InMemoryDrawingDomain implements DrawingDomain {
         if (!inScope(session, key)) return error(403, "PLAN_OUT_OF_SCOPE");
         Plan plan = plans.get(key);
         if (plan == null) return error(404, "PLAN_NOT_FOUND");
-        if (plan.seed.type() == OrderType.OTHER) return error(422, "ORDER_NOT_DRAWING");
+        if (!drawingOrder(plan)) return error(422, "ORDER_NOT_DRAWING");
         if (plan.state != CUT_READY && plan.state != DRAW_READY) return error(409, "INVALID_STATE");
         if (decision == null) return error(422, "INVALID_DECISION");
 
@@ -219,8 +222,10 @@ public final class InMemoryDrawingDomain implements DrawingDomain {
             return error(409, "TERMINAL_MISMATCH");
         }
         if (command.expectedVersion() != plan.version) return error(409, "STALE_VERSION");
-        if (plan.seed.type() == OrderType.OTHER) return error(422, "ORDER_NOT_DRAWING");
         if (command.action() == null) return error(422, "ACTION_REQUIRED");
+        boolean standard = command.action() == Action.STANDARD_PACK_START || command.action() == Action.STANDARD_PACK_FINISH;
+        if (standard && plan.seed.type() != OrderType.STANDARD_PACK) return error(422, "ORDER_NOT_STANDARD_PACK");
+        if (!standard && !drawingOrder(plan)) return error(422, "ORDER_NOT_DRAWING");
 
         if (plan.activeGroup != null && command.action() == Action.DRAW_FINISH) {
             return error(409, "GROUP_FINISH_REQUIRED");
@@ -234,6 +239,8 @@ public final class InMemoryDrawingDomain implements DrawingDomain {
             case DRAW_FINISH -> finishDrawing(plan, command.quantity());
             case PACK2_START -> startPack2(plan, session);
             case PACK2_FINISH -> finishPack2(plan, command.quantity());
+            case STANDARD_PACK_START -> startStandardPack(plan, session);
+            case STANDARD_PACK_FINISH -> finishStandardPack(plan, command);
         };
         if (rejection != null) return rejection;
         record(plan, session, command.action(), null, null, null);
@@ -339,7 +346,7 @@ public final class InMemoryDrawingDomain implements DrawingDomain {
         if (lines.size() != group.members().size()) return error(422, "INVALID_GROUP_MEMBERS");
         command = new GroupCommand(command.action(), command.requestId(), group.members().stream().map(key -> {
             var line = lines.get(key);
-            return new GroupLine(key, line.expectedVersion(), normalized(line.inputs()), normalized(line.goodQty()));
+            return new GroupLine(key, line.expectedVersion(), normalized(line.inputs()), normalized(line.goodQty()), line.confirmSkip());
         }).toList());
         var request = new GroupRequest(id, new RequestKey(session.terminal(), command.requestId()));
         var receipt = groupReceipts.get(request);
@@ -361,22 +368,32 @@ public final class InMemoryDrawingDomain implements DrawingDomain {
         for (var line : command.members()) {
             var updated = new Plan(plans.get(line.key()));
             if (command.action() == GroupAction.DRAW_START) {
-                if (updated.state != DRAW_READY) return error(409, "GROUP_NOT_DRAW_READY");
+                boolean bypass = updated.state == CUT_READY && line.confirmSkip();
+                if (updated.state != DRAW_READY && !bypass) return error(409, "GROUP_NOT_DRAW_READY");
+                if (line.confirmSkip() && (!bypass || !line.inputs().isEmpty())) return error(422, "INVALID_SKIP_INPUT");
                 if (line.goodQty() != null) return error(422, "UNEXPECTED_GROUP_QUANTITY");
                 var localCandidate = updated.output(Bin.DRAWING);
                 if (line.inputs().stream().anyMatch(input -> input.stock() != null
                         && !localCandidate.equals(input.stock())
-                        && !updatedStock.containsKey(SharedKey.of(line.key(), input.stock())))) {
+                        && (input.stock().bin() == Bin.REMNANT
+                                || !updatedStock.containsKey(SharedKey.of(line.key(), input.stock()))))) {
                     return error(422, "INVALID_GROUP_CANDIDATE");
                 }
-                var rejection = deduct(updated, line.inputs(), updatedStock);
+                List<Input> inputs = line.inputs();
+                if (bypass) {
+                    var automatic = autoRemnant(updated, updatedStock);
+                    if (automatic == null) return error(422, "GROUP_REMNANT_UNAVAILABLE");
+                    inputs = List.of(automatic);
+                }
+                var rejection = deduct(updated, inputs, updatedStock);
                 if (rejection != null) return error(rejection.status(), rejection.error());
-                start(updated, DRAW_READY, DRAW_ACTIVE, session);
+                start(updated, updated.state, DRAW_ACTIVE, session);
+                updated.bypass = bypass;
                 updated.activeGroup = id;
                 record(updated, session, Action.DRAW_START, null, null, null);
             } else {
                 if (!id.equals(updated.activeGroup)) return error(409, "GROUP_NOT_ACTIVE");
-                if (!line.inputs().isEmpty()) return error(422, "UNEXPECTED_GROUP_INPUT");
+                if (line.confirmSkip() || !line.inputs().isEmpty()) return error(422, "UNEXPECTED_GROUP_INPUT");
                 var rejection = finishDrawing(updated, line.goodQty());
                 if (rejection != null) return error(rejection.status(), rejection.error());
                 updated.activeGroup = null;
@@ -398,7 +415,8 @@ public final class InMemoryDrawingDomain implements DrawingDomain {
         var first = group.members().get(0);
         var ready = group.members().stream().filter(key -> current.get(key).state == DRAW_READY).toList();
         shared.entrySet().stream()
-                .filter(entry -> entry.getKey().equals(SharedKey.of(first, entry.getKey().stock())))
+                .filter(entry -> entry.getKey().stock().bin() != Bin.REMNANT
+                        && entry.getKey().equals(SharedKey.of(first, entry.getKey().stock())))
                 .sorted(Map.Entry.comparingByKey(Comparator.comparing((SharedKey key) -> key.stock().lot())
                         .thenComparing(key -> key.stock().bin()).thenComparing(key -> key.stock().item())))
                 .forEach(entry -> candidates.add(new GroupCandidate(entry.getKey().stock(), entry.getValue(), ready)));
@@ -412,7 +430,31 @@ public final class InMemoryDrawingDomain implements DrawingDomain {
                 keys.stream().map(key -> current.get(key).balance(stock)).reduce(BigDecimal.ZERO, BigDecimal::add),
                 List.copyOf(keys))));
         return new GroupView(group.id(), group.members().stream()
-                .map(key -> new GroupMember(key, current.get(key).snapshot(), current.get(key).groupResult, current.get(key).drawingInputs)).toList(), List.copyOf(candidates));
+                .map(key -> {
+                    var plan = current.get(key);
+                    return new GroupMember(key, plan.snapshot(), plan.groupResult, plan.drawingInputs,
+                            plan.state == CUT_READY ? autoRemnant(plan, shared) : null);
+                }).toList(), List.copyOf(candidates));
+    }
+
+    private static boolean drawingOrder(Plan plan) {
+        return plan.seed.type() == OrderType.DRAWING || plan.seed.type() == OrderType.DRAWING_DEFERRED;
+    }
+
+    private static Input autoRemnant(Plan plan, Map<SharedKey, BigDecimal> shared) {
+        var profile = plan.seed.remnantStock();
+        if (profile == null) return null;
+        return java.util.stream.Stream.concat(
+                        plan.stock.entrySet().stream(),
+                        shared.entrySet().stream()
+                                .filter(entry -> entry.getKey().equals(SharedKey.of(plan.seed.key(), entry.getKey().stock())))
+                                .map(entry -> Map.entry(entry.getKey().stock(), entry.getValue())))
+                .filter(entry -> entry.getKey().bin() == Bin.REMNANT
+                        && entry.getKey().item().equals(profile.item())
+                        && entry.getValue().compareTo(BigDecimal.ONE) >= 0)
+                .map(Map.Entry::getKey)
+                .min(Comparator.comparing(StockKey::lot))
+                .map(stock -> new Input(stock, BigDecimal.ONE)).orElse(null);
     }
 
     private void record(Plan plan, Session session, Action action, String dailyId, String movementId, Integer movementLine) {
@@ -455,6 +497,29 @@ public final class InMemoryDrawingDomain implements DrawingDomain {
 
         if (quantity.compareTo(available) < 0) return error(422, "PACK_QTY_MUST_MATCH_REMAINING");
 
+        return completePacking(plan, product, quantity);
+    }
+
+    private Reply<Snapshot> startStandardPack(Plan plan, Session session) {
+        var rejection = start(plan, CUT_READY, STANDARD_PACK_ACTIVE, session);
+        if (rejection == null) plan.pack2Started = clock.instant();
+        return rejection;
+    }
+
+    private Reply<Snapshot> finishStandardPack(Plan plan, Command command) {
+        if (plan.state == SHIP_READY) return error(409, "ALREADY_PACKED");
+        if (plan.state != STANDARD_PACK_ACTIVE) return error(409, "INVALID_STATE");
+        var stock = plan.seed.cutStock();
+        if (!stock.equals(command.stock())) return error(422, "INVALID_PACK_LOT");
+        var available = plan.balance(stock).min(plan.seed.orderQuantity());
+        var quantity = command.quantity();
+        if (!positive(quantity)) return error(422, "INVALID_QUANTITY");
+        if (quantity.compareTo(available) > 0) return error(422, "PACK_QTY_EXCEEDED");
+        if (quantity.compareTo(available) < 0) return error(422, "PACK_QTY_MUST_MATCH_REMAINING");
+        return completePacking(plan, stock, quantity);
+    }
+
+    private Reply<Snapshot> completePacking(Plan plan, StockKey product, BigDecimal quantity) {
         Instant finished = clock.instant();
         Instant started = plan.pack2Started == null ? finished : plan.pack2Started;
         StockKey shipping = plan.output(Bin.SHIPPING);

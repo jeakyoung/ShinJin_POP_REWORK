@@ -54,14 +54,23 @@ public class DrawingController {
             seed("F1", "000001", 6, OrderType.DRAWING, "G2", false),
             seed("F1", "000001", 7, OrderType.DRAWING, "G3", false),
             seed("F1", "000001", 8, OrderType.DRAWING, "G4", false),
+            seed("F1", "000001", 9, OrderType.STANDARD_PACK, "STD", false),
+            seed("F1", "000001", 10, OrderType.DRAWING, "M1", false),
+            mixedSeed(11, "M2"),
+            seed("F1", "000001", 12, OrderType.DRAWING, "M3", false),
+            mixedSeed(13, "M4"),
             seed("F2", "000002", 1, OrderType.DRAWING, "E", true));
 
     private static final List<GroupSeed> GROUPS = List.of(
             new GroupSeed("PG-008-A", List.of(groupKey(5), groupKey(6))),
-            new GroupSeed("PG-008-B", List.of(groupKey(7), groupKey(8))));
+            new GroupSeed("PG-008-B", List.of(groupKey(7), groupKey(8))),
+            new GroupSeed("PG-008-MIX-A", List.of(groupKey(10), groupKey(11))),
+            new GroupSeed("PG-008-MIX-B", List.of(groupKey(12), groupKey(13))));
     private static final List<SharedLot> SHARED_LOTS = List.of(
             new SharedLot("F1", "000001", new StockKey("SHARED-008", Bin.MANUAL, "ITEM-SHARED"), BigDecimal.valueOf(6)),
-            new SharedLot("F1", "000001", new StockKey("SHARED-008", Bin.DRAWING, "ITEM-SHARED"), BigDecimal.valueOf(5)));
+            new SharedLot("F1", "000001", new StockKey("SHARED-008", Bin.DRAWING, "ITEM-SHARED"), BigDecimal.valueOf(5)),
+            new SharedLot("F1", "000001", remnant("REM-AUTO-A"), BigDecimal.ONE),
+            new SharedLot("F1", "000001", remnant("REM-AUTO-B"), new BigDecimal("0.500")));
 
     private final InMemoryDrawingDomain domain;
 
@@ -92,10 +101,10 @@ public class DrawingController {
                        BigDecimal goodQty, String scanToken, List<Material> inputs) {}
 
     record GroupCandidateView(Material material, List<String> eligiblePlans) {}
-    record GroupMemberView(String key, PlanView snapshot, GroupResult result, List<Material> drawingInputs) {}
+    record GroupMemberView(String key, PlanView snapshot, GroupResult result, List<Material> drawingInputs, Material autoRemnant) {}
     record GroupResponse(String id, List<GroupMemberView> members, List<GroupCandidateView> candidates) {}
     record GroupBody(GroupAction action, String requestId, List<GroupMemberBody> members) {}
-    record GroupMemberBody(String key, Long expectedVersion, List<Material> inputs, BigDecimal goodQty) {}
+    record GroupMemberBody(String key, Long expectedVersion, List<Material> inputs, BigDecimal goodQty, Boolean confirmSkip) {}
 
     @Bean
     static WebServerFactoryCustomizer<TomcatServletWebServerFactory> drawingKeys() {
@@ -128,7 +137,7 @@ public class DrawingController {
             return error(422, "INVALID_GROUP_MEMBERS");
         }
         var lines = body.members().stream().map(member -> new GroupLine(parse(member.key()), member.expectedVersion(),
-                inputs(member.inputs()), member.goodQty())).toList();
+                inputs(member.inputs()), member.goodQty(), Boolean.TRUE.equals(member.confirmSkip()))).toList();
         return groupResponse(domain.executeGroup(identity, id, new GroupCommand(body.action(), body.requestId(), lines)));
     }
 
@@ -137,7 +146,8 @@ public class DrawingController {
         var group = result.value();
         return ResponseEntity.ok(new GroupResponse(group.id(),
                 group.members().stream().map(member -> new GroupMemberView(format(member.key()), view(member.snapshot()), member.result(),
-                        materials(member.drawingInputs()))).toList(),
+                        materials(member.drawingInputs()), member.autoRemnant() == null ? null :
+                                material(member.autoRemnant().stock(), member.autoRemnant().quantity()))).toList(),
                 group.candidates().stream().map(candidate -> new GroupCandidateView(
                         material(candidate.stock(), candidate.available()),
                         candidate.eligiblePlans().stream().map(DrawingController::format).toList())).toList()));
@@ -188,7 +198,9 @@ public class DrawingController {
         if (scope.status() != 200) return error(scope.status(), scope.error());
         if (body.expectedVersion() == null || body.expectedVersion() < 0) return error(422, "VERSION_REQUIRED");
         var seed = SEEDS.stream().filter(item -> item.key().equals(key)).findFirst().orElseThrow();
-        var stock = body.lot() == null ? null : new StockKey(body.lot(), Bin.CUT, seed.item());
+        var stock = body.lot() == null
+                ? (body.action() == Action.STANDARD_PACK_FINISH ? seed.cutStock() : null)
+                : new StockKey(body.lot(), Bin.CUT, seed.item());
         var inputs = inputs(body.inputs());
         var amount = body.action() == Action.DRAW_FINISH ? body.goodQty() : body.qty();
         var result = domain.execute(session, key, new Command(body.action(), body.expectedVersion(),
@@ -251,10 +263,21 @@ public class DrawingController {
         return new Seed(new PlanKey(factory, site, DATE, sequence), type, item, BigDecimal.valueOf(4), cut, remnant, stock);
     }
 
+    private static StockKey remnant(String lot) {
+        return new StockKey(lot, Bin.REMNANT, "ITEM-REM-SAME-GRADE");
+    }
+
+    private static Seed mixedSeed(int sequence, String code) {
+        var plan = seed("F1", "000001", sequence, OrderType.DRAWING, code, false);
+        return new Seed(plan.key(), plan.type(), plan.item(), plan.orderQuantity(), plan.cutStock(),
+                remnant("REM-AUTO-A"), plan.stock());
+    }
+
     private static PlanOption option(Seed seed) {
         String type = switch (seed.type()) {
             case DRAWING -> "002";
             case DRAWING_DEFERRED -> "003";
+            case STANDARD_PACK -> "PACK";
             case OTHER -> "001";
         };
         return new PlanOption(format(seed.key()), type, seed.item(), seed.cutStock().lot(), seed.orderQuantity());
