@@ -5,7 +5,7 @@ import type {DefectsCommand,DefectsView} from './productionApi'
 import {SessionExpired} from './workHistoryApi'
 import './WorkRejections.css'
 
-export default function WorkRejections({path,actor,onClose,onSaved,onExpired,onError}:{path:string;actor:string;onClose:()=>void;onSaved:()=>void;onExpired:()=>void;onError:(text:string)=>void}){
+export default function WorkRejections({path,actor,onClose,onSaved,onExpired,onError}:{path:string;actor:string;onClose:()=>void;onSaved:(saved:DefectsView)=>void;onExpired:()=>void;onError:(text:string)=>void}){
   const key='process-rejections:'+actor+':'+path
   const [data,setData]=useState<DefectsView>(),[warehouse,setWarehouse]=useState(''),[location,setLocation]=useState('')
   const [quantities,setQuantities]=useState<Record<string,number>>({}),[confirm,setConfirm]=useState(false),[message,setMessage]=useState('')
@@ -30,9 +30,9 @@ export default function WorkRejections({path,actor,onClose,onSaved,onExpired,onE
     const cmd=pending??{requestId:crypto.randomUUID(),revision:data.revision,warehouse,location,lines:data.reasons.map(r=>({code:r.code,quantity:quantities[r.code]??0}))}
     sessionStorage.setItem(key,JSON.stringify(cmd));setPending(cmd);setBusy(true);setConfirm(false)
     try{
-      await productionRequest<DefectsView>(path,cmd)
+      const saved=await productionRequest<DefectsView>(path,cmd)
       sessionStorage.removeItem(key)
-      if(mounted.active){setPending(undefined);onSaved()}
+      if(mounted.active){setPending(undefined);onSaved(saved)}
     }catch(e){
       if(!mounted.active)return
       if(e instanceof SessionExpired){onExpired();return}

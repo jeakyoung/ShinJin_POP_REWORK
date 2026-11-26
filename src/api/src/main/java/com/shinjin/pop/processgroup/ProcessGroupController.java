@@ -136,16 +136,21 @@ public final class ProcessGroupController {
     }
 
     private List<GroupMaterialStock.Pick> checkedInputs(View parent,Scope scope,Command cmd,HttpServletRequest request){
-        if(cmd.inputs()==null)return parent.scanned();
+        if(cmd.inputs()==null){
+            if("FINISH".equals(cmd.action()) && parent.scanned().stream().anyMatch(row->row.quantity()<1))
+                throw error(HttpStatus.UNPROCESSABLE_ENTITY,"INVALID_QUANTITY");
+            return parent.scanned();
+        }
         var rows=new ArrayList<GroupMaterialStock.Pick>();
         var seen=new HashSet<GroupMaterialStock.Stock>();
         for(var add:cmd.inputs()){
-            if(add==null || add.quantity()<1)throw error(HttpStatus.UNPROCESSABLE_ENTITY,"INVALID_QUANTITY");
+            if(add==null || add.quantity()==null || add.quantity().stripTrailingZeros().scale()>0
+                    || add.quantity().signum()<0 || ("FINISH".equals(cmd.action()) && add.quantity().signum()==0))throw error(HttpStatus.UNPROCESSABLE_ENTITY,"INVALID_QUANTITY");
             var item=candidates(parent,scope,add.lot(),request.getHeader("X-Pop-Work-Code"),request).stream()
                     .filter(s->s.warehouse().equals(add.warehouse())&&s.location().equals(add.location())&&s.material().equals(add.material()))
                     .findFirst().orElseThrow(()->error(HttpStatus.UNPROCESSABLE_ENTITY,"INVALID_LOCATION"));
-            if(!seen.add(item) || add.quantity()>item.available())throw error(HttpStatus.UNPROCESSABLE_ENTITY,"MATERIAL_STOCK_LIMIT");
-            rows.add(new GroupMaterialStock.Pick(item,add.quantity()));
+            if(!seen.add(item) || add.quantity().compareTo(BigDecimal.valueOf(item.available()))>0)throw error(HttpStatus.UNPROCESSABLE_ENTITY,"MATERIAL_STOCK_LIMIT");
+            rows.add(new GroupMaterialStock.Pick(item,add.quantity().intValueExact()));
         }
         return List.copyOf(rows);
     }
@@ -215,9 +220,12 @@ public final class ProcessGroupController {
             // Older demo clients send only the full started list and its observed revision.
             if (command.inputQuantity() != null || command.groupId() != null) requireGroup(before, command);
             if (input == null || input.paused()) throw error(HttpStatus.CONFLICT, "GROUP_NOT_RUNNING");
-            int quantity = inputQuantity(command.inputQuantity(), input.quantity(), setting.inputQty(), inputs.isEmpty()?1:0);
+            if (production.terminal(scope.terminal(),request).good().isEmpty())
+                throw error(HttpStatus.CONFLICT,"GOOD_WAREHOUSE_REQUIRED");
+            boolean baseRowShown = setting.inputLot()!=null && !setting.inputLot().isEmpty();
+            int quantity = inputQuantity(command.inputQuantity(), input.quantity(), setting.inputQty(), baseRowShown || inputs.isEmpty() ? 1 : 0);
             for (Line line : command.lines()) {
-                if (before.badTotals().containsKey(line.plan()) && (line.bad()==null || before.badTotals().get(line.plan()).compareTo(line.bad())!=0)) throw error(HttpStatus.CONFLICT,"STALE_DEFECT_TOTAL");
+                if (line.bad()==null || before.badTotals().getOrDefault(line.plan(),BigDecimal.ZERO).compareTo(line.bad())!=0) throw error(HttpStatus.CONFLICT,"STALE_DEFECT_TOTAL");
                 if (line.good() == null || line.good().compareTo(BigDecimal.ONE) < 0 || line.bad() == null || line.bad().signum() < 0)
                     throw error(HttpStatus.UNPROCESSABLE_ENTITY, "INVALID_QUANTITY");
             }

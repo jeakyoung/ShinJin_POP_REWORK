@@ -17,7 +17,7 @@ public final class GroupMaterialStock {
     record Site(String terminal,String factory,String plant,String center,String warehouseStatus,List<Stock> rows) {}
     record Data(List<Site> sites) {}
     public record Pick(Stock stock,int quantity) {}
-    public record Addition(String lot,String warehouse,String location,String material,int quantity) {}
+    public record Addition(String lot,String warehouse,String location,String material,BigDecimal quantity) {}
     public record Scan(String raw) {}
     private final List<Site> sites;
     public GroupMaterialStock(@Value("${shinjin.demo.group-material:classpath:demo/group-material.json}") Resource file) throws IOException {

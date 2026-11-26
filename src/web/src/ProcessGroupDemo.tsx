@@ -8,7 +8,8 @@ import GroupReturnGrid from './GroupReturnGrid'
 import {returnProblem} from './groupReturn'
 import type {Material,ReturnRow} from './groupReturn'
 import ProcessPlans from './ProcessPlans'
-import {InventoryMessage, InventoryPad} from './InventoryDialogs'
+import CommonNumericPad from './commonInput/CommonNumericPad'
+import {InventoryMessage} from './InventoryDialogs'
 
 type Stage = { process: string; warehouse: string; processCode?: string; warehouseCode?: string }
 type Result = { plan: string; stage: Stage; good: number; bad: number }
@@ -36,7 +37,7 @@ export default function ProcessGroupDemo({ actor,workCode,onSessionExpired }: Pr
   const [inputQty, setInputQty] = useState(0)
   const [inputs,setInputs]=useState<GroupPick[]>([])
   const [scan,setScan]=useState(false)
-  const [inputPad, setInputPad] = useState(false)
+  const [inputPad, setInputPad] = useState<string>()
   const [transition, setTransition] = useState<Transition>()
   const [reverse,setReverse]=useState(false)
   const [error,setError]=useState('')
@@ -54,11 +55,14 @@ export default function ProcessGroupDemo({ actor,workCode,onSessionExpired }: Pr
     return () => { controller.abort(); active.current?.abort() }
   }, [url, onSessionExpired, refresh])
 
+  function setStockQuantity(id:string,value:number){
+    setInputs(rows=>rows.map(row=>stockKey(row.stock)===id?{...row,quantity:Math.min(row.stock.available,value)}:row))
+  }
   const finishing = !!view?.started.length
   async function submit(action:'START'|'FINISH'|'DELETE'|'DELETE_RETURNS'|Transition, ids?:string[]) {
     if (!view || active.current) return false
     if(action==='START'||action==='FINISH'){
-      if(action==='FINISH' && inputQty<1 && !inputs.length){setError('투입수량을 입력하십시오.');return false}
+      if(action==='FINISH' && ((inputQty<1 && (view.setting.inputLot || !inputs.length)) || inputs.some(row=>row.quantity<1))){setError('투입수량을 입력하십시오.');return false}
       const problem=returnProblem(draft,view.material,action==='FINISH')
       if(problem){setError(problem);return false}
     }
@@ -79,11 +83,15 @@ export default function ProcessGroupDemo({ actor,workCode,onSessionExpired }: Pr
       if(controller.signal.aborted)return false
       if(response.status===401){onSessionExpired();return false}
       if(response.status===422){setError('입력값을 확인하십시오.');return false}
+      if(response.status===409){
+        const failure=await response.json().catch(()=>null)
+        if(failure?.code==='GOOD_WAREHOUSE_REQUIRED'){setError('양품창고가 설정되지 않았습니다. 환경설정을 확인하십시오.');return false}
+      }
       if(!response.ok)throw Error()
       const next:View=await response.json()
       if(controller.signal.aborted)return false
       setView(next)
-      if(action==='START'||action==='FINISH'||(action==='DELETE' && !(finishing?next.started:next.ready).length))setInputs(next.scanned)
+      if(changingState||action==='START'||action==='FINISH'||(action==='DELETE' && !(finishing?next.started:next.ready).length))setInputs(next.scanned)
       if(action!=='DELETE_RETURNS'){
         const sameGroup=action==='DELETE' && (finishing?next.started.length:next.ready.length)>0
         if(!sameGroup) {
@@ -143,15 +151,22 @@ export default function ProcessGroupDemo({ actor,workCode,onSessionExpired }: Pr
         <thead><tr>{['선택','창고','로케이션','길이','재고'].map(h=><th key={h}>{h}</th>)}<th colSpan={3}>투입수량</th></tr></thead>
         <tbody>{!!plans.length && view?.setting.inputLot && <tr><td/><td/><td/><td/><td>{view.setting.inputQty}</td>
           <td><button disabled={busy} className="input-minus" aria-label="투입수량 감소" onClick={()=>setInputQty(n=>n<2?n:n-1)} /></td>
-          <td><button disabled={busy} aria-label="투입수량 입력" onClick={()=>setInputPad(true)}>{inputQty}</button></td>
+          <td><button disabled={busy} aria-label="투입수량 입력" onClick={()=>setInputPad('base')}>{inputQty}</button></td>
           <td><button disabled={busy} className="input-plus" aria-label="투입수량 증가" onClick={()=>setInputQty(n=>Math.min(view.setting.inputQty,n+1))} /></td>
         </tr>}{inputs.map(row=><tr key={stockKey(row.stock)} data-group-lot={row.stock.lot}>
           <td>✓</td><td>{row.stock.warehouse}</td><td>{row.stock.location}</td><td>{row.stock.length}</td>
-          <td>{row.stock.available}</td><td colSpan={3}>{row.quantity}</td></tr>)}</tbody></table>
+          <td>{row.stock.available}</td><td><button disabled={busy} className="input-minus" aria-label={row.stock.location+' 투입수량 감소'} onClick={()=>setStockQuantity(stockKey(row.stock),row.quantity<2?row.quantity:row.quantity-1)}/></td>
+          <td><button disabled={busy} aria-label={row.stock.location+' 투입수량 입력'} onClick={()=>setInputPad(stockKey(row.stock))}>{row.quantity}</button></td>
+          <td><button disabled={busy} className="input-plus" aria-label={row.stock.location+' 투입수량 증가'} onClick={()=>setStockQuantity(stockKey(row.stock),row.quantity+1)}/></td></tr>)}</tbody></table>
       {scan && view && <GroupMaterialScan rows={inputs} code={workCode} onRows={setInputs}
         onClose={()=>setScan(false)} onExpired={onSessionExpired}/>}
-      {inputPad && view && <div className="group5-pad count"><InventoryPad label="투입수량" onClose={()=>setInputPad(false)}
-        onApply={value=>{setInputQty(Math.min(value,view.setting.inputQty));setInputPad(false)}} /></div>}
+      {inputPad && view && <CommonNumericPad mode="integer" onCancel={()=>setInputPad(undefined)}
+        onApply={raw=>{
+          const value=Number(raw)
+          if(inputPad==='base')setInputQty(Math.min(value,view.setting.inputQty))
+          else setStockQuantity(inputPad,value)
+          setInputPad(undefined)
+        }}/>}
     </div>
     {view && <GroupReturnGrid rows={draft} material={view.material} enabled={!!plans.length} hasInput={(!!view.setting.inputLot && view.setting.inputQty>0) || !!inputs.length} busy={busy} change={setDraft} remove={remove}/>}
     </div>
@@ -167,7 +182,14 @@ export default function ProcessGroupDemo({ actor,workCode,onSessionExpired }: Pr
       onClose={()=>setTransition(undefined)} onYes={()=>{setTransition(undefined);void submit(transition)}} />}
     {error && <InventoryMessage text={error} onClose={()=>setError('')}/>}
     {rejection && view?.activeInput && <WorkRejections actor={actor} path={url+'/groups/'+view.activeInput.groupId+'/plans/'+encodeURIComponent(rejection)+'/rejections'}
-      onClose={()=>setRejection(undefined)} onSaved={()=>{setRejection(undefined);setRefresh(n=>n+1)}} onExpired={onSessionExpired}
+      onClose={()=>setRejection(undefined)} onSaved={saved=>{
+        setRejection(undefined)
+        if(saved.revision===view.revision+1){
+          setView({...view,revision:saved.revision,badTotals:{...view.badTotals,[rejection]:saved.saved.total}})
+        }else if(saved.revision>view.revision){
+          setRefresh(n=>n+1)
+        }
+      }} onExpired={onSessionExpired}
       onError={message=>{setRejection(undefined);setError(message)}}/>}
     {reverse && view && <ProcessPlans source="frmProcess5" actor={actor} workCode={workCode ?? stages[0]?.processCode ?? ''} storagePrefix="pop-process5-plan:" initial="choose" parentQualities={info?[info.grade]:[]} onClose={()=>setReverse(false)} onAttached={()=>{}} onSessionExpired={onSessionExpired}/>}
   </section>

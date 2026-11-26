@@ -467,12 +467,15 @@ export default function DrawingWork({ terminalId, workerId, onSessionExpired }: 
     const members=selectedGroup.members.map(row=>({key:row.key,expectedVersion:row.snapshot.version,
       ...(action==='DRAW_FINISH'?{goodQty:Number(amounts.current.get(row.key) ?? ''),
         goodPlace:goodCodes(checkedRows.find(checked=>checked.key===row.key)!)}:{})}))
-    if(action==='DRAW_FINISH' && members.some(row=>!row.goodQty)) {setNotice('생산수량을 입력하십시오.');return}
+    if(action==='DRAW_FINISH' && members.some(row=>!row.goodQty || row.goodQty<1)) {setNotice('생산수량을 입력하십시오.');return}
     void sendGrid({action,body:JSON.stringify({groupId:selectedGroup.id,requestId:crypto.randomUUID(),action,members})})
   }
 
   function changeInput(index: number, value: string) {
-    const updated = materials.map((line, i) => i === index ? { ...line, qty: Number(value) } : line)
+    const available = scan?.stockDetails.find(field=>stockId(field)===stockId(materials[index]))?.available
+    const entered = Number(value)
+    const quantity = available != null && entered > available ? available : entered === 0 ? 1 : entered
+    const updated = materials.map((line, i) => i === index ? { ...line, qty: quantity } : line)
     setMaterials(updated)
     const saved = selected && orderScans.current.get(selected.key)
     if (saved && saved.scan.scanToken === scan?.scanToken) saved.materials = updated
@@ -633,6 +636,15 @@ export default function DrawingWork({ terminalId, workerId, onSessionExpired }: 
             }}/>
           <DrawingPauseButton paused={detail?.state === 'DRAW_PAUSED'}
             disabled={disabled || !selected || (grouped && !selectedGroup) || (detail?.state !== 'DRAW_ACTIVE' && detail?.state !== 'DRAW_PAUSED')}
+            prepare={open=>void run(async signal=>{
+              if (!listed.length) {setNotice('작업 리스트를 스캔하여 주십시오.');return}
+              const inputs = selected && !scan && !draft && !persisted
+                ? (await request<{drawingInputs:Material[]}>(url(selected.key)+'/audit',signal)).drawingInputs
+                : shownInputs
+              if (!inputs.length) {setNotice('투입자재를 투입하여 주십시오.');return}
+              if (await anyFinished(signal)) {setNotice('작업완료된 건이 존재합니다. 확인하십시오.');return}
+              open()
+            })}
             onConfirm={()=>{
               const action=detail?.state==='DRAW_PAUSED'?'DRAW_RESUME':'DRAW_PAUSE'
               if(grouped) commandGrid(action)
@@ -641,11 +653,20 @@ export default function DrawingWork({ terminalId, workerId, onSessionExpired }: 
           <div className="drawing-end"><DrawingDecisionButton label={'END\n작업완료'} question="작업완료 하시겠습니까?"
             disabled={disabled || detail?.state !== 'DRAW_ACTIVE' || (grouped && !selectedGroup)}
             onConfirm={()=>{
+              if (!checkedRows.length) {setNotice('작업완료 할 항목을 선택해주세요.');return}
+              if (!grouped && (!validQty || Number(qty)<1)) {
+                setNotice('생산수량을 입력하십시오.');return
+              }
+              if (returnLines.some(row=>row.warehouse!=='013' && !row.location)) {
+                setNotice('반납 입력된 자재의 대한 창고, 로케이션을 설정해주십시오.');return
+              }
+              if (returnLines.some(row=>row.warehouse!=='013' && row.quantity<1)) {
+                setNotice('반납수량을 입력하십시오.');return
+              }
               if(grouped) {
                 if (!validReturns) {setNotice('반납자재의 규격과 수량을 확인하십시오.');return}
                 commandGrid('DRAW_FINISH');return
               }
-              if(!validQty) {setNotice('생산수량을 입력하십시오.');return}
               if(!validReturns) {setNotice('반납자재의 규격과 수량을 확인하십시오.');return}
               command({ action:'DRAW_FINISH',goodQty:Number(qty),returns:returnLines.map(row=>({
                 warehouse:row.warehouse,location:row.location,material:row.material,thickness:row.thickness,
@@ -717,8 +738,8 @@ export default function DrawingWork({ terminalId, workerId, onSessionExpired }: 
                 onClick={event=>event.stopPropagation()} onChange={event=>{checkInputs(event.target.checked?[...checkedIds,id]:checkedIds.filter(key=>key!==id));setPickedLot(id)}} /></td>
               <td title={row.lot}>{row.warehouse}</td><td>{stock?.thickness}</td><td>{stock?.width}</td>
               <td>{stock?.length}</td><td>{stock?.available}</td><td>{scan ?
-                <TouchField label={[row.lot,row.warehouse,row.item,row.location].filter(Boolean).join(' · ')} layout="decimal" type="number" min="0.001" step="0.001"
-                  disabled={disabled} value={row.qty?String(row.qty):''} onValueChange={value=>changeInput(index,value)} /> : row.qty}</td><td>{row.location}</td><td>{row.lot}</td>
+                <DrawingNumber label={[row.lot,row.warehouse,row.item,row.location].filter(Boolean).join(' · ')}
+                  mode="integer" value={String(row.qty)} disabled={disabled} onApply={value=>changeInput(index,value)} /> : row.qty}</td><td>{row.location}</td><td>{row.lot}</td>
             </tr>
           })}</tbody></table></div>
           <div><header><span>반납자재</span><button type="button" className="drawing-return-label">라벨출력</button><div className="drawing-material-actions">

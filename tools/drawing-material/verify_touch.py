@@ -50,16 +50,20 @@ def verify(page, base):
     expect(field).to_have_value("")
     button("닫기", scan).tap()
     quantity = draft.locator("td").nth(6)
-    if quantity.locator("input").count():
-        expect(quantity.locator("input")).to_have_value("2")
-    else:
-        expect(quantity).to_have_text("2")
+    number = quantity.get_by_role("button")
+    expect(number).to_have_text("2")
+    for digit, action, value in (("0", ".cn-cancel", "2"), ("0", ".cn-apply", "1"), ("9", ".cn-apply", "2")):
+        number.tap()
+        keypad = page.locator(".common-numeric-pad[open]")
+        button(digit, keypad).tap()
+        keypad.locator(action).tap()
+        expect(number).to_have_text(value)
     button("투입자재 추가").tap()
     picker = page.get_by_role("dialog", name="투입자재 위치 선택")
     expect(picker).to_be_visible()
     button("닫기", picker).tap()
     assert page.request.get(base + key).json()["version"] == initial
-    print("PASS 008 no-order guard, invalid LOT and focus, REM-A 1 -> 2, independent manual +, unchanged plan revision")
+    print("PASS 008 invalid LOT/focus, REM-A 1 -> 2, keypad cancel/zero/available cap, independent manual +, unchanged plan revision")
 
 
 if __name__ == "__main__":
